@@ -49,7 +49,7 @@ services:
       #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/
     ports:
-      - 9201:9201
+      - 9201:9200
     networks:
       - odfe-net
   kibana:
