@@ -6,6 +6,23 @@ Docker compose example and configurations for fully featured [Amazon Opendistro 
 
 You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
 
+### Build Docker image (to support custom plugins)
+
+```
+docker build --tag=odfe-custom-plugin:0.1 .
+```
+
+### Update docker-compose.yml
+
+Update `docker-compose.yml` with proper image for Elasticsearch
+
+```
+...
+image: odfe-custom-plugin:0.1
+...
+```
+
+
 ### Start cluster 
 
 ```
