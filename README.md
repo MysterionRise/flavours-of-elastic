@@ -36,3 +36,10 @@ After some time you will have Kibana available at this [URL](http://localhost:56
 ```
 docker-compose down
 ```
+
+
+## Comparison results of esrally tracks
+
+```
+esrally --track=geonames --target-hosts=https://localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+```
