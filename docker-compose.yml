@@ -1,11 +1,12 @@
 version: '3'
 services:
   odfe-node1:
-    image: odfe-custom-plugin:0.1
+    image: odfe-custom-plugin:0.2
     container_name: odfe-node1
     environment:
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      - opendistro_security.ssl.http.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
     ulimits:
       memlock:
@@ -26,13 +27,14 @@ services:
     networks:
       - odfe-net
   odfe-node2:
-    image: odfe-custom-plugin:0.1
+    image: odfe-custom-plugin:0.2
     container_name: odfe-node2
     environment:
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - discovery.zen.ping.unicast.hosts=odfe-node1
+      - opendistro_security.ssl.http.enabled=false
     ulimits:
       memlock:
         soft: -1
@@ -56,7 +58,7 @@ services:
     expose:
       - "5601"
     environment:
-      ELASTICSEARCH_URL: https://odfe-node1:9200
+      ELASTICSEARCH_URL: http://odfe-node1:9200
     #volumes:
       #- ./custom-kibana.yml:/usr/share/kibana/config/kibana.yml
     networks:
