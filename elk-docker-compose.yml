@@ -1,6 +1,6 @@
 version: '3'
 services:
-  odfe-node1:
+  elk-node1:
     image: elk:0.2
     container_name: elk-node1
     environment:
@@ -25,7 +25,7 @@ services:
       - 9600:9600 # required for Performance Analyzer
     networks:
       - elk-net
-  odfe-node2:
+  elk-node2:
     image: elk:0.2
     container_name: elk-node2
     environment:
@@ -46,6 +46,8 @@ services:
       #- ./kirk-key.pem:/usr/share/elasticsearch/config/kirk-key.pem
       #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/
+    ports:
+      - 9201:9201
     networks:
       - elk-net
   kibana:
