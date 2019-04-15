@@ -40,6 +40,38 @@ docker-compose down
 
 ## Comparison results of esrally tracks
 
+### Build both images
+```
+docker build --tag=elk:0.2 --file=ELKDockerfile .
+```
+and
+```
+docker build --tag=odfe:0.2 --file=ODFEDockerfile .
+```
+
+### Update docker-compose files with relevant image version
+
+### Start clusters
+
+ODFE
+```
+docker-compose -f odfe-docker-compose.yml up
+```
+
+ELK
+```
+docker-compose -f elk-docker-compose.yml up
+```
+
+### Start ESRally track
+
+ODFE
 ```
 esrally --track=geonames --target-hosts=http://localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
+
+ELK
+```
+esrally --track=geonames --target-hosts=http://localhost:9200 --pipeline=benchmark-only
+```
+### Enjoy the results
