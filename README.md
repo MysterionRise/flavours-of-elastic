@@ -41,5 +41,5 @@ docker-compose down
 ## Comparison results of esrally tracks
 
 ```
-esrally --track=geonames --target-hosts=https://localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+esrally --track=geonames --target-hosts=http://localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
