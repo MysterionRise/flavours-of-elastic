@@ -67,11 +67,11 @@ docker-compose -f elk-docker-compose.yml up
 
 ODFE
 ```
-esrally --track=geonames --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
 
 ELK
 ```
-esrally --track=geonames --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only
+esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only
 ```
 ### Enjoy the results
