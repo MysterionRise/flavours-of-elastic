@@ -1,7 +1,7 @@
 version: '3'
 services:
   odfe-node1:
-    image: odfe-custom-plugin:0.2
+    image: odfe:0.2
     container_name: odfe-node1
     environment:
       - cluster.name=odfe-cluster
@@ -27,7 +27,7 @@ services:
     networks:
       - odfe-net
   odfe-node2:
-    image: odfe-custom-plugin:0.2
+    image: odfe:0.2
     container_name: odfe-node2
     environment:
       - cluster.name=odfe-cluster
