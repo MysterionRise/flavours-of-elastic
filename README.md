@@ -2,6 +2,10 @@
 
 Docker compose example and configurations for fully featured [Amazon Opendistro Elastic](https://opendistro.github.io/for-elasticsearch/) cluster with 2 nodes of Elastic + 1 node of Kibana
 
+Open distro version - **1.3**
+
+Elastic version - **7.3.2**
+
 ## How To
 
 You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
