@@ -1,4 +1,6 @@
-# Example of OpenDistro Elastic cluster 
+# Repo with collection of different OpenDistro Elastic usage
+
+## Example of OpenDistro Elastic cluster  
 
 Docker compose example and configurations for fully featured [Amazon Opendistro Elastic](https://opendistro.github.io/for-elasticsearch/) cluster with 2 nodes of Elastic + 1 node of Kibana
 
