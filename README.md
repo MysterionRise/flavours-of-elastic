@@ -12,22 +12,23 @@ Elastic version - **7.4.2**
 
 You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
 
-### Build Docker image (to support custom plugins)
+### Build Docker image
 
 ```
-docker build --tag=odfe-custom-plugin:0.1 .
+docker build --tag=odfe:0.2 --file=ODFEDockerfile .
 ```
+
+or use the tag and version of your choice
 
 ### Update docker-compose.yml
 
-Update `docker-compose.yml` with proper image for Elasticsearch
+Update `docker-compose.yml` with proper image for Elasticsearch (tag and version accordingly)
 
 ```
 ...
-image: odfe-custom-plugin:0.1
+image: odfe:0.2
 ...
 ```
-
 
 ### Start cluster 
 
@@ -43,10 +44,10 @@ After some time you will have Kibana available at this [URL](http://localhost:56
 docker-compose down
 ```
 
-
-## Comparison results of esrally tracks
+## Comparison with Elastic version
 
 ### Build both images
+
 ```
 docker build --tag=elk:0.2 --file=ELKDockerfile .
 ```
@@ -55,21 +56,13 @@ and
 docker build --tag=odfe:0.2 --file=ODFEDockerfile .
 ```
 
-### Update docker-compose files with relevant image version
+Don't forget to select your image name and version. 
+Don't forget to update docker-compose with relevant names and versions
 
-### Start clusters
 
-ODFE
-```
-docker-compose -f odfe-docker-compose.yml up
-```
+### ESRally testing mechanism
 
-ELK
-```
-docker-compose -f elk-docker-compose.yml up
-```
-
-### Start ESRally track
+One of the possibility to compare those is to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
 
 ODFE
 ```
@@ -80,4 +73,5 @@ ELK
 ```
 esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only
 ```
-### Enjoy the results
+
+Enjoy the results or create your own test experiments

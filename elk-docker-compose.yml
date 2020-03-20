@@ -51,7 +51,7 @@ services:
     networks:
       - elk-net
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.3.2
+    image: docker.elastic.co/kibana/kibana:7.4.2
     container_name: elk-kibana
     ports:
       - 5601:5601
