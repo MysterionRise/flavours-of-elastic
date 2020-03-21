@@ -1,7 +1,12 @@
 version: '3'
 services:
   odfe-node1:
-    image: odfe:0.2
+    build:
+      context: .
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+        OPEN_DISTRO_VERSION: ${OPEN_DISTRO_VERSION}
+    image: odfe:${OPEN_DISTRO_VERSION}
     container_name: odfe-node1
     environment:
       - cluster.name=odfe-cluster
@@ -27,7 +32,7 @@ services:
     networks:
       - odfe-net
   odfe-node2:
-    image: odfe:0.2
+    image: odfe:${OPEN_DISTRO_VERSION}
     container_name: odfe-node2
     environment:
       - cluster.name=odfe-cluster
@@ -53,7 +58,7 @@ services:
     networks:
       - odfe-net
   kibana:
-    image: amazon/opendistro-for-elasticsearch-kibana:1.4.0
+    image: amazon/opendistro-for-elasticsearch-kibana:${OPEN_DISTRO_VERSION}
     container_name: odfe-kibana
     ports:
       - 5601:5601
