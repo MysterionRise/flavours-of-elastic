@@ -12,7 +12,7 @@ services:
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
       - opendistro_security.ssl.http.enabled=false
-      - "ES_JAVA_OPTS=-Xms8g -Xmx8g" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
+      - "ES_JAVA_OPTS=-Xms4g -Xmx4g" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
     ulimits:
       memlock:
         soft: -1
@@ -37,7 +37,7 @@ services:
     environment:
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms8g -Xmx8g"
+      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
       - discovery.zen.ping.unicast.hosts=odfe-node1
       - opendistro_security.ssl.http.enabled=false
     ulimits:
