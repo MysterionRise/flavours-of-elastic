@@ -1,9 +1,6 @@
-# Define Elastic version
-
-ARG ELK_VERSION=7.4.2
+ARG ELK_VERSION
 
 FROM docker.elastic.co/elasticsearch/elasticsearch:$ELK_VERSION
-
 ARG ELK_VERSION
 
 # Adding custom plugin here, remove if you're not needed

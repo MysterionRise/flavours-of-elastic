@@ -1,11 +1,6 @@
-# Define version of both Open distro and corresponding Elastic version
-# Compatibility table could be found - https://opendistro.github.io/for-elasticsearch-docs/version-history/
-
-ARG OPEN_DISTRO_VERSION=1.4.0
-ARG ELK_VERSION=7.4.2
+ARG OPEN_DISTRO_VERSION
 
 FROM amazon/opendistro-for-elasticsearch:$OPEN_DISTRO_VERSION
-
 ARG ELK_VERSION
 
 # Adding custom plugin here, remove if you're not needed

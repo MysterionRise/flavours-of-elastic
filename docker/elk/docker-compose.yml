@@ -1,7 +1,11 @@
 version: '3'
 services:
   elk-node1:
-    image: elk:0.2
+    build:
+      context: .
+      args:
+        ELK_VERSION: ${ELK_VERSION}
+    image: elk:${ELK_VERSION}
     container_name: elk-node1
     environment:
       - cluster.name=elk-cluster
@@ -26,7 +30,7 @@ services:
     networks:
       - elk-net
   elk-node2:
-    image: elk:0.2
+    image: elk:${ELK_VERSION}
     container_name: elk-node2
     environment:
       - cluster.name=elk-cluster
@@ -51,7 +55,7 @@ services:
     networks:
       - elk-net
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.4.2
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
     container_name: elk-kibana
     ports:
       - 5601:5601
