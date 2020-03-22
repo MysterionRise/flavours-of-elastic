@@ -1,4 +1,4 @@
-version: '3'
+version: '3.7'
 services:
   odfe-node1:
     build:
@@ -9,10 +9,13 @@ services:
     image: odfe:${OPEN_DISTRO_VERSION}
     container_name: odfe-node1
     environment:
+      - node.name=odfe-node1
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
-      - opendistro_security.ssl.http.enabled=false
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
+#      - opendistro_security.ssl.http.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.initial_master_nodes=odfe-node1,odfe-node2
+      - discovery.seed_hosts=odfe-node1,odfe-node2
     ulimits:
       memlock:
         soft: -1
@@ -27,19 +30,20 @@ services:
       #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml
     ports:
-      - 9200:9200
-      - 9600:9600 # required for Performance Analyzer
+      - "9200:9200"
     networks:
       - odfe-net
   odfe-node2:
     image: odfe:${OPEN_DISTRO_VERSION}
     container_name: odfe-node2
     environment:
+      - node.name=odfe-node2
       - cluster.name=odfe-cluster
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
-      - discovery.zen.ping.unicast.hosts=odfe-node1
-      - opendistro_security.ssl.http.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.initial_master_nodes=odfe-node1,odfe-node2
+      - discovery.seed_hosts=odfe-node1,odfe-node2
+#      - opendistro_security.ssl.http.enabled=false
     ulimits:
       memlock:
         soft: -1
@@ -54,18 +58,18 @@ services:
       #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/
     ports:
-      - 9201:9200
+      - "9201:9200"
     networks:
       - odfe-net
   kibana:
     image: amazon/opendistro-for-elasticsearch-kibana:${OPEN_DISTRO_VERSION}
     container_name: odfe-kibana
     ports:
-      - 5601:5601
+      - "5601:5601"
     expose:
       - "5601"
     environment:
-      ELASTICSEARCH_URL: http://odfe-node1:9200
+      ELASTICSEARCH_HOSTS: https://odfe-node1:9200
     #volumes:
       #- ./custom-kibana.yml:/usr/share/kibana/config/kibana.yml
     networks:
