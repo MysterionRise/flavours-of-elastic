@@ -6,8 +6,8 @@ Docker compose example and configurations for fully featured [Amazon Opendistro 
 
 
 ### Versions (.env file)
-- Open distro: **1.4.0**
-- Elastic: **7.4.2**
+- Open distro: **1.8.0**
+- Elastic: **7.7.0**
 
 
 ## How To
