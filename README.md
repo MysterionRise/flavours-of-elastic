@@ -3,11 +3,12 @@
 ## Example of OpenDistro Elastic cluster  
 
 Docker compose example and configurations for fully featured [Amazon Opendistro Elastic](https://opendistro.github.io/for-elasticsearch/) cluster with 2 nodes of Elastic + 1 node of Kibana
+Additionally, both Elastic instances are having custom plugin installed
 
 
 ### Versions (.env file)
-- Open distro: **1.8.0**
-- Elastic: **7.7.0**
+- Open distro: **1.12.0**
+- Elastic: **7.10.0**
 
 
 ## How To
@@ -28,9 +29,14 @@ After some time you will have Kibana available at this [URL](http://localhost:56
 
 ## Comparison with Elastic version
 
+After recent changes [announced](https://www.elastic.co/blog/licensing-change) for Elastic to move its product to SSPL licence, I would strongly recommend to keep using truly open source version of it.
+Not only it has security features available for free, but also it doesn't have any strings attached to it via SSPL licence.
+
+Read more on this [here](https://anonymoushash.vmbrasseur.com/2021/01/14/elasticsearch-and-kibana-are-now-business-risks)
+
 ### ESRally testing mechanism
 
-One of the possibility to compare those is to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
+One of the possibility to compare those are to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
 
 ODFE
 ```sh
