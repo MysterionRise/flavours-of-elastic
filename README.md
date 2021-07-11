@@ -19,10 +19,10 @@ You would need to install [Docker](https://docs.docker.com/install/) and [Docker
 
 ```sh
 # ELK
-docker-compose -f docker/elk/docker-compose.yml up
+docker-compose -f docker/elk/docker-compose.yml --env-file .env up
 
 # ODFE
-docker-compose -f docker/odfe/docker-compose.yml up
+docker-compose -f docker/odfe/docker-compose.yml --env-file .env up
 ```
 
 After some time you will have Kibana available at this [URL](http://localhost:5601/app/kibana#/discover)
