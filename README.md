@@ -1,17 +1,18 @@
-# Repo with collection of different OpenDistro Elastic usage
+# Repo with collection of different Elastic flavours and their usage
 
-## Example of OpenDistro Elastic cluster  
+## What's supported:
 
-Docker compose example and configurations for fully featured [Amazon Opendistro Elastic](https://opendistro.github.io/for-elasticsearch/) cluster with 2 nodes of Elastic + 1 node of Kibana
-Additionally, both Elastic instances are having custom plugin installed
-
+- [OpenSearch](https://opensearch.org)
+- [OpenDistro for Elasticsearch](https://opendistro.github.io/for-elasticsearch/)
+- [ElasticSearch](https://www.elastic.co)
 
 ### Versions (.env file)
-- Open distro: **1.12.0**
-- Elastic: **7.10.0**
+- OpenSearch: **1.1.0**
+- OpenDistro: **1.13.2**
+- Elastic: **7.10.2**
 
 
-## How To
+## How To Run Those Examples
 
 You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
 
@@ -23,11 +24,14 @@ docker-compose -f docker/elk/docker-compose.yml --env-file .env up
 
 # ODFE
 docker-compose -f docker/odfe/docker-compose.yml --env-file .env up
+
+# OPENSEARCH
+docker-compose -f docker/opensearch/docker-compose.yml --env-file .env up
 ```
 
-After some time you will have Kibana available at this [URL](http://localhost:5601/app/kibana#/discover)
+After some time you will have Kibana/OpenSearch Dashboards available at this [URL](http://localhost:5601/)
 
-## Comparison with Elastic version
+## Licence Changes
 
 After recent changes [announced](https://www.elastic.co/blog/licensing-change) for Elastic to move its product to SSPL licence, I would strongly recommend to keep using truly open source version of it.
 Not only it has security features available for free, but also it doesn't have any strings attached to it via SSPL licence.
