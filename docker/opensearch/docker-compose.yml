@@ -1,12 +1,7 @@
 version: '3.7'
 services:
   opensearch-node1:
-    build:
-      context: .
-      args:
-        ELK_VERSION: ${ELK_VERSION}
-        OPENSEARCH_VERSION: ${OPENSEARCH_VERSION}
-    image: opensearch:${OPENSEARCH_VERSION}
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION}
     container_name: opensearch-node1
     environment:
       - cluster.name=opensearch-cluster
@@ -30,7 +25,7 @@ services:
     networks:
       - opensearch-net
   opensearch-node2:
-    image: opensearch:${OPENSEARCH_VERSION}
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION}
     container_name: opensearch-node2
     environment:
       - cluster.name=opensearch-cluster

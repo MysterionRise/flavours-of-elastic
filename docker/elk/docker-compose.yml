@@ -1,12 +1,7 @@
 version: '3.7'
 services:
   elk-node1:
-    build:
-      context: .
-      args:
-        ELK_VERSION: ${ELK_VERSION}
-    image: elk:${ELK_VERSION}
-#    container_name: elk-node1
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
     environment:
       - node.name=elk-node1
       - cluster.initial_master_nodes=elk-node1,elk-node2
@@ -38,8 +33,7 @@ services:
       timeout: 2s
       retries: 5
   elk-node2:
-    image: elk:${ELK_VERSION}
-#    container_name: elk-node2
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
     environment:
       - node.name=elk-node2
       - cluster.initial_master_nodes:elk-node1,elk-node2
