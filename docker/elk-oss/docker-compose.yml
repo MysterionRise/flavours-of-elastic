@@ -1,27 +1,20 @@
 version: '3.7'
 services:
-  odfe-node1:
-    build:
-      context: .
-      args:
-        ELK_VERSION: ${ELK_VERSION}
-        OPEN_DISTRO_VERSION: ${OPEN_DISTRO_VERSION}
-    image: odfe:${OPEN_DISTRO_VERSION}
-    container_name: odfe-node1
+  elk-oss-node1:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
     environment:
-      - node.name=odfe-node1
-      - cluster.name=odfe-cluster
+      - node.name=elk-oss-node1
+      - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
+      - discovery.seed_hosts=elk-oss-node2:9300
+      - cluster.name=elk-oss-cluster
       - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
-#      - opendistro_security.ssl.http.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - cluster.initial_master_nodes=odfe-node1,odfe-node2
-      - discovery.seed_hosts=odfe-node1,odfe-node2
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - odfe-data1:/usr/share/elasticsearch/data
+      - elk-oss-data1:/usr/share/elasticsearch/data
       #- ./root-ca.pem:/usr/share/elasticsearch/config/root-ca.pem
       #- ./esnode.pem:/usr/share/elasticsearch/config/esnode.pem
       #- ./esnode-key.pem:/usr/share/elasticsearch/config/esnode-key.pem
@@ -32,24 +25,28 @@ services:
     ports:
       - "9200:9200"
     networks:
-      - odfe-net
-  odfe-node2:
-    image: odfe:${OPEN_DISTRO_VERSION}
-    container_name: odfe-node2
+      - elk-oss-net
+    healthcheck:
+      start_period: 15s
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+  elk-oss-node2:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
     environment:
-      - node.name=odfe-node2
-      - cluster.name=odfe-cluster
+      - node.name=elk-oss-node2
+      - cluster.initial_master_nodes:elk-oss-node1,elk-oss-node2
+      - discovery.seed_hosts=elk-oss-node1:9300
+      - cluster.name=elk-oss-cluster
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - cluster.initial_master_nodes=odfe-node1,odfe-node2
-      - discovery.seed_hosts=odfe-node1,odfe-node2
-#      - opendistro_security.ssl.http.enabled=false
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - odfe-data2:/usr/share/elasticsearch/data
+      - elk-oss-data2:/usr/share/elasticsearch/data
       #- ./root-ca.pem:/usr/share/elasticsearch/config/root-ca.pem
       #- ./esnode.pem:/usr/share/elasticsearch/config/esnode.pem
       #- ./esnode-key.pem:/usr/share/elasticsearch/config/esnode-key.pem
@@ -60,24 +57,28 @@ services:
     ports:
       - "9201:9200"
     networks:
-      - odfe-net
+      - elk-oss-net
+    healthcheck:
+      start_period: 15s
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
   kibana:
-    image: amazon/opendistro-for-elasticsearch-kibana:${OPEN_DISTRO_VERSION}
-    container_name: odfe-kibana
+    image: docker.elastic.co/kibana/kibana-oss:${ELK_OSS_VERSION}
+    container_name: elk-oss-kibana
     ports:
       - "5601:5601"
-    expose:
-      - "5601"
     environment:
-      ELASTICSEARCH_HOSTS: https://odfe-node1:9200
+      ELASTICSEARCH_HOSTS: http://elk-oss-node1:9200
     #volumes:
       #- ./custom-kibana.yml:/usr/share/kibana/config/kibana.yml
     networks:
-      - odfe-net
+      - elk-oss-net
 
 volumes:
-  odfe-data1:
-  odfe-data2:
+  elk-oss-data1:
+  elk-oss-data2:
 
 networks:
-  odfe-net:
+  elk-oss-net:

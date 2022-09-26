@@ -1,7 +1,7 @@
-ARG OPEN_DISTRO_VERSION
+ARG ELK_OSS_VERSION
 
-FROM amazon/opendistro-for-elasticsearch:$OPEN_DISTRO_VERSION
-ARG ELK_VERSION
+FROM docker.elastic.co/elasticsearch/elasticsearch-oss:$ELK_OSS_VERSION
+ARG ELK_OSS_VERSION
 
 # Adding custom plugin here, remove if you're not needed
 # Replace it with the plugins of your choice

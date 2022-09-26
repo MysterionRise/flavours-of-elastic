@@ -3,13 +3,12 @@
 ## What's supported:
 
 - [OpenSearch](https://opensearch.org)
-- [OpenDistro for Elasticsearch](https://opendistro.github.io/for-elasticsearch/)
 - [ElasticSearch](https://www.elastic.co)
 
 ### Versions (.env file)
 - OpenSearch: **1.1.0**
-- OpenDistro: **1.13.2**
-- Elastic: **7.10.2**
+- Elastic OSS: **7.10.2**
+- Elastic Stack **8.4.2**
 
 
 ## How To Run Those Examples
@@ -19,14 +18,19 @@ You would need to install [Docker](https://docs.docker.com/install/) and [Docker
 ### Start cluster 
 
 ```sh
-# ELK
+# fill in .env file
+# Elastc Stack
 docker-compose -f docker/elk/docker-compose.yml --env-file .env up
-
-# ODFE
-docker-compose -f docker/odfe/docker-compose.yml --env-file .env up
+curl --insecure https://localhost:9200 -u elastic:ELASTIC_PASSWORD
 
 # OPENSEARCH
 docker-compose -f docker/opensearch/docker-compose.yml --env-file .env up
+curl --insecure https://localhost:9200 -u admin:admin
+
+# Elasticsearch OSS (do not update OSS version)
+docker-compose -f docker/elk-oss/docker-compose.yml --env-file .env up
+curl http://localhost:9200 
+
 ```
 
 After some time you will have Kibana/OpenSearch Dashboards available at this [URL](http://localhost:5601/)
@@ -42,14 +46,24 @@ Read more on this [here](https://anonymoushash.vmbrasseur.com/2021/01/14/elastic
 
 One of the possibility to compare those are to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
 
-ODFE
+Install ESRally
+```
+pip3 install esrally
+```
+
+Elastic Stack
 ```sh
 esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
 
-ELK
+ELK OSS
 ```sh
 esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only
+```
+
+OpenSearch
+```sh
+
 ```
 
 Enjoy the results or create your own test experiments.
