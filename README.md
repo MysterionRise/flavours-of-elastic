@@ -6,9 +6,9 @@
 - [ElasticSearch](https://www.elastic.co)
 
 ### Versions (.env file)
-- OpenSearch: **1.1.0**
-- Elastic OSS: **7.10.2**
-- Elastic Stack **8.4.2**
+- OpenSearch: **2.6.0**
+- Elastic OSS (legacy): **7.10.2**
+- Elastic Stack **8.7.0**
 
 
 ## How To Run Those Examples
@@ -18,8 +18,8 @@ You would need to install [Docker](https://docs.docker.com/install/) and [Docker
 ### Start cluster 
 
 ```sh
-# fill in .env file
-# Elastc Stack
+# fill in .env file with ELASTIC_PASSWORD and KIBANA_PASSWORD
+# Elastic Stack
 docker-compose -f docker/elk/docker-compose.yml --env-file .env up
 curl --insecure https://localhost:9200 -u elastic:ELASTIC_PASSWORD
 
