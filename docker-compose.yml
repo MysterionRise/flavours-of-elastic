@@ -1,0 +1,92 @@
+networks:
+  opensearch-net: null
+services:
+  opensearch-cluster_manager1:
+    container_name: opensearch-cluster_manager1
+    environment:
+    - cluster.name=opensearch-cluster
+    - node.name=opensearch-cluster_manager1
+    - discovery.seed_hosts=opensearch-cluster_manager1
+    - cluster.initial_master_nodes=opensearch-cluster_manager1
+    - bootstrap.memory_lock=true
+    - '"OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"'
+    - 'node.roles: [ cluster_manager ]'
+    image: opensearchproject/opensearch:2.7.0
+    networks:
+    - opensearch-net
+    ports:
+    - 9200:9200
+    - 9600:9600
+    ulimits:
+      memlock:
+        hard: -1
+        soft: -1
+      nofile:
+        hard: 65536
+        soft: 65536
+    volumes:
+    - opensearch-data-cluster_manager1:/usr/share/opensearch/data
+  opensearch-dashboards:
+    container_name: opensearch-dashboards
+    environment:
+      OPENSEARCH_HOSTS: '[''https://opensearch-cluster_manager1:9200'', ''https://opensearch-data1:9200'',
+        ''https://opensearch-ingest1:9200'']'
+    expose:
+    - '5601'
+    image: opensearchproject/opensearch-dashboards:2.7.0
+    networks:
+    - opensearch-net
+    ports:
+    - 5601:5601
+  opensearch-data1:
+    container_name: opensearch-data1
+    environment:
+    - cluster.name=opensearch-cluster
+    - node.name=opensearch-data1
+    - discovery.seed_hosts=opensearch-data1
+    - cluster.initial_master_nodes=opensearch-data1
+    - bootstrap.memory_lock=true
+    - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
+    - node.roles: [data ]
+    image: opensearchproject/opensearch:2.7.0
+    networks:
+    - opensearch-net
+    ports:
+    - 9200:9200
+    - 9600:9600
+    ulimits:
+      memlock:
+        hard: -1
+        soft: -1
+      nofile:
+        hard: 65536
+        soft: 65536
+    volumes:
+    - opensearch-data-data1:/usr/share/opensearch/data
+  opensearch-ingest1:
+    container_name: opensearch-ingest1
+    environment:
+    - cluster.name=opensearch-cluster
+    - node.name=opensearch-ingest1
+    - discovery.seed_hosts=opensearch-ingest1
+    - cluster.initial_master_nodes=opensearch-ingest1
+    - bootstrap.memory_lock=true
+    - '"OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"'
+    - 'node.roles: [ ingest ]'
+    image: opensearchproject/opensearch:2.7.0
+    networks:
+    - opensearch-net
+    ports:
+    - 9200:9200
+    - 9600:9600
+    ulimits:
+      memlock:
+        hard: -1
+        soft: -1
+      nofile:
+        hard: 65536
+        soft: 65536
+    volumes:
+    - opensearch-data-ingest1:/usr/share/opensearch/data
+version: '3.8'
+volumes: {}
