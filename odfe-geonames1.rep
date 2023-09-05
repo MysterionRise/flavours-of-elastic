@@ -5,7 +5,7 @@
  / __/ / / / / / /_/ / /   ___/ / /__/ /_/ / /  /  __/
 /_/   /_/_/ /_/\__,_/_/   /____/\___/\____/_/   \___/
 ------------------------------------------------------
-            
+
 |   Lap |                                                         Metric |                   Task |     Value |    Unit |
 |------:|---------------------------------------------------------------:|-----------------------:|----------:|--------:|
 |   All |                     Cumulative indexing time of primary shards |                        |   33.8142 |     min |
@@ -238,6 +238,3 @@
 |   All |                                   99th percentile service time | large_prohibited_terms |    474.96 |      ms |
 |   All |                                  100th percentile service time | large_prohibited_terms |   476.757 |      ms |
 |   All |                                                     error rate | large_prohibited_terms |         0 |       % |
-
-
-
