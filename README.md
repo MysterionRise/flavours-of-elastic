@@ -6,16 +6,16 @@
 - [ElasticSearch](https://www.elastic.co)
 
 ### Versions (.env file)
-- OpenSearch: **2.6.0**
+- OpenSearch: **2.9.0**
 - Elastic OSS (legacy): **7.10.2**
-- Elastic Stack **8.7.0**
+- Elastic Stack **8.9.1**
 
 
 ## How To Run Those Examples
 
 You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
 
-### Start cluster 
+### Start cluster
 
 ```sh
 # fill in .env file with ELASTIC_PASSWORD and KIBANA_PASSWORD
@@ -29,7 +29,7 @@ curl --insecure https://localhost:9200 -u admin:admin
 
 # Elasticsearch OSS (do not update OSS version)
 docker-compose -f docker/elk-oss/docker-compose.yml --env-file .env up
-curl http://localhost:9200 
+curl http://localhost:9200
 
 ```
 
@@ -42,28 +42,37 @@ Not only it has security features available for free, but also it doesn't have a
 
 Read more on this [here](https://anonymoushash.vmbrasseur.com/2021/01/14/elasticsearch-and-kibana-are-now-business-risks)
 
-### ESRally testing mechanism
+### Benchmarking
 
 One of the possibility to compare those are to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
+
+Install ESRally
+
+
+#### Elastic Stack
 
 Install ESRally
 ```
 pip3 install esrally
 ```
 
-Elastic Stack
+and then benchmark
+
 ```sh
-esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only --client-options="use_ssl:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
 
-ELK OSS
-```sh
-esrally --track=geonames --report-format=csv -report-file=~/benchmarks/result.csv --target-hosts=http://localhost:9200,http://localhost:9201 --pipeline=benchmark-only
+#### OpenSearch
+
+Install Opensearch Benchmark
+```
+pip install opensearch-benchmark
 ```
 
-OpenSearch
-```sh
+and then benchmark
 
+```sh
+opensearch-benchmark execute-test --workload=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'admin'"
 ```
 
 Enjoy the results or create your own test experiments.
