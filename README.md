@@ -23,6 +23,7 @@ You would need to install [Docker](https://docs.docker.com/install/) and [Docker
 docker-compose -f docker/elk/docker-compose.yml --env-file .env up
 curl --insecure https://localhost:9200 -u elastic:ELASTIC_PASSWORD
 
+# fill in .env file with OPENSEARCH_INITIAL_ADMIN_PASSWORD - only use strong passwords!
 # OPENSEARCH
 docker-compose -f docker/opensearch/docker-compose.yml --env-file .env up
 curl --insecure https://localhost:9200 -u admin:admin
