@@ -101,7 +101,8 @@ services:
 
   es02:
     depends_on:
-      - es01
+      es01:
+        condition: service_healthy
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs

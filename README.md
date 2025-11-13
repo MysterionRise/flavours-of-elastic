@@ -104,6 +104,84 @@ curl http://localhost:9200
 
 After some time you will have Kibana/OpenSearch Dashboards available at this [URL](http://localhost:5601/)
 
+### Next Steps - Getting Started with Queries
+
+Once your cluster is running, try these basic operations:
+
+#### 1. Create an Index
+
+**Elastic Stack / OpenSearch:**
+```sh
+curl --insecure -X PUT "https://localhost:9200/my-first-index" -u elastic:elastic
+```
+
+**Elastic OSS:**
+```sh
+curl -X PUT "http://localhost:9200/my-first-index"
+```
+
+#### 2. Add a Document
+
+**Elastic Stack / OpenSearch:**
+```sh
+curl --insecure -X POST "https://localhost:9200/my-first-index/_doc/1" \
+  -u elastic:elastic \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "Learning Elasticsearch",
+    "description": "This is my first document",
+    "timestamp": "2025-01-15"
+  }'
+```
+
+**Elastic OSS:**
+```sh
+curl -X POST "http://localhost:9200/my-first-index/_doc/1" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "Learning Elasticsearch",
+    "description": "This is my first document",
+    "timestamp": "2025-01-15"
+  }'
+```
+
+#### 3. Search Documents
+
+**Elastic Stack / OpenSearch:**
+```sh
+curl --insecure "https://localhost:9200/my-first-index/_search?q=Learning" -u elastic:elastic
+```
+
+**Elastic OSS:**
+```sh
+curl "http://localhost:9200/my-first-index/_search?q=Learning"
+```
+
+#### 4. Explore with Kibana/Dashboards
+
+1. Open http://localhost:5601/ in your browser
+2. **For Elastic Stack**: Login with `elastic` / `elastic`
+3. **For OpenSearch**: Login with `admin` / `<password-from-env>`
+4. **For Elastic OSS**: No login required
+5. Go to **Dev Tools** (Console) to run queries interactively
+6. Try creating visualizations and dashboards
+
+#### 5. Common Operations
+
+```sh
+# List all indices
+curl --insecure "https://localhost:9200/_cat/indices?v" -u elastic:elastic
+
+# Check cluster health
+curl --insecure "https://localhost:9200/_cluster/health?pretty" -u elastic:elastic
+
+# Get document by ID
+curl --insecure "https://localhost:9200/my-first-index/_doc/1" -u elastic:elastic
+
+# Delete an index
+curl --insecure -X DELETE "https://localhost:9200/my-first-index" -u elastic:elastic
+```
+
 ## Licence Changes
 
 After recent changes [announced](https://www.elastic.co/blog/licensing-change) for Elastic to move its product to SSPL licence, I would strongly recommend to keep using truly open source version of it.
@@ -282,3 +360,71 @@ To remove everything and start fresh:
 docker-compose down -v
 docker system prune -a
 ```
+
+## Development & Contributing
+
+### For Contributors
+
+If you want to contribute to this repository:
+
+1. **Fork and clone** the repository
+2. **Install pre-commit hooks** for code quality:
+   ```sh
+   pip install pre-commit
+   pre-commit install
+   ```
+
+3. **Make your changes** to docker-compose files, documentation, or configurations
+4. **Test your changes** by running the affected stack(s)
+5. **Submit a Pull Request** with a clear description
+
+### Pre-commit Hooks
+
+This repository uses pre-commit hooks to maintain code quality:
+- **check-yaml**: Validates YAML syntax
+- **end-of-file-fixer**: Ensures files end with newline
+- **trailing-whitespace**: Removes trailing spaces
+- **black**: Python code formatter
+- **isort**: Sorts Python imports
+- **flake8**: Python linter
+
+To run manually before committing:
+```sh
+pre-commit run --all-files
+```
+
+### Project Structure
+
+```
+flavours-of-elastic/
+├── docker/
+│   ├── elk/              # Elastic Stack (latest)
+│   ├── opensearch/       # OpenSearch
+│   └── elk-oss/          # Elastic OSS (7.10.2 legacy)
+├── benchmarks/           # Benchmark results
+├── .env                  # Environment configuration
+├── .env.example          # Template for configuration
+└── ISSUES.md            # Tracked issues and improvements
+```
+
+### Updating Versions
+
+When updating Elastic or OpenSearch versions:
+
+1. Update version in `.env` file
+2. Update version in `README.md` (Versions section)
+3. Test all three stacks to ensure compatibility
+4. Update `ISSUES.md` if new issues are discovered
+5. Commit with clear message: `feat: update <stack> to <version>`
+
+## Learn More
+
+- [Elasticsearch Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html)
+- [OpenSearch Documentation](https://opensearch.org/docs/latest/)
+- [Kibana Guide](https://www.elastic.co/guide/en/kibana/current/index.html)
+- [OpenSearch Dashboards](https://opensearch.org/docs/latest/dashboards/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+
+## License
+
+See [LICENSE](LICENSE) file for details.
