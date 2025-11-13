@@ -36,7 +36,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
     environment:
       - node.name=elk-oss-node2
-      - cluster.initial_master_nodes:elk-oss-node1,elk-oss-node2
+      - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
       - discovery.seed_hosts=elk-oss-node1:9300
       - cluster.name=elk-oss-cluster
       - bootstrap.memory_lock=true
