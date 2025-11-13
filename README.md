@@ -26,6 +26,27 @@ Choose the stack you want to explore:
    - Best for: Supporting legacy 7.x applications, no authentication
    - Port: 9200 (HTTP)
 
+## Comparison Table
+
+| Feature | Elastic Stack (Latest) | OpenSearch | Elastic OSS (Legacy) |
+|---------|------------------------|------------|----------------------|
+| **Version** | 8.15.2 | 2.17.1 | 7.10.2 |
+| **License** | SSPL / Elastic License | Apache 2.0 | Apache 2.0 |
+| **Security** | ✅ Built-in (Basic Auth, TLS) | ✅ Built-in | ❌ Not included |
+| **Protocol** | HTTPS | HTTPS | HTTP |
+| **UI** | Kibana | OpenSearch Dashboards | Kibana OSS |
+| **Use Case** | Latest features, commercial support | Fully open-source, AWS ecosystem | Legacy 7.x support |
+| **Authentication** | Required (elastic/elastic) | Required (admin/strong-password) | Not required |
+| **Updates** | Active development | Active development | No updates (frozen) |
+| **Plugins** | Extensive ecosystem | Growing ecosystem | Limited (7.x only) |
+| **Memory Usage** | ~2-3GB | ~4GB | ~1GB |
+| **Best For Students** | Learning modern features | Open-source projects | Simple setup, testing |
+
+**When to use each:**
+- **Elastic Stack**: You want to learn the latest Elasticsearch features and don't mind the licensing
+- **OpenSearch**: You prefer truly open-source software or plan to deploy on AWS
+- **Elastic OSS**: You need compatibility with legacy 7.x applications or want the simplest setup without security
+
 ## Prerequisites
 
 Before running these examples, ensure you have:
@@ -42,6 +63,18 @@ Before running these examples, ensure you have:
 **Note for Linux users**: You may need to increase `vm.max_map_count`:
 ```sh
 sudo sysctl -w vm.max_map_count=262144
+```
+
+**Java Heap Sizes Explained:**
+
+The different memory configurations reflect realistic usage patterns:
+- **Elastic Stack (1GB per node)**: Balanced for production-like testing with security features
+- **OpenSearch (2GB per node)**: Higher baseline due to additional built-in features and plugins
+- **Elastic OSS (512MB per node)**: Minimal configuration for legacy support and testing
+
+If you have limited RAM (< 8GB), you can reduce these values in the docker-compose.yml files:
+```yaml
+- "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Minimum recommended
 ```
 
 ## How To Run Those Examples
@@ -78,37 +111,174 @@ Not only it has security features available for free, but also it doesn't have a
 
 Read more on this [here](https://anonymoushash.vmbrasseur.com/2021/01/14/elasticsearch-and-kibana-are-now-business-risks)
 
-### Benchmarking
+## Benchmarking
 
-One of the possibility to compare those are to use [ESRally](https://github.com/elastic/rally) and run some experiments with it
+Want to compare performance between different stacks? Use these benchmarking tools:
 
-Install ESRally
+### For Elastic Stack (and Elastic OSS)
 
+Use [ESRally](https://github.com/elastic/rally) - the official Elasticsearch benchmarking tool.
 
-#### Elastic Stack
-
-Install ESRally
-```
+**Install:**
+```sh
 pip3 install esrally
 ```
 
-and then benchmark
-
+**Run benchmark:**
 ```sh
-esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+# For Elastic Stack (with authentication)
+esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only \
+  --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'elastic',basic_auth_password:'elastic'"
+
+# For Elastic OSS (no authentication)
+esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only
 ```
 
-#### OpenSearch
+### For OpenSearch
 
-Install Opensearch Benchmark
-```
+Use [OpenSearch Benchmark](https://github.com/opensearch-project/opensearch-benchmark) - compatible with OpenSearch.
+
+**Install:**
+```sh
 pip install opensearch-benchmark
 ```
 
-and then benchmark
-
+**Run benchmark:**
 ```sh
-opensearch-benchmark execute-test --workload=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'admin'"
+opensearch-benchmark execute-test --workload=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only \
+  --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'YOUR_PASSWORD_FROM_ENV'"
 ```
 
-Enjoy the results or create your own test experiments.
+**Available workloads:** geonames, http_logs, nyc_taxis, percolator, and more. See [workload repository](https://github.com/opensearch-project/opensearch-benchmark-workloads) for details.
+
+Compare results between stacks and create your own test experiments!
+
+## Troubleshooting
+
+### Port Already in Use (9200 or 5601)
+
+If you see an error like "port is already allocated":
+
+```sh
+# Check what's using the port
+sudo lsof -i :9200
+sudo lsof -i :5601
+
+# Stop any existing Elasticsearch/Kibana processes
+docker-compose down
+
+# Or use different ports by modifying docker-compose.yml
+```
+
+### Out of Memory Errors
+
+If containers crash with OOM errors:
+
+1. **Reduce Java heap size** in docker-compose.yml:
+   ```yaml
+   - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Reduce from 1G or 2G
+   ```
+
+2. **Increase Docker memory limit**:
+   - Docker Desktop: Settings → Resources → Memory (set to 6GB+)
+   - Linux: Docker uses host memory directly
+
+3. **Run only one stack at a time** to reduce memory usage
+
+### vm.max_map_count Too Low (Linux)
+
+Error: `max virtual memory areas vm.max_map_count [65530] is too low`
+
+**Temporary fix:**
+```sh
+sudo sysctl -w vm.max_map_count=262144
+```
+
+**Permanent fix:**
+```sh
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+### Connection Refused or Timeout
+
+If `curl` commands fail:
+
+1. **Wait for services to start** - initial startup can take 2-5 minutes
+2. **Check container health**:
+   ```sh
+   docker-compose ps
+   docker-compose logs
+   ```
+3. **Verify correct protocol**: Elastic Stack and OpenSearch use HTTPS, Elastic OSS uses HTTP
+
+### Elasticsearch Fails to Start in Cluster
+
+For two-node clusters, both nodes must start successfully:
+
+1. **Check logs**:
+   ```sh
+   docker-compose logs es01
+   docker-compose logs es02
+   ```
+
+2. **Clean restart**:
+   ```sh
+   docker-compose down -v  # Warning: deletes all data
+   docker-compose up
+   ```
+
+### Certificate Errors (Elastic Stack)
+
+If you see SSL/TLS errors:
+
+1. Certificates are auto-generated on first run
+2. If corrupted, remove and regenerate:
+   ```sh
+   docker-compose down -v
+   docker volume rm elk_certs  # if exists
+   docker-compose up
+   ```
+
+### Docker Not Running
+
+Error: `Cannot connect to the Docker daemon`
+
+```sh
+# Start Docker
+sudo systemctl start docker  # Linux
+# or open Docker Desktop (Mac/Windows)
+
+# Verify Docker is running
+docker ps
+```
+
+### Disk Space Issues
+
+If you run low on disk space:
+
+```sh
+# Remove all stopped containers and unused volumes
+docker system prune -a --volumes
+
+# Check Docker disk usage
+docker system df
+```
+
+## Cleanup
+
+To stop services and preserve data:
+```sh
+docker-compose down
+```
+
+To stop services and **remove all data**:
+```sh
+docker-compose down -v
+```
+
+To remove everything and start fresh:
+```sh
+docker-compose down -v
+docker system prune -a
+```
