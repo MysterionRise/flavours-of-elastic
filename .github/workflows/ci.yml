@@ -109,17 +109,38 @@ jobs:
         run: |
           docker compose -f docker/opensearch/docker-compose.yml --env-file .env up -d
 
+      - name: Check container status
+        run: |
+          echo "Checking container status..."
+          docker compose -f docker/opensearch/docker-compose.yml ps
+          echo "Waiting for containers to initialize..."
+          sleep 30
+
       - name: Wait for cluster to be ready
         run: |
           echo "Waiting for OpenSearch to be ready..."
-          for i in {1..60}; do
+          for i in {1..90}; do
             if curl -k -s -u admin:Jierou9uju\!@£@£ https://localhost:9200 | grep -q "cluster_name"; then
               echo "OpenSearch is ready!"
               break
             fi
-            echo "Attempt $i/60: Waiting..."
-            sleep 5
+            echo "Attempt $i/90: Waiting..."
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Container status at attempt $i:"
+              docker compose -f docker/opensearch/docker-compose.yml ps
+            fi
+            sleep 10
           done
+
+          # Verify cluster is responding
+          if ! curl -k -s -u admin:Jierou9uju\!@£@£ https://localhost:9200 | grep -q "cluster_name"; then
+            echo "ERROR: OpenSearch cluster failed to start within timeout"
+            echo "Container status:"
+            docker compose -f docker/opensearch/docker-compose.yml ps
+            echo "Container logs:"
+            docker compose -f docker/opensearch/docker-compose.yml logs --tail=50
+            exit 1
+          fi
 
       - name: Check cluster health
         run: |
@@ -178,6 +199,13 @@ jobs:
         run: |
           docker compose -f docker/elk/docker-compose.yml --env-file .env up -d
 
+      - name: Check container status
+        run: |
+          echo "Checking container status..."
+          docker compose -f docker/elk/docker-compose.yml ps
+          echo "Waiting for initial setup..."
+          sleep 45
+
       - name: Wait for cluster to be ready
         run: |
           echo "Waiting for Elasticsearch to be ready..."
@@ -187,8 +215,24 @@ jobs:
               break
             fi
             echo "Attempt $i/90: Waiting..."
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Container status at attempt $i:"
+              docker compose -f docker/elk/docker-compose.yml ps
+            fi
             sleep 10
           done
+
+          # Verify cluster is responding
+          if ! curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
+            echo "ERROR: Elastic Stack failed to start within timeout"
+            echo "Container status:"
+            docker compose -f docker/elk/docker-compose.yml ps
+            echo "Setup container logs:"
+            docker compose -f docker/elk/docker-compose.yml logs setup
+            echo "ES01 logs:"
+            docker compose -f docker/elk/docker-compose.yml logs es01 --tail=50
+            exit 1
+          fi
 
       - name: Check cluster health
         run: |
