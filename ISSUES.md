@@ -181,7 +181,7 @@ This document tracks identified issues and improvements for the flavours-of-elas
 - **Fix:** Add simple ASCII or Mermaid diagrams showing node relationships
 - **Status:** ❌ NOT STARTED
 
-### ❌ 22. Testing: No validation script
+### ✅ 22. Testing: No validation script
 - **Issue:** Students don't know if setup worked correctly
 - **Impact:** Silent failures or partial setups
 - **Fix:** Add `verify.sh` or `verify.py` script that checks:
@@ -189,7 +189,8 @@ This document tracks identified issues and improvements for the flavours-of-elas
   - Health endpoints responding
   - Can create test index
   - Dashboards accessible
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
+- **Bonus:** Also added GitHub Actions CI/CD pipeline for automated testing
 
 ### ✅ 23. Documentation: No cleanup instructions
 - **Issue:** No guidance on stopping and cleaning up volumes
@@ -247,15 +248,15 @@ This document tracks identified issues and improvements for the flavours-of-elas
 
 ### Overall Progress
 - **Total Issues:** 28
-- **✅ Completed:** 21 (75%)
+- **✅ Completed:** 22 (79%)
 - **⏸️ Deferred:** 2 (7%)
-- **❌ Not Started:** 5 (18%)
+- **❌ Not Started:** 4 (14%)
 
 ### By Priority Level
 - **P0 (Critical):** 3 issues - ✅ 3 completed (100%)
 - **P1 (High):** 5 issues - ✅ 5 completed (100%)
 - **P2 (Medium):** 10 issues - ✅ 10 completed (100%)
-- **P3 (Low):** 10 issues - ✅ 3 completed, ⏸️ 2 deferred, ❌ 5 not started
+- **P3 (Low):** 10 issues - ✅ 4 completed, ⏸️ 2 deferred, ❌ 4 not started
 
 ### Completion Summary
 
@@ -268,10 +269,10 @@ The repository is now significantly improved for educational use:
 - ✅ Clear comparison table helps students choose the right stack
 - ✅ Sample queries and next steps provided
 - ✅ Development/contributing guidelines documented
+- ✅ CI/CD pipeline and validation script ensure quality
 
 **Remaining work** (P3 - Nice to Have):
 - Architecture diagrams (low priority)
-- Validation script (convenience feature)
 - Single-node configuration examples (edge case)
 - Screenshots/videos (enhancement)
 
@@ -309,6 +310,13 @@ The repository is now significantly improved for educational use:
 - Added Cleanup instructions
 - Added Learn More section with official links
 - Pinned PyYAML version
+
+**Phase 5 - Testing & CI/CD (P3):**
+- Created GitHub Actions CI workflow testing all three stacks
+- Added comprehensive validation script (`validate.py`)
+- Automated YAML validation, stack startup, health checks, and CRUD operations
+- Added CI badge and testing documentation to README
+- Pinned requests dependency for validation script
 
 ---
 

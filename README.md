@@ -1,5 +1,7 @@
 # Repo with collection of different Elastic flavours and their usage
 
+[![CI](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml/badge.svg)](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml)
+
 ## What's supported:
 
 - [OpenSearch](https://opensearch.org)
@@ -393,10 +395,58 @@ To run manually before committing:
 pre-commit run --all-files
 ```
 
+### Testing & Validation
+
+This repository includes automated testing to ensure all stacks work correctly.
+
+#### Continuous Integration
+
+GitHub Actions automatically tests all three stacks on every push and pull request:
+- ✅ YAML validation
+- ✅ Each stack starts successfully
+- ✅ Cluster health checks pass
+- ✅ Index operations work (create, insert, search)
+- ✅ UI (Kibana/Dashboards) is accessible
+
+View CI status: [![CI](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml/badge.svg)](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml)
+
+#### Local Validation
+
+Test all stacks locally using the validation script:
+
+**Install dependencies:**
+```sh
+pip install -r requirements.txt
+```
+
+**Run validation:**
+```sh
+# Test all stacks
+python validate.py --stack all
+
+# Test specific stack
+python validate.py --stack elk-oss
+python validate.py --stack opensearch
+python validate.py --stack elastic
+```
+
+The validation script checks:
+1. Stack starts successfully
+2. Cluster responds and is healthy
+3. Can create indices
+4. Can index documents
+5. Can search documents
+6. UI is accessible
+
+**Note:** The script automatically cleans up Docker volumes after testing. Use `--no-cleanup` to preserve volumes.
+
 ### Project Structure
 
 ```
 flavours-of-elastic/
+├── .github/
+│   └── workflows/
+│       └── ci.yml        # GitHub Actions CI pipeline
 ├── docker/
 │   ├── elk/              # Elastic Stack (latest)
 │   ├── opensearch/       # OpenSearch
@@ -404,6 +454,8 @@ flavours-of-elastic/
 ├── benchmarks/           # Benchmark results
 ├── .env                  # Environment configuration
 ├── .env.example          # Template for configuration
+├── validate.py           # Validation script for local testing
+├── requirements.txt      # Python dependencies
 └── ISSUES.md            # Tracked issues and improvements
 ```
 
