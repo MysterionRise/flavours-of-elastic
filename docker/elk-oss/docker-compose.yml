@@ -7,7 +7,8 @@ services:
       - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
       - discovery.seed_hosts=elk-oss-node2:9300
       - cluster.name=elk-oss-cluster
-      - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      # disables swapping
+      - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:
