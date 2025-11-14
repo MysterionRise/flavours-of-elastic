@@ -7,7 +7,8 @@ services:
       - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
       - discovery.seed_hosts=elk-oss-node2:9300
       - cluster.name=elk-oss-cluster
-      - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      # disables swapping
+      - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:
@@ -15,13 +16,6 @@ services:
         hard: -1
     volumes:
       - elk-oss-data1:/usr/share/elasticsearch/data
-      #- ./root-ca.pem:/usr/share/elasticsearch/config/root-ca.pem
-      #- ./esnode.pem:/usr/share/elasticsearch/config/esnode.pem
-      #- ./esnode-key.pem:/usr/share/elasticsearch/config/esnode-key.pem
-      #- ./kirk.pem:/usr/share/elasticsearch/config/kirk.pem
-      #- ./kirk-key.pem:/usr/share/elasticsearch/config/kirk-key.pem
-      #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-      #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml
     ports:
       - "9200:9200"
     networks:
@@ -36,7 +30,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
     environment:
       - node.name=elk-oss-node2
-      - cluster.initial_master_nodes:elk-oss-node1,elk-oss-node2
+      - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
       - discovery.seed_hosts=elk-oss-node1:9300
       - cluster.name=elk-oss-cluster
       - bootstrap.memory_lock=true
@@ -47,13 +41,6 @@ services:
         hard: -1
     volumes:
       - elk-oss-data2:/usr/share/elasticsearch/data
-      #- ./root-ca.pem:/usr/share/elasticsearch/config/root-ca.pem
-      #- ./esnode.pem:/usr/share/elasticsearch/config/esnode.pem
-      #- ./esnode-key.pem:/usr/share/elasticsearch/config/esnode-key.pem
-      #- ./kirk.pem:/usr/share/elasticsearch/config/kirk.pem
-      #- ./kirk-key.pem:/usr/share/elasticsearch/config/kirk-key.pem
-      #- ./custom-elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-      #- ./internal_users.yml:/usr/share/elasticsearch/plugins/opendistro_security/
     ports:
       - "9201:9200"
     networks:
@@ -71,8 +58,6 @@ services:
       - "5601:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elk-oss-node1:9200
-    #volumes:
-      #- ./custom-kibana.yml:/usr/share/kibana/config/kibana.yml
     networks:
       - elk-oss-net
 

@@ -1,0 +1,282 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  validate-yaml:
+    name: Validate YAML Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Validate docker compose files
+        run: |
+          yamllint docker/elk/docker-compose.yml
+          yamllint docker/opensearch/docker-compose.yml
+          yamllint docker/elk-oss/docker-compose.yml
+          yamllint .pre-commit-config.yaml
+
+  test-elk-oss:
+    name: Test Elastic OSS Stack
+    runs-on: ubuntu-latest
+    needs: validate-yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start Elastic OSS cluster
+        run: |
+          docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up -d
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "Waiting for Elasticsearch to be ready..."
+          for i in {1..60}; do
+            if curl -s http://localhost:9200 | grep -q "cluster_name"; then
+              echo "Elasticsearch is ready!"
+              break
+            fi
+            echo "Attempt $i/60: Waiting..."
+            sleep 5
+          done
+
+      - name: Check cluster health
+        run: |
+          curl -f http://localhost:9200/_cluster/health?pretty
+
+      - name: Create test index
+        run: |
+          curl -f -X PUT "http://localhost:9200/test-index" -H 'Content-Type: application/json'
+
+      - name: Add test document
+        run: |
+          curl -f -X POST "http://localhost:9200/test-index/_doc/1" \
+            -H 'Content-Type: application/json' \
+            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
+
+      - name: Search documents
+        run: |
+          curl -f "http://localhost:9200/test-index/_search?q=CI"
+
+      - name: Check Kibana
+        run: |
+          echo "Waiting for Kibana..."
+          for i in {1..30}; do
+            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
+              echo "Kibana is responding!"
+              break
+            fi
+            echo "Attempt $i/30: Waiting..."
+            sleep 5
+          done
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/elk-oss/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/elk-oss/docker-compose.yml down -v
+
+  test-opensearch:
+    name: Test OpenSearch Stack
+    runs-on: ubuntu-latest
+    needs: validate-yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start OpenSearch cluster
+        run: |
+          docker compose -f docker/opensearch/docker-compose.yml --env-file .env up -d
+
+      - name: Check container status
+        run: |
+          echo "Checking container status..."
+          docker compose -f docker/opensearch/docker-compose.yml ps
+          echo "Waiting for containers to initialize..."
+          sleep 30
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "Waiting for OpenSearch to be ready..."
+          for i in {1..90}; do
+            if curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
+              echo "OpenSearch is ready!"
+              break
+            fi
+            echo "Attempt $i/90: Waiting..."
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Container status at attempt $i:"
+              docker compose -f docker/opensearch/docker-compose.yml ps
+            fi
+            sleep 10
+          done
+
+          # Verify cluster is responding
+          if ! curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
+            echo "ERROR: OpenSearch cluster failed to start within timeout"
+            echo "Container status:"
+            docker compose -f docker/opensearch/docker-compose.yml ps
+            echo "Container logs:"
+            docker compose -f docker/opensearch/docker-compose.yml logs --tail=50
+            exit 1
+          fi
+
+      - name: Check cluster health
+        run: |
+          curl -k -f -u admin:MyStrongPassword123\! https://localhost:9200/_cluster/health?pretty
+
+      - name: Create test index
+        run: |
+          curl -k -f -X PUT "https://localhost:9200/test-index" \
+            -u admin:MyStrongPassword123\! \
+            -H 'Content-Type: application/json'
+
+      - name: Add test document
+        run: |
+          curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
+            -u admin:MyStrongPassword123\! \
+            -H 'Content-Type: application/json' \
+            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
+
+      - name: Search documents
+        run: |
+          curl -k -f -u admin:MyStrongPassword123\! "https://localhost:9200/test-index/_search?q=CI"
+
+      - name: Check OpenSearch Dashboards
+        run: |
+          echo "Waiting for Dashboards..."
+          for i in {1..30}; do
+            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
+              echo "Dashboards is responding!"
+              break
+            fi
+            echo "Attempt $i/30: Waiting..."
+            sleep 5
+          done
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/opensearch/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/opensearch/docker-compose.yml down -v
+
+  test-elastic:
+    name: Test Elastic Stack
+    runs-on: ubuntu-latest
+    needs: validate-yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start Elastic Stack
+        run: |
+          docker compose -f docker/elk/docker-compose.yml --env-file .env up -d
+
+      - name: Check container status
+        run: |
+          echo "Checking container status..."
+          docker compose -f docker/elk/docker-compose.yml ps
+          echo "Waiting for initial setup..."
+          sleep 45
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "Waiting for Elasticsearch to be ready..."
+          for i in {1..90}; do
+            if curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
+              echo "Elasticsearch is ready!"
+              break
+            fi
+            echo "Attempt $i/90: Waiting..."
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Container status at attempt $i:"
+              docker compose -f docker/elk/docker-compose.yml ps
+            fi
+            sleep 10
+          done
+
+          # Verify cluster is responding
+          if ! curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
+            echo "ERROR: Elastic Stack failed to start within timeout"
+            echo "Container status:"
+            docker compose -f docker/elk/docker-compose.yml ps
+            echo "Setup container logs:"
+            docker compose -f docker/elk/docker-compose.yml logs setup
+            echo "ES01 logs:"
+            docker compose -f docker/elk/docker-compose.yml logs es01 --tail=50
+            exit 1
+          fi
+
+      - name: Check cluster health
+        run: |
+          curl -k -f -u elastic:elastic https://localhost:9200/_cluster/health?pretty
+
+      - name: Verify both nodes are in cluster
+        run: |
+          curl -k -f -u elastic:elastic https://localhost:9200/_cat/nodes?v
+
+      - name: Create test index
+        run: |
+          curl -k -f -X PUT "https://localhost:9200/test-index" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json'
+
+      - name: Add test document
+        run: |
+          curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json' \
+            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
+
+      - name: Search documents
+        run: |
+          curl -k -f -u elastic:elastic "https://localhost:9200/test-index/_search?q=CI"
+
+      - name: Check Kibana
+        run: |
+          echo "Waiting for Kibana..."
+          for i in {1..40}; do
+            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
+              echo "Kibana is responding!"
+              break
+            fi
+            echo "Attempt $i/40: Waiting..."
+            sleep 10
+          done
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/elk/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/elk/docker-compose.yml down -v
