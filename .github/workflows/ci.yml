@@ -120,7 +120,7 @@ jobs:
         run: |
           echo "Waiting for OpenSearch to be ready..."
           for i in {1..90}; do
-            if curl -k -s -u admin:Jierou9uju\!@£@£ https://localhost:9200 | grep -q "cluster_name"; then
+            if curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
               echo "OpenSearch is ready!"
               break
             fi
@@ -133,7 +133,7 @@ jobs:
           done
 
           # Verify cluster is responding
-          if ! curl -k -s -u admin:Jierou9uju\!@£@£ https://localhost:9200 | grep -q "cluster_name"; then
+          if ! curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
             echo "ERROR: OpenSearch cluster failed to start within timeout"
             echo "Container status:"
             docker compose -f docker/opensearch/docker-compose.yml ps
@@ -144,24 +144,24 @@ jobs:
 
       - name: Check cluster health
         run: |
-          curl -k -f -u admin:Jierou9uju\!@£@£ https://localhost:9200/_cluster/health?pretty
+          curl -k -f -u admin:MyStrongPassword123\! https://localhost:9200/_cluster/health?pretty
 
       - name: Create test index
         run: |
           curl -k -f -X PUT "https://localhost:9200/test-index" \
-            -u admin:Jierou9uju\!@£@£ \
+            -u admin:MyStrongPassword123\! \
             -H 'Content-Type: application/json'
 
       - name: Add test document
         run: |
           curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
-            -u admin:Jierou9uju\!@£@£ \
+            -u admin:MyStrongPassword123\! \
             -H 'Content-Type: application/json' \
             -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
 
       - name: Search documents
         run: |
-          curl -k -f -u admin:Jierou9uju\!@£@£ "https://localhost:9200/test-index/_search?q=CI"
+          curl -k -f -u admin:MyStrongPassword123\! "https://localhost:9200/test-index/_search?q=CI"
 
       - name: Check OpenSearch Dashboards
         run: |

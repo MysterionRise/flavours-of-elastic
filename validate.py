@@ -274,7 +274,7 @@ class OpenSearchValidator(StackValidator):
     def __init__(self):
         super().__init__("OpenSearch", "docker/opensearch/docker-compose.yml")
         self.base_url = "https://localhost:9200"
-        self.auth = ("admin", "Jierou9uju!@£@£")  # From .env
+        self.auth = ("admin", "MyStrongPassword123!")  # From .env
         self.verify_ssl = False
         self.ui_name = "OpenSearch Dashboards"
 
