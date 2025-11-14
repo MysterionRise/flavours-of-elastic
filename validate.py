@@ -57,7 +57,7 @@ class StackValidator:
         print(f"{'=' * 60}")
 
         cmd = [
-            "docker-compose",
+            "docker", "compose",
             "-f",
             self.compose_file,
             "--env-file",
@@ -79,7 +79,7 @@ class StackValidator:
         """Stop the docker-compose stack."""
         print(f"\nStopping {self.name}...")
         flag = "-v" if cleanup else ""
-        cmd = ["docker-compose", "-f", self.compose_file, "down"]
+        cmd = ["docker", "compose", "-f", self.compose_file, "down"]
         if flag:
             cmd.append(flag)
         self.run_command(cmd, check=False)

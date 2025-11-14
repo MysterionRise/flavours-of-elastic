@@ -89,17 +89,17 @@ You would need to install [Docker](https://docs.docker.com/install/) and [Docker
 # Elastic Stack
 # The .env file is pre-configured with default credentials (elastic/elastic)
 # You can modify them if needed before running
-docker-compose -f docker/elk/docker-compose.yml --env-file .env up
+docker compose -f docker/elk/docker-compose.yml --env-file .env up
 curl --insecure https://localhost:9200 -u elastic:elastic
 
 # OpenSearch
 # The .env file is pre-configured with a strong admin password
 # Check OPENSEARCH_INITIAL_ADMIN_PASSWORD in .env file
-docker-compose -f docker/opensearch/docker-compose.yml --env-file .env up
+docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
 curl --insecure https://localhost:9200 -u admin:YOUR_PASSWORD_FROM_ENV
 
 # Elasticsearch OSS (do not update OSS version)
-docker-compose -f docker/elk-oss/docker-compose.yml --env-file .env up
+docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
 curl http://localhost:9200
 
 ```
@@ -245,7 +245,7 @@ sudo lsof -i :9200
 sudo lsof -i :5601
 
 # Stop any existing Elasticsearch/Kibana processes
-docker-compose down
+docker compose down
 
 # Or use different ports by modifying docker-compose.yml
 ```
@@ -287,8 +287,8 @@ If `curl` commands fail:
 1. **Wait for services to start** - initial startup can take 2-5 minutes
 2. **Check container health**:
    ```sh
-   docker-compose ps
-   docker-compose logs
+   docker compose ps
+   docker compose logs
    ```
 3. **Verify correct protocol**: Elastic Stack and OpenSearch use HTTPS, Elastic OSS uses HTTP
 
@@ -298,14 +298,14 @@ For two-node clusters, both nodes must start successfully:
 
 1. **Check logs**:
    ```sh
-   docker-compose logs es01
-   docker-compose logs es02
+   docker compose logs es01
+   docker compose logs es02
    ```
 
 2. **Clean restart**:
    ```sh
-   docker-compose down -v  # Warning: deletes all data
-   docker-compose up
+   docker compose down -v  # Warning: deletes all data
+   docker compose up
    ```
 
 ### Certificate Errors (Elastic Stack)
@@ -315,9 +315,9 @@ If you see SSL/TLS errors:
 1. Certificates are auto-generated on first run
 2. If corrupted, remove and regenerate:
    ```sh
-   docker-compose down -v
+   docker compose down -v
    docker volume rm elk_certs  # if exists
-   docker-compose up
+   docker compose up
    ```
 
 ### Docker Not Running
@@ -349,17 +349,17 @@ docker system df
 
 To stop services and preserve data:
 ```sh
-docker-compose down
+docker compose down
 ```
 
 To stop services and **remove all data**:
 ```sh
-docker-compose down -v
+docker compose down -v
 ```
 
 To remove everything and start fresh:
 ```sh
-docker-compose down -v
+docker compose down -v
 docker system prune -a
 ```
 
@@ -376,7 +376,7 @@ If you want to contribute to this repository:
    pre-commit install
    ```
 
-3. **Make your changes** to docker-compose files, documentation, or configurations
+3. **Make your changes** to docker compose files, documentation, or configurations
 4. **Test your changes** by running the affected stack(s)
 5. **Submit a Pull Request** with a clear description
 

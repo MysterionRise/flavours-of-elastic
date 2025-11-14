@@ -22,7 +22,7 @@ jobs:
       - name: Install yamllint
         run: pip install yamllint
 
-      - name: Validate docker-compose files
+      - name: Validate docker compose files
         run: |
           yamllint docker/elk/docker-compose.yml
           yamllint docker/opensearch/docker-compose.yml
@@ -41,7 +41,7 @@ jobs:
 
       - name: Start Elastic OSS cluster
         run: |
-          docker-compose -f docker/elk-oss/docker-compose.yml --env-file .env up -d
+          docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up -d
 
       - name: Wait for cluster to be ready
         run: |
@@ -88,12 +88,12 @@ jobs:
       - name: Show container logs on failure
         if: failure()
         run: |
-          docker-compose -f docker/elk-oss/docker-compose.yml logs
+          docker compose -f docker/elk-oss/docker-compose.yml logs
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f docker/elk-oss/docker-compose.yml down -v
+          docker compose -f docker/elk-oss/docker-compose.yml down -v
 
   test-opensearch:
     name: Test OpenSearch Stack
@@ -107,7 +107,7 @@ jobs:
 
       - name: Start OpenSearch cluster
         run: |
-          docker-compose -f docker/opensearch/docker-compose.yml --env-file .env up -d
+          docker compose -f docker/opensearch/docker-compose.yml --env-file .env up -d
 
       - name: Wait for cluster to be ready
         run: |
@@ -157,12 +157,12 @@ jobs:
       - name: Show container logs on failure
         if: failure()
         run: |
-          docker-compose -f docker/opensearch/docker-compose.yml logs
+          docker compose -f docker/opensearch/docker-compose.yml logs
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f docker/opensearch/docker-compose.yml down -v
+          docker compose -f docker/opensearch/docker-compose.yml down -v
 
   test-elastic:
     name: Test Elastic Stack
@@ -176,7 +176,7 @@ jobs:
 
       - name: Start Elastic Stack
         run: |
-          docker-compose -f docker/elk/docker-compose.yml --env-file .env up -d
+          docker compose -f docker/elk/docker-compose.yml --env-file .env up -d
 
       - name: Wait for cluster to be ready
         run: |
@@ -230,9 +230,9 @@ jobs:
       - name: Show container logs on failure
         if: failure()
         run: |
-          docker-compose -f docker/elk/docker-compose.yml logs
+          docker compose -f docker/elk/docker-compose.yml logs
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f docker/elk/docker-compose.yml down -v
+          docker compose -f docker/elk/docker-compose.yml down -v
