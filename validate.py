@@ -11,12 +11,10 @@ This script validates that all three stacks (Elastic, OpenSearch, ELK-OSS) can:
 """
 
 import argparse
-import json
 import subprocess
 import sys
 import time
 from typing import Dict, Tuple
-from urllib.parse import quote
 
 try:
     import requests
@@ -57,7 +55,8 @@ class StackValidator:
         print(f"{'=' * 60}")
 
         cmd = [
-            "docker", "compose",
+            "docker",
+            "compose",
             "-f",
             self.compose_file,
             "--env-file",
@@ -85,9 +84,7 @@ class StackValidator:
         self.run_command(cmd, check=False)
         print(f"✅ {self.name} stopped")
 
-    def wait_for_service(
-        self, url: str, timeout: int = 180, interval: int = 5
-    ) -> bool:
+    def wait_for_service(self, url: str, timeout: int = 180, interval: int = 5) -> bool:
         """Wait for a service to respond."""
         print(f"Waiting for service at {url}...")
         start_time = time.time()
@@ -98,7 +95,7 @@ class StackValidator:
                     url, auth=self.auth, verify=self.verify_ssl, timeout=5
                 )
                 if response.status_code in [200, 401]:
-                    print(f"✅ Service is responding")
+                    print("✅ Service is responding")
                     return True
             except requests.exceptions.RequestException:
                 pass
@@ -171,7 +168,7 @@ class StackValidator:
             if response.status_code not in [200, 201]:
                 print(f"❌ Failed to add document: {response.status_code}")
                 return False
-            print(f"✅ Added document to index")
+            print("✅ Added document to index")
         except Exception as e:
             print(f"❌ Document insertion error: {e}")
             return False
@@ -198,7 +195,7 @@ class StackValidator:
                 print(f"✅ Search successful: found {total} documents")
                 return True
             else:
-                print(f"❌ Search returned no results")
+                print("❌ Search returned no results")
                 return False
         except Exception as e:
             print(f"❌ Search error: {e}")
@@ -242,9 +239,8 @@ class StackValidator:
                 success = False
                 return success
 
-            # Check UI
-            ui_result = self.check_ui("http://localhost:5601", self.ui_name)
-            # UI is optional, don't fail validation if it's not ready
+            # Check UI (optional, don't fail validation if it's not ready)
+            self.check_ui("http://localhost:5601", self.ui_name)
 
             if success:
                 print(f"\n{'=' * 60}")
@@ -291,9 +287,7 @@ class ElasticValidator(StackValidator):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Validate flavours-of-elastic stacks"
-    )
+    parser = argparse.ArgumentParser(description="Validate flavours-of-elastic stacks")
     parser.add_argument(
         "--stack",
         choices=["elk-oss", "opensearch", "elastic", "all"],

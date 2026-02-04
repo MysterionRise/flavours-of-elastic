@@ -1,2 +1,15 @@
-.idea
+# IDE
+.idea/
 *.iml
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Coverage (if added later)
+.coverage
+htmlcov/
+coverage.xml
