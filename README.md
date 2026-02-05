@@ -1,483 +1,308 @@
-# Repo with collection of different Elastic flavours and their usage
+# Flavours of Elastic - Educational Elasticsearch Repository
 
 [![CI](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml/badge.svg)](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-## What's supported:
+Docker Compose configurations for running and comparing Elasticsearch-based search engines, designed for a **4-day educational course** covering modern search techniques including vector search and semantic search.
 
-- [OpenSearch](https://opensearch.org)
-- [ElasticSearch](https://www.elastic.co)
+## What's Supported
 
-### Versions (.env file)
-- OpenSearch: **2.17.1**
-- Elastic OSS (legacy): **7.10.2**
-- Elastic Stack: **8.15.2**
+| Stack | Version | Use Case |
+|-------|---------|----------|
+| **Elastic Stack** | 8.18.0 | Production-like 2-node cluster with TLS |
+| **Elastic Single** | 8.18.0 | Beginner-friendly single-node (4GB RAM) |
+| **Elastic ML** | 8.18.0 | ML/ELSER features for semantic search (8GB+ RAM) |
+| **OpenSearch** | 2.19.1 | Open-source alternative |
+| **Elastic OSS** | 7.10.2 | Legacy support (frozen, no updates) |
 
 ## Quick Start
 
-Choose the stack you want to explore:
+### For Beginners (Day 1-2)
 
-1. **Elastic Stack (Latest)** - Modern Elasticsearch with Kibana
-   - Best for: Learning latest features, production use with licensing
-   - Port: 9200 (HTTPS), Kibana: 5601
+Start with the single-node configuration - simpler setup, lower memory:
 
-2. **OpenSearch** - Open-source alternative to Elasticsearch
-   - Best for: Open-source projects, AWS compatibility
-   - Port: 9200 (HTTPS), Dashboards: 5601
+```bash
+# Start Elastic Single (4GB RAM required)
+docker compose -f docker/elk-single/docker-compose.yml --env-file .env up
 
-3. **Elastic OSS (Legacy)** - Elasticsearch 7.10.2 OSS
-   - Best for: Supporting legacy 7.x applications, no authentication
-   - Port: 9200 (HTTP)
+# Access Elasticsearch
+curl http://localhost:9200 -u elastic:elastic
 
-## Comparison Table
+# Access Kibana at http://localhost:5601 (login: elastic/elastic)
+```
 
-| Feature | Elastic Stack (Latest) | OpenSearch | Elastic OSS (Legacy) |
-|---------|------------------------|------------|----------------------|
-| **Version** | 8.15.2 | 2.17.1 | 7.10.2 |
-| **License** | SSPL / Elastic License | Apache 2.0 | Apache 2.0 |
-| **Security** | ✅ Built-in (Basic Auth, TLS) | ✅ Built-in | ❌ Not included |
-| **Protocol** | HTTPS | HTTPS | HTTP |
-| **UI** | Kibana | OpenSearch Dashboards | Kibana OSS |
-| **Use Case** | Latest features, commercial support | Fully open-source, AWS ecosystem | Legacy 7.x support |
-| **Authentication** | Required (elastic/elastic) | Required (admin/strong-password) | Not required |
-| **Updates** | Active development | Active development | No updates (frozen) |
-| **Plugins** | Extensive ecosystem | Growing ecosystem | Limited (7.x only) |
-| **Memory Usage** | ~2-3GB | ~4GB | ~1GB |
-| **Best For Students** | Learning modern features | Open-source projects | Simple setup, testing |
+### For Full Course (Day 3-4)
 
-**When to use each:**
-- **Elastic Stack**: You want to learn the latest Elasticsearch features and don't mind the licensing
-- **OpenSearch**: You prefer truly open-source software or plan to deploy on AWS
-- **Elastic OSS**: You need compatibility with legacy 7.x applications or want the simplest setup without security
+Use the ML-enabled configuration for vector/semantic search:
+
+```bash
+# Start Elastic ML (8GB+ RAM required)
+docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
+
+# Access via HTTPS
+curl --insecure https://localhost:9200 -u elastic:elastic
+```
+
+### Load Sample Data
+
+```bash
+# Install requirements
+pip install requests
+
+# Load movies dataset (100 docs - quick start)
+python data/load_data.py --dataset movies --size small
+
+# Load full dataset (5000 docs)
+python data/load_data.py --dataset movies --size full
+
+# Load with embeddings (for Day 4 vector search)
+python data/load_data.py --dataset movies --with-embeddings
+```
+
+## 4-Day Course Structure
+
+### Day 1: Elasticsearch Fundamentals
+- Introduction to Elastic Stack architecture
+- Running Elasticsearch locally (use `elk-single`)
+- Kibana basics: Dev Tools, Discover, Dashboards
+- Basic CRUD operations, cluster health
+- **NEW:** Brief intro to ES|QL in Discover
+
+### Day 2: Query DSL & Search
+- Query DSL: match, term, bool, range
+- Full-text search: analyzers, relevance scoring (BM25)
+- Aggregations: metrics, buckets, nested
+- **NEW:** ES|QL for data exploration
+
+### Day 3: Indexing & Text Analysis
+- Index API, mappings, settings
+- Data ingestion (bulk API)
+- Custom text analyzers
+- **Advanced:** `dense_vector` field basics, kNN search intro
+
+### Day 4: Modern Search Techniques
+- Complex data structures: nested, parent-child
+- **NEW:** Semantic search with `semantic_text` field
+- **NEW:** ELSER model deployment
+- **Advanced:** Hybrid search with RRF
+
+See `exercises/day4-semantic-search/` for Day 4 exercises.
+
+## Stack Comparison
+
+| Feature | Elastic Stack | Elastic Single | Elastic ML | OpenSearch | Elastic OSS |
+|---------|--------------|----------------|------------|------------|-------------|
+| **Nodes** | 2 | 1 | 2 | 2 | 2 |
+| **Protocol** | HTTPS | HTTP | HTTPS | HTTPS | HTTP |
+| **Auth** | elastic/elastic | elastic/elastic | elastic/elastic | admin/password | None |
+| **Memory** | 2-3GB | ~2GB | 6-8GB | 4GB | 1GB |
+| **ML/ELSER** | No | No | **Yes** | No | No |
+| **Best For** | Production-like | Beginners | Day 4 Semantic | Open source | Legacy |
+
+### When to Use Each
+
+- **Elastic Single**: Learning basics, limited RAM, Days 1-2
+- **Elastic Stack**: Production-like testing, TLS experience
+- **Elastic ML**: Vector search, semantic search, ELSER, Day 4
+- **OpenSearch**: Open-source preference, AWS compatibility
+- **Elastic OSS**: Legacy 7.x applications only
 
 ## Prerequisites
 
-Before running these examples, ensure you have:
+- **Docker**: 20.10+ ([Install Docker](https://docs.docker.com/install/))
+- **Docker Compose**: 1.29+ ([Install Docker Compose](https://docs.docker.com/compose/install/))
+- **RAM Requirements**:
+  - Elastic Single: 4GB minimum
+  - Elastic Stack/OpenSearch: 6GB minimum
+  - Elastic ML: 8GB recommended
+- **Disk Space**: 10GB free
+- **Ports**: 9200, 5601
 
-- **Docker**: Version 20.10+ ([Install Docker](https://docs.docker.com/install/))
-- **Docker Compose**: Version 1.29+ ([Install Docker Compose](https://docs.docker.com/compose/install/))
-- **System RAM**: Minimum 8GB recommended (4GB absolute minimum)
-  - Elastic Stack: ~2-3GB
-  - OpenSearch: ~4GB
-  - Elastic OSS: ~1GB
-- **Disk Space**: At least 10GB free
-- **Available Ports**: 9200, 5601, 9600
-
-**Note for Linux users**: You may need to increase `vm.max_map_count`:
-```sh
+**Linux users**: Increase `vm.max_map_count`:
+```bash
 sudo sysctl -w vm.max_map_count=262144
 ```
 
-**Java Heap Sizes Explained:**
+## Running All Stacks
 
-The different memory configurations reflect realistic usage patterns:
-- **Elastic Stack (1GB per node)**: Balanced for production-like testing with security features
-- **OpenSearch (2GB per node)**: Higher baseline due to additional built-in features and plugins
-- **Elastic OSS (512MB per node)**: Minimal configuration for legacy support and testing
+```bash
+# Elastic Single (beginners, low memory)
+docker compose -f docker/elk-single/docker-compose.yml --env-file .env up
 
-If you have limited RAM (< 8GB), you can reduce these values in the docker-compose.yml files:
-```yaml
-- "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Minimum recommended
-```
-
-## How To Run Those Examples
-
-You would need to install [Docker](https://docs.docker.com/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
-
-### Start cluster
-
-```sh
-# Elastic Stack
-# The .env file is pre-configured with default credentials (elastic/elastic)
-# You can modify them if needed before running
+# Elastic Stack (production-like, 2 nodes)
 docker compose -f docker/elk/docker-compose.yml --env-file .env up
-curl --insecure https://localhost:9200 -u elastic:elastic
+
+# Elastic ML (for ELSER/semantic search)
+docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
 
 # OpenSearch
-# The .env file is pre-configured with a strong admin password
-# Check OPENSEARCH_INITIAL_ADMIN_PASSWORD in .env file
 docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
-curl --insecure https://localhost:9200 -u admin:YOUR_PASSWORD_FROM_ENV
 
-# Elasticsearch OSS (do not update OSS version)
+# Elasticsearch OSS (legacy)
 docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
-curl http://localhost:9200
-
 ```
 
-After some time you will have Kibana/OpenSearch Dashboards available at this [URL](http://localhost:5601/)
+## Sample Queries
 
-### Next Steps - Getting Started with Queries
+### Basic Search (Days 1-2)
 
-Once your cluster is running, try these basic operations:
+```bash
+# Create an index
+curl -X PUT "http://localhost:9200/movies" -u elastic:elastic
 
-#### 1. Create an Index
-
-**Elastic Stack / OpenSearch:**
-```sh
-curl --insecure -X PUT "https://localhost:9200/my-first-index" -u elastic:elastic
-```
-
-**Elastic OSS:**
-```sh
-curl -X PUT "http://localhost:9200/my-first-index"
-```
-
-#### 2. Add a Document
-
-**Elastic Stack / OpenSearch:**
-```sh
-curl --insecure -X POST "https://localhost:9200/my-first-index/_doc/1" \
+# Add a document
+curl -X POST "http://localhost:9200/movies/_doc/1" \
   -u elastic:elastic \
   -H 'Content-Type: application/json' \
-  -d '{
-    "title": "Learning Elasticsearch",
-    "description": "This is my first document",
-    "timestamp": "2025-01-15"
-  }'
+  -d '{"title": "The Matrix", "year": 1999}'
+
+# Search
+curl "http://localhost:9200/movies/_search?q=Matrix" -u elastic:elastic
 ```
 
-**Elastic OSS:**
-```sh
-curl -X POST "http://localhost:9200/my-first-index/_doc/1" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "title": "Learning Elasticsearch",
-    "description": "This is my first document",
-    "timestamp": "2025-01-15"
-  }'
+### ES|QL Query (Day 2)
+
+```
+POST /_query
+{
+  "query": "FROM movies | WHERE year > 1990 | STATS count = COUNT(*) BY genres | SORT count DESC"
+}
 ```
 
-#### 3. Search Documents
+### Vector Search (Day 4)
 
-**Elastic Stack / OpenSearch:**
-```sh
-curl --insecure "https://localhost:9200/my-first-index/_search?q=Learning" -u elastic:elastic
+```json
+GET /movies-embeddings/_search
+{
+  "knn": {
+    "field": "overview_embedding",
+    "query_vector": [0.1, 0.2, ...],
+    "k": 10,
+    "num_candidates": 100
+  }
+}
 ```
 
-**Elastic OSS:**
-```sh
-curl "http://localhost:9200/my-first-index/_search?q=Learning"
+### Hybrid Search with RRF (Day 4)
+
+```json
+GET /movies-embeddings/_search
+{
+  "retriever": {
+    "rrf": {
+      "retrievers": [
+        { "standard": { "query": { "match": { "overview": "space adventure" } } } },
+        { "knn": { "field": "overview_embedding", "query_vector": [...], "k": 10 } }
+      ]
+    }
+  }
+}
 ```
 
-#### 4. Explore with Kibana/Dashboards
+## Project Structure
 
-1. Open http://localhost:5601/ in your browser
-2. **For Elastic Stack**: Login with `elastic` / `elastic`
-3. **For OpenSearch**: Login with `admin` / `<password-from-env>`
-4. **For Elastic OSS**: No login required
-5. Go to **Dev Tools** (Console) to run queries interactively
-6. Try creating visualizations and dashboards
-
-#### 5. Common Operations
-
-```sh
-# List all indices
-curl --insecure "https://localhost:9200/_cat/indices?v" -u elastic:elastic
-
-# Check cluster health
-curl --insecure "https://localhost:9200/_cluster/health?pretty" -u elastic:elastic
-
-# Get document by ID
-curl --insecure "https://localhost:9200/my-first-index/_doc/1" -u elastic:elastic
-
-# Delete an index
-curl --insecure -X DELETE "https://localhost:9200/my-first-index" -u elastic:elastic
+```
+flavours-of-elastic/
+├── docker/
+│   ├── elk/              # Elastic Stack (2-node, TLS)
+│   ├── elk-single/       # Single-node for beginners
+│   ├── elk-ml/           # ML-enabled for ELSER
+│   ├── opensearch/       # OpenSearch cluster
+│   └── elk-oss/          # Legacy OSS (7.10.2)
+├── data/
+│   ├── datasets/         # Sample datasets (movies)
+│   ├── load_data.py      # Unified data loader
+│   └── README.md         # Data loading guide
+├── exercises/
+│   └── day4-semantic-search/  # Vector/semantic search exercises
+├── .env                  # Environment configuration
+├── validate.py           # Stack validation script
+└── README.md
 ```
 
-## Licence Changes
+## Validation & Testing
 
-After recent changes [announced](https://www.elastic.co/blog/licensing-change) for Elastic to move its product to SSPL licence, I would strongly recommend to keep using truly open source version of it.
-Not only it has security features available for free, but also it doesn't have any strings attached to it via SSPL licence.
+### Validate Stacks Locally
 
-Read more on this [here](https://anonymoushash.vmbrasseur.com/2021/01/14/elasticsearch-and-kibana-are-now-business-risks)
-
-## Benchmarking
-
-Want to compare performance between different stacks? Use these benchmarking tools:
-
-### For Elastic Stack (and Elastic OSS)
-
-Use [ESRally](https://github.com/elastic/rally) - the official Elasticsearch benchmarking tool.
-
-**Install:**
-```sh
-pip3 install esrally
-```
-
-**Run benchmark:**
-```sh
-# For Elastic Stack (with authentication)
-esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only \
-  --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'elastic',basic_auth_password:'elastic'"
-
-# For Elastic OSS (no authentication)
-esrally race --track=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only
-```
-
-### For OpenSearch
-
-Use [OpenSearch Benchmark](https://github.com/opensearch-project/opensearch-benchmark) - compatible with OpenSearch.
-
-**Install:**
-```sh
-pip install opensearch-benchmark
-```
-
-**Run benchmark:**
-```sh
-opensearch-benchmark execute-test --workload=geonames --target-hosts=localhost:9200 --pipeline=benchmark-only \
-  --client-options="use_ssl:true,verify_certs:false,basic_auth_user:'admin',basic_auth_password:'YOUR_PASSWORD_FROM_ENV'"
-```
-
-**Available workloads:** geonames, http_logs, nyc_taxis, percolator, and more. See [workload repository](https://github.com/opensearch-project/opensearch-benchmark-workloads) for details.
-
-Compare results between stacks and create your own test experiments!
-
-## Troubleshooting
-
-### Port Already in Use (9200 or 5601)
-
-If you see an error like "port is already allocated":
-
-```sh
-# Check what's using the port
-sudo lsof -i :9200
-sudo lsof -i :5601
-
-# Stop any existing Elasticsearch/Kibana processes
-docker compose down
-
-# Or use different ports by modifying docker-compose.yml
-```
-
-### Out of Memory Errors
-
-If containers crash with OOM errors:
-
-1. **Reduce Java heap size** in docker-compose.yml:
-   ```yaml
-   - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Reduce from 1G or 2G
-   ```
-
-2. **Increase Docker memory limit**:
-   - Docker Desktop: Settings → Resources → Memory (set to 6GB+)
-   - Linux: Docker uses host memory directly
-
-3. **Run only one stack at a time** to reduce memory usage
-
-### vm.max_map_count Too Low (Linux)
-
-Error: `max virtual memory areas vm.max_map_count [65530] is too low`
-
-**Temporary fix:**
-```sh
-sudo sysctl -w vm.max_map_count=262144
-```
-
-**Permanent fix:**
-```sh
-echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-```
-
-### Connection Refused or Timeout
-
-If `curl` commands fail:
-
-1. **Wait for services to start** - initial startup can take 2-5 minutes
-2. **Check container health**:
-   ```sh
-   docker compose ps
-   docker compose logs
-   ```
-3. **Verify correct protocol**: Elastic Stack and OpenSearch use HTTPS, Elastic OSS uses HTTP
-
-### Elasticsearch Fails to Start in Cluster
-
-For two-node clusters, both nodes must start successfully:
-
-1. **Check logs**:
-   ```sh
-   docker compose logs es01
-   docker compose logs es02
-   ```
-
-2. **Clean restart**:
-   ```sh
-   docker compose down -v  # Warning: deletes all data
-   docker compose up
-   ```
-
-### Certificate Errors (Elastic Stack)
-
-If you see SSL/TLS errors:
-
-1. Certificates are auto-generated on first run
-2. If corrupted, remove and regenerate:
-   ```sh
-   docker compose down -v
-   docker volume rm elk_certs  # if exists
-   docker compose up
-   ```
-
-### Docker Not Running
-
-Error: `Cannot connect to the Docker daemon`
-
-```sh
-# Start Docker
-sudo systemctl start docker  # Linux
-# or open Docker Desktop (Mac/Windows)
-
-# Verify Docker is running
-docker ps
-```
-
-### Disk Space Issues
-
-If you run low on disk space:
-
-```sh
-# Remove all stopped containers and unused volumes
-docker system prune -a --volumes
-
-# Check Docker disk usage
-docker system df
-```
-
-## Cleanup
-
-To stop services and preserve data:
-```sh
-docker compose down
-```
-
-To stop services and **remove all data**:
-```sh
-docker compose down -v
-```
-
-To remove everything and start fresh:
-```sh
-docker compose down -v
-docker system prune -a
-```
-
-## Development & Contributing
-
-### For Contributors
-
-If you want to contribute to this repository:
-
-1. **Fork and clone** the repository
-2. **Install pre-commit hooks** for code quality:
-   ```sh
-   pip install pre-commit
-   pre-commit install
-   ```
-
-3. **Make your changes** to docker compose files, documentation, or configurations
-4. **Test your changes** by running the affected stack(s)
-5. **Submit a Pull Request** with a clear description
-
-### Pre-commit Hooks
-
-This repository uses pre-commit hooks to maintain code quality:
-- **check-yaml**: Validates YAML syntax
-- **end-of-file-fixer**: Ensures files end with newline
-- **trailing-whitespace**: Removes trailing spaces
-- **black**: Python code formatter
-- **isort**: Sorts Python imports
-- **flake8**: Python linter
-
-To run manually before committing:
-```sh
-pre-commit run --all-files
-```
-
-### Testing & Validation
-
-This repository includes automated testing to ensure all stacks work correctly.
-
-#### Continuous Integration
-
-GitHub Actions automatically tests all three stacks on every push and pull request:
-- ✅ YAML validation
-- ✅ Each stack starts successfully
-- ✅ Cluster health checks pass
-- ✅ Index operations work (create, insert, search)
-- ✅ UI (Kibana/Dashboards) is accessible
-
-View CI status: [![CI](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml/badge.svg)](https://github.com/MysterionRise/flavours-of-elastic/actions/workflows/ci.yml)
-
-#### Local Validation
-
-Test all stacks locally using the validation script:
-
-**Install dependencies:**
-```sh
+```bash
 pip install -r requirements.txt
-```
 
-**Run validation:**
-```sh
 # Test all stacks
 python validate.py --stack all
 
 # Test specific stack
-python validate.py --stack elk-oss
-python validate.py --stack opensearch
+python validate.py --stack elk-single
+python validate.py --stack elk-ml
 python validate.py --stack elastic
+python validate.py --stack opensearch
+python validate.py --stack elk-oss
 ```
 
-The validation script checks:
-1. Stack starts successfully
-2. Cluster responds and is healthy
-3. Can create indices
-4. Can index documents
-5. Can search documents
-6. UI is accessible
+### CI Pipeline
 
-**Note:** The script automatically cleans up Docker volumes after testing. Use `--no-cleanup` to preserve volumes.
+GitHub Actions automatically tests:
+- YAML validation
+- All stack configurations
+- Health checks and CRUD operations
+- Vector operations (elk-ml)
 
-### Project Structure
+## Troubleshooting
 
-```
-flavours-of-elastic/
-├── .github/
-│   └── workflows/
-│       └── ci.yml        # GitHub Actions CI pipeline
-├── docker/
-│   ├── elk/              # Elastic Stack (latest)
-│   ├── opensearch/       # OpenSearch
-│   └── elk-oss/          # Elastic OSS (7.10.2 legacy)
-├── benchmarks/           # Benchmark results
-├── .env                  # Environment configuration
-├── .env.example          # Template for configuration
-├── validate.py           # Validation script for local testing
-├── requirements.txt      # Python dependencies
-└── ISSUES.md            # Tracked issues and improvements
+### Out of Memory
+- Use `elk-single` for limited RAM
+- Reduce heap size in docker-compose.yml: `ES_JAVA_OPTS=-Xms512m -Xmx512m`
+
+### Port Already in Use
+```bash
+# Check what's using port 9200
+sudo lsof -i :9200
+
+# Stop existing containers
+docker compose down
 ```
 
-### Updating Versions
+### vm.max_map_count Too Low (Linux)
+```bash
+sudo sysctl -w vm.max_map_count=262144
+# Permanent: echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+```
 
-When updating Elastic or OpenSearch versions:
+### Connection Refused
+- Wait 2-5 minutes for initial startup
+- Check container status: `docker compose ps`
+- View logs: `docker compose logs`
 
-1. Update version in `.env` file
-2. Update version in `README.md` (Versions section)
-3. Test all three stacks to ensure compatibility
-4. Update `ISSUES.md` if new issues are discovered
-5. Commit with clear message: `feat: update <stack> to <version>`
+### Certificate Errors
+```bash
+# Use --insecure with curl for self-signed certs
+curl --insecure https://localhost:9200 -u elastic:elastic
+```
 
-## Learn More
+## Cleanup
 
-- [Elasticsearch Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html)
+```bash
+# Stop and remove volumes
+docker compose -f docker/<stack>/docker-compose.yml down -v
+
+# Remove all Docker resources
+docker system prune -a --volumes
+```
+
+## Contributing
+
+1. Fork and clone the repository
+2. Install pre-commit hooks: `pip install pre-commit && pre-commit install`
+3. Make changes and test with `python validate.py`
+4. Submit a Pull Request
+
+## Resources
+
+- [Elasticsearch Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html)
+- [ES|QL Getting Started](https://www.elastic.co/guide/en/elasticsearch/reference/current/esql-getting-started.html)
+- [Vector Search Guide](https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html)
+- [Semantic Search with ELSER](https://www.elastic.co/guide/en/elasticsearch/reference/current/semantic-search-elser.html)
 - [OpenSearch Documentation](https://opensearch.org/docs/latest/)
-- [Kibana Guide](https://www.elastic.co/guide/en/kibana/current/index.html)
-- [OpenSearch Dashboards](https://opensearch.org/docs/latest/dashboards/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
 
 ## License
 

@@ -1,10 +1,11 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -49,9 +50,80 @@ jobs:
       - name: Validate docker compose files
         run: |
           yamllint docker/elk/docker-compose.yml
+          yamllint docker/elk-single/docker-compose.yml
+          yamllint docker/elk-ml/docker-compose.yml
           yamllint docker/opensearch/docker-compose.yml
           yamllint docker/elk-oss/docker-compose.yml
           yamllint .pre-commit-config.yaml
+
+  test-elk-single:
+    name: Test Elastic Single Stack
+    runs-on: ubuntu-latest
+    needs: [lint, validate-yaml]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start Elastic Single cluster
+        run: |
+          docker compose -f docker/elk-single/docker-compose.yml --env-file .env up -d
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "Waiting for Elasticsearch to be ready..."
+          for i in {1..60}; do
+            if curl -s -u elastic:elastic http://localhost:9200 | grep -q "cluster_name"; then
+              echo "Elasticsearch is ready!"
+              break
+            fi
+            echo "Attempt $i/60: Waiting..."
+            sleep 5
+          done
+
+      - name: Check cluster health
+        run: |
+          curl -f -u elastic:elastic http://localhost:9200/_cluster/health?pretty
+
+      - name: Create test index
+        run: |
+          curl -f -X PUT "http://localhost:9200/test-index" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json'
+
+      - name: Add test document
+        run: |
+          curl -f -X POST "http://localhost:9200/test-index/_doc/1" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json' \
+            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
+
+      - name: Search documents
+        run: |
+          curl -f -u elastic:elastic "http://localhost:9200/test-index/_search?q=CI"
+
+      - name: Check Kibana
+        run: |
+          echo "Waiting for Kibana..."
+          for i in {1..30}; do
+            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
+              echo "Kibana is responding!"
+              break
+            fi
+            echo "Attempt $i/30: Waiting..."
+            sleep 5
+          done
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/elk-single/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/elk-single/docker-compose.yml down -v
 
   test-elk-oss:
     name: Test Elastic OSS Stack
@@ -304,3 +376,129 @@ jobs:
         if: always()
         run: |
           docker compose -f docker/elk/docker-compose.yml down -v
+
+  test-elk-ml:
+    name: Test Elastic ML Stack
+    runs-on: ubuntu-latest
+    needs: [lint, validate-yaml]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start Elastic ML Stack
+        run: |
+          docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up -d
+
+      - name: Check container status
+        run: |
+          echo "Checking container status..."
+          docker compose -f docker/elk-ml/docker-compose.yml ps
+          echo "Waiting for initial setup..."
+          sleep 60
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "Waiting for Elasticsearch to be ready..."
+          for i in {1..90}; do
+            if curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
+              echo "Elasticsearch is ready!"
+              break
+            fi
+            echo "Attempt $i/90: Waiting..."
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Container status at attempt $i:"
+              docker compose -f docker/elk-ml/docker-compose.yml ps
+            fi
+            sleep 10
+          done
+
+          # Verify cluster is responding
+          if ! curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
+            echo "ERROR: Elastic ML Stack failed to start within timeout"
+            echo "Container status:"
+            docker compose -f docker/elk-ml/docker-compose.yml ps
+            echo "Setup container logs:"
+            docker compose -f docker/elk-ml/docker-compose.yml logs setup
+            echo "ES01 logs:"
+            docker compose -f docker/elk-ml/docker-compose.yml logs es01 --tail=50
+            exit 1
+          fi
+
+      - name: Check cluster health
+        run: |
+          curl -k -f -u elastic:elastic https://localhost:9200/_cluster/health?pretty
+
+      - name: Verify ML nodes are available
+        run: |
+          echo "Checking for ML-enabled nodes..."
+          curl -k -f -u elastic:elastic https://localhost:9200/_cat/nodes?v
+          curl -k -s -u elastic:elastic https://localhost:9200/_nodes | grep -q '"ml"' && echo "ML nodes found!" || echo "Warning: ML role not detected"
+
+      - name: Test vector index creation
+        run: |
+          curl -k -f -X PUT "https://localhost:9200/test-vector-index" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "mappings": {
+                "properties": {
+                  "title": {"type": "text"},
+                  "embedding": {
+                    "type": "dense_vector",
+                    "dims": 3,
+                    "index": true,
+                    "similarity": "cosine"
+                  }
+                }
+              }
+            }'
+
+      - name: Add vector documents
+        run: |
+          curl -k -f -X POST "https://localhost:9200/test-vector-index/_bulk" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/x-ndjson' \
+            -d '{"index": {"_id": "1"}}
+          {"title": "Document A", "embedding": [0.5, 0.5, 0.5]}
+          {"index": {"_id": "2"}}
+          {"title": "Document B", "embedding": [0.1, 0.9, 0.1]}
+          '
+
+      - name: Test kNN query
+        run: |
+          sleep 2
+          curl -k -f -X POST "https://localhost:9200/test-vector-index/_search" \
+            -u elastic:elastic \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "knn": {
+                "field": "embedding",
+                "query_vector": [0.5, 0.5, 0.5],
+                "k": 2,
+                "num_candidates": 10
+              }
+            }'
+
+      - name: Check Kibana
+        run: |
+          echo "Waiting for Kibana..."
+          for i in {1..40}; do
+            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
+              echo "Kibana is responding!"
+              break
+            fi
+            echo "Attempt $i/40: Waiting..."
+            sleep 10
+          done
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker/elk-ml/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f docker/elk-ml/docker-compose.yml down -v

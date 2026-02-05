@@ -286,11 +286,212 @@ class ElasticValidator(StackValidator):
         self.ui_name = "Kibana"
 
 
+class ElasticSingleValidator(StackValidator):
+    """Validator for Elastic Single-Node Stack (beginners)."""
+
+    def __init__(self):
+        super().__init__("Elastic Single", "docker/elk-single/docker-compose.yml")
+        self.base_url = "http://localhost:9200"
+        self.auth = ("elastic", "elastic")  # From .env
+        self.verify_ssl = True
+        self.ui_name = "Kibana"
+
+
+class ElasticMLValidator(StackValidator):
+    """Validator for Elastic ML Stack (for ELSER and ML features)."""
+
+    def __init__(self):
+        super().__init__("Elastic ML", "docker/elk-ml/docker-compose.yml")
+        self.base_url = "https://localhost:9200"
+        self.auth = ("elastic", "elastic")  # From .env
+        self.verify_ssl = False
+        self.ui_name = "Kibana"
+
+    def check_ml_enabled(self) -> bool:
+        """Check if ML is enabled and nodes have ML role."""
+        print(f"\nChecking ML capabilities on {self.name}...")
+        url = f"{self.base_url}/_nodes"
+
+        try:
+            response = requests.get(
+                url, auth=self.auth, verify=self.verify_ssl, timeout=10
+            )
+            if response.status_code == 200:
+                nodes = response.json().get("nodes", {})
+                ml_nodes = 0
+                for node_id, node_info in nodes.items():
+                    roles = node_info.get("roles", [])
+                    if "ml" in roles:
+                        ml_nodes += 1
+                        print(f"   Node {node_info.get('name')}: ML enabled")
+
+                if ml_nodes > 0:
+                    print(f"✅ Found {ml_nodes} ML-enabled nodes")
+                    return True
+                else:
+                    print("❌ No ML-enabled nodes found")
+                    return False
+            else:
+                print(f"❌ Failed to check nodes: {response.status_code}")
+                return False
+        except Exception as e:
+            print(f"❌ ML check error: {e}")
+            return False
+
+    def test_vector_operations(self) -> bool:
+        """Test dense_vector field and kNN query."""
+        print(f"\nTesting vector operations on {self.name}...")
+        index_name = "test-vector-index"
+
+        # Create index with dense_vector
+        try:
+            url = f"{self.base_url}/{index_name}"
+            mapping = {
+                "mappings": {
+                    "properties": {
+                        "title": {"type": "text"},
+                        "embedding": {
+                            "type": "dense_vector",
+                            "dims": 3,
+                            "index": True,
+                            "similarity": "cosine",
+                        },
+                    }
+                }
+            }
+            response = requests.put(
+                url,
+                json=mapping,
+                auth=self.auth,
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={"Content-Type": "application/json"},
+            )
+            if response.status_code not in [200, 201]:
+                print(f"❌ Failed to create vector index: {response.status_code}")
+                return False
+            print(f"✅ Created vector index '{index_name}'")
+        except Exception as e:
+            print(f"❌ Vector index creation error: {e}")
+            return False
+
+        # Add documents with embeddings
+        try:
+            url = f"{self.base_url}/{index_name}/_bulk"
+            bulk_data = (
+                '{"index": {"_id": "1"}}\n'
+                '{"title": "Document A", "embedding": [0.5, 0.5, 0.5]}\n'
+                '{"index": {"_id": "2"}}\n'
+                '{"title": "Document B", "embedding": [0.1, 0.9, 0.1]}\n'
+                '{"index": {"_id": "3"}}\n'
+                '{"title": "Document C", "embedding": [0.9, 0.1, 0.1]}\n'
+            )
+            response = requests.post(
+                url,
+                data=bulk_data,
+                auth=self.auth,
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={"Content-Type": "application/x-ndjson"},
+            )
+            if response.status_code not in [200, 201]:
+                print(f"❌ Failed to index vectors: {response.status_code}")
+                return False
+            print("✅ Indexed documents with vectors")
+        except Exception as e:
+            print(f"❌ Vector indexing error: {e}")
+            return False
+
+        # Wait for indexing
+        time.sleep(2)
+
+        # Run kNN query
+        try:
+            url = f"{self.base_url}/{index_name}/_search"
+            query = {
+                "knn": {
+                    "field": "embedding",
+                    "query_vector": [0.5, 0.5, 0.5],
+                    "k": 2,
+                    "num_candidates": 10,
+                }
+            }
+            response = requests.post(
+                url,
+                json=query,
+                auth=self.auth,
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={"Content-Type": "application/json"},
+            )
+            if response.status_code != 200:
+                print(f"❌ kNN query failed: {response.status_code}")
+                return False
+
+            results = response.json()
+            hits = results.get("hits", {}).get("hits", [])
+            if len(hits) > 0:
+                print(f"✅ kNN query successful: found {len(hits)} results")
+                return True
+            else:
+                print("❌ kNN query returned no results")
+                return False
+        except Exception as e:
+            print(f"❌ kNN query error: {e}")
+            return False
+
+    def validate(self) -> bool:
+        """Run full validation including ML-specific checks."""
+        success = True
+
+        if not self.start_stack():
+            return False
+
+        try:
+            # Wait for main service
+            if not self.wait_for_service(self.base_url):
+                success = False
+                return success
+
+            # Check health
+            if not self.check_health():
+                success = False
+                return success
+
+            # Check ML capabilities
+            if not self.check_ml_enabled():
+                success = False
+                return success
+
+            # Test standard operations
+            if not self.test_index_operations():
+                success = False
+                return success
+
+            # Test vector operations
+            if not self.test_vector_operations():
+                success = False
+                return success
+
+            # Check UI
+            self.check_ui("http://localhost:5601", self.ui_name)
+
+            if success:
+                print(f"\n{'=' * 60}")
+                print(f"✅ {self.name} validation PASSED")
+                print(f"{'=' * 60}")
+
+        finally:
+            self.stop_stack(cleanup=True)
+
+        return success
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate flavours-of-elastic stacks")
     parser.add_argument(
         "--stack",
-        choices=["elk-oss", "opensearch", "elastic", "all"],
+        choices=["elk-oss", "opensearch", "elastic", "elk-single", "elk-ml", "all"],
         default="all",
         help="Which stack to validate (default: all)",
     )
@@ -306,6 +507,8 @@ def main():
         "elk-oss": ElasticOSSValidator(),
         "opensearch": OpenSearchValidator(),
         "elastic": ElasticValidator(),
+        "elk-single": ElasticSingleValidator(),
+        "elk-ml": ElasticMLValidator(),
     }
 
     if args.stack == "all":
