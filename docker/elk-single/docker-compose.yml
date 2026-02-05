@@ -16,7 +16,8 @@ services:
           exit 1;
         fi;
         echo "Waiting for Elasticsearch availability";
-        until curl -s http://elasticsearch:9200 | grep -q "missing authentication credentials"; do
+        until curl -s http://elasticsearch:9200 |
+          grep -q "missing authentication credentials"; do
           sleep 5;
         done;
         echo "Setting kibana_system password";
@@ -54,7 +55,8 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -s http://localhost:9200 | grep -q 'missing authentication credentials'",
+          "curl -s http://localhost:9200 |
+           grep -q 'missing authentication credentials'",
         ]
       interval: 10s
       timeout: 10s
