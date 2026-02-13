@@ -62,32 +62,37 @@ python data/load_data.py --dataset movies --with-embeddings
 
 ## 4-Day Course Structure
 
-### Day 1: Elasticsearch Fundamentals
-- Introduction to Elastic Stack architecture
-- Running Elasticsearch locally (use `elk-single`)
-- Kibana basics: Dev Tools, Discover, Dashboards
-- Basic CRUD operations, cluster health
-- **NEW:** Brief intro to ES|QL in Discover
+All course materials (Marp slides + exercises) are in the `course/` directory. See `course/README.md` for build instructions.
 
-### Day 2: Query DSL & Search
-- Query DSL: match, term, bool, range
-- Full-text search: analyzers, relevance scoring (BM25)
-- Aggregations: metrics, buckets, nested
-- **NEW:** ES|QL for data exploration
+### Day 1: Elasticsearch Fundamentals (2h) — `elk-single`
+- What is Elasticsearch, ES vs databases, Elastic ecosystem
+- Core concepts: cluster, node, index, shard, inverted index, BM25
+- Setup, Kibana tour (Discover, Dev Tools, Dashboards)
+- CRUD operations with the movies dataset
+- **Exercises:** 6 tasks (cluster exploration, CRUD, shard allocation)
 
-### Day 3: Indexing & Text Analysis
-- Index API, mappings, settings
-- Data ingestion (bulk API)
-- Custom text analyzers
-- **Advanced:** `dense_vector` field basics, kNN search intro
+### Day 2: Query DSL & ES|QL (2h) — `elk-single`
+- Full-text: `match`, `multi_match`, `match_phrase` (operator, slop, boosting)
+- Term-level: `term`, `terms`, `range`, `exists`, `prefix`
+- Compound: `bool` (must/filter/should/must_not), nested bools
+- Pagination, sorting, highlighting
+- ES|QL: pipe syntax, EVAL, STATS...BY, Kibana Discover integration
+- **Exercises:** 7 Query DSL tasks + 6 ES|QL tasks
 
-### Day 4: Modern Search Techniques
-- Complex data structures: nested, parent-child
-- **NEW:** Semantic search with `semantic_text` field
-- **NEW:** ELSER model deployment
-- **Advanced:** Hybrid search with RRF
+### Day 3: Indexing, Text Analysis & Aggregations (3h) — `elk-single` or `elastic`
+- Index API, bulk operations, refresh/flush, reindex, aliases, templates
+- Text analysis: analyzers, custom analyzers, edge_ngram autocomplete, synonyms
+- Mappings: dynamic vs explicit, text vs keyword, multi-fields
+- Aggregations: metric, bucket, nested, pipeline aggs, Kibana Lens
+- Nested & join types: nested objects, parent-child relationships
+- **Exercises:** 19 tasks across 4 parts (Indexing, Analyzers, Aggs, Nested/Join)
 
-See `exercises/day4-semantic-search/` for Day 4 exercises.
+### Day 4: Vector Search, Semantic Search & Hybrid (3h) — `elk-ml`
+- Vector fundamentals: embeddings, dense_vector, HNSW, kNN, filtered kNN
+- ELSER deployment, inference endpoints, semantic_text field, semantic queries
+- Hybrid search: RRF formula, Retriever API, BM25+kNN+semantic, tuning
+- Advanced: quantization (int8_hnsw), chunking, pre/post filtering, custom embeddings
+- **Exercises:** 18 tasks across 4 parts (Vector, ELSER, RRF, Advanced)
 
 ## Stack Comparison
 
@@ -204,6 +209,13 @@ GET /movies-embeddings/_search
 
 ```
 flavours-of-elastic/
+├── course/                        # Marp slides + exercises (4-day course)
+│   ├── README.md                  # Build instructions
+│   ├── theme/epam.css             # Custom Marp theme
+│   ├── day1-fundamentals/         # Slides (~50) + exercises (6 tasks)
+│   ├── day2-query-dsl/            # Slides (~55) + exercises (13 tasks)
+│   ├── day3-indexing-analysis/    # Slides (~65) + exercises (19 tasks)
+│   └── day4-semantic-search/      # Slides (~55) + exercises (18 tasks)
 ├── docker/
 │   ├── elk/              # Elastic Stack (2-node, TLS)
 │   ├── elk-single/       # Single-node for beginners
@@ -215,7 +227,7 @@ flavours-of-elastic/
 │   ├── load_data.py      # Unified data loader
 │   └── README.md         # Data loading guide
 ├── exercises/
-│   └── day4-semantic-search/  # Vector/semantic search exercises
+│   └── day4-semantic-search/  # Legacy standalone exercises
 ├── .env                  # Environment configuration
 ├── validate.py           # Stack validation script
 └── README.md

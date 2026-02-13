@@ -92,7 +92,13 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards
 - `docker/elk-oss/` - Elasticsearch OSS 2-node cluster (legacy)
 - `data/` - Sample datasets and data loader script
-- `exercises/day4-semantic-search/` - Day 4 vector/semantic search exercises
+- `course/` - Marp Markdown slides and exercises for the 4-day course
+- `course/theme/epam.css` - Custom Marp theme (dark gray + teal accent)
+- `course/day1-fundamentals/` - Day 1 slides (~50) and exercises (6 tasks)
+- `course/day2-query-dsl/` - Day 2 slides (~55) and exercises (13 tasks)
+- `course/day3-indexing-analysis/` - Day 3 slides (~65) and exercises (19 tasks)
+- `course/day4-semantic-search/` - Day 4 slides (~55) and exercises (18 tasks)
+- `exercises/day4-semantic-search/` - Legacy Day 4 exercise files (standalone)
 - `validate.py` - Stack validation script with OOP design
 
 ### Stack Differences
@@ -131,9 +137,23 @@ GitHub Actions runs on push/PR:
 
 ## Course Structure (4 Days)
 
-- **Day 1-2**: Use `elk-single` - Fundamentals, Query DSL, ES|QL
-- **Day 3**: Use `elk-single` or `elastic` - Indexing, text analysis
-- **Day 4**: Use `elk-ml` - Semantic search, ELSER, hybrid search
+- **Day 1** (2h): Use `elk-single` - Fundamentals, core concepts, CRUD
+- **Day 2** (2h): Use `elk-single` - Query DSL, full-text/term/bool queries, ES|QL
+- **Day 3** (3h): Use `elk-single` or `elastic` - Indexing, text analysis, aggregations, nested/join
+- **Day 4** (3h): Use `elk-ml` - Vector search, ELSER, semantic_text, hybrid RRF
+
+### Building Course Slides
+
+```bash
+# Install Marp CLI
+npm install -g @marp-team/marp-cli
+
+# Build a single day's slides to PDF
+marp course/day1-fundamentals/day1-slides.md --theme course/theme/epam.css --allow-local-files -o /tmp/day1.pdf
+
+# Live preview
+marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides.md
+```
 
 ## System Requirements
 

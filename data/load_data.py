@@ -164,7 +164,7 @@ class DataLoader:
                     result = response.json()
                     if result.get("errors"):
                         print(
-                            f"Warning: Some documents had errors in batch {i//batch_size + 1}"
+                            f"Warning: Some documents had errors in batch {i // batch_size + 1}"
                         )
                     loaded += len(batch)
                     print(f"Loaded {loaded}/{len(documents)} documents...")
