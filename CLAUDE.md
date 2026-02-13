@@ -74,7 +74,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-Pre-commit runs: yamllint, black, isort, flake8 (max-line-length=120, ignores W605, E203, W503)
+Pre-commit runs: check-yaml, end-of-file-fixer, trailing-whitespace, detect-private-key, black, isort, flake8 (max-line-length=120, ignores W605, E203, W503)
 
 ### Cleanup
 
@@ -91,15 +91,22 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `docker/elk-ml/` - ML-enabled 2-node cluster for ELSER
 - `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards
 - `docker/elk-oss/` - Elasticsearch OSS 2-node cluster (legacy)
-- `data/` - Sample datasets and data loader script
+- `data/` - Sample datasets, data loader, and enrichment pipeline scripts
+- `data/load_data.py` - Main data loader for course exercises (auto-detects stack)
+- `data/generate_descriptions.py` - Generate multilingual descriptions via OpenRouter LLM API
+- `data/generate_embeddings.py` - Generate 768-dim embeddings via EmbeddingGemma-300M
+- `data/index.py` - Index enriched movies with embeddings into Elasticsearch
+- `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions (18MB)
+- `data/movies_enriched_1000.csv` - 1000-movie subset (3.5MB)
 - `course/` - Marp Markdown slides and exercises for the 4-day course
-- `course/theme/epam.css` - Custom Marp theme (dark gray + teal accent)
-- `course/day1-fundamentals/` - Day 1 slides (~50) and exercises (6 tasks)
-- `course/day2-query-dsl/` - Day 2 slides (~55) and exercises (13 tasks)
-- `course/day3-indexing-analysis/` - Day 3 slides (~65) and exercises (19 tasks)
-- `course/day4-semantic-search/` - Day 4 slides (~55) and exercises (18 tasks)
+- `course/theme/epam.css` - Custom Marp theme (black bg #000000 + cyan accent #00F6FF)
+- `course/day1-fundamentals/` - Day 1 slides (~53) and exercises (14 tasks)
+- `course/day2-query-dsl/` - Day 2 slides (~54) and exercises (15 tasks)
+- `course/day3-indexing-analysis/` - Day 3 slides (~59) and exercises (25 tasks)
+- `course/day4-semantic-search/` - Day 4 slides (~52) and exercises (34 tasks)
 - `exercises/day4-semantic-search/` - Legacy Day 4 exercise files (standalone)
 - `validate.py` - Stack validation script with OOP design
+- `benchmarks/` - Performance test CSV files (geonames, noaa)
 
 ### Stack Differences
 
@@ -129,18 +136,37 @@ Environment variables in `.env`:
 
 ### CI Pipeline
 
-GitHub Actions runs on push/PR:
-- Lint & format (black, isort, flake8)
-- YAML validation (yamllint)
-- Tests all 5 stacks (health check, CRUD, UI)
-- Vector operations test for elk-ml
+GitHub Actions runs on push/PR to main/master:
+- **lint** - black, isort, flake8 checks
+- **validate-yaml** - yamllint on all docker-compose files
+- **test-elk-single** - Start, health check, CRUD, UI test
+- **test-elk-oss** - Start, health check, CRUD, UI test
+- **test-opensearch** - Start, health check, CRUD, UI test
+- **test-elastic** - Start, health check, 2-node verification, CRUD, UI test
+- **test-elk-ml** - Start, health check, ML node check, vector index + kNN query test
+
+### Data Pipeline
+
+The `data/` directory contains a pipeline for generating enriched movie data:
+
+```
+movies source → generate_descriptions.py → movies_enriched.csv
+             → generate_embeddings.py → movies_enriched_with_embeddings.json
+             → index.py → Elasticsearch (movies_enriched index, 768-dim vectors)
+```
+
+- `generate_descriptions.py` uses OpenRouter LLM API (Gemini 2.0 Flash) for multilingual text (en/kk/fr)
+- `generate_embeddings.py` uses EmbeddingGemma-300M for 768-dim embeddings
+- Enriched CSV fields: movieId, title, genres, abstract_en/kk/fr, description_en/kk/fr
 
 ## Course Structure (4 Days)
 
-- **Day 1** (2h): Use `elk-single` - Fundamentals, core concepts, CRUD
-- **Day 2** (2h): Use `elk-single` - Query DSL, full-text/term/bool queries, ES|QL
-- **Day 3** (3h): Use `elk-single` or `elastic` - Indexing, text analysis, aggregations, nested/join
-- **Day 4** (3h): Use `elk-ml` - Vector search, ELSER, semantic_text, hybrid RRF
+| Day | Topic | Duration | Stack | Slides | Exercises |
+|-----|-------|----------|-------|--------|-----------|
+| 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` | ~53 | 14 tasks |
+| 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` | ~54 | 15 tasks |
+| 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` or `elastic` | ~59 | 25 tasks |
+| 4 | Vector search, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` | ~52 | 34 tasks |
 
 ### Building Course Slides
 
