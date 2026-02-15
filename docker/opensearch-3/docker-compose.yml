@@ -1,35 +1,32 @@
-version: '3.8'
+---
+version: "3.8"
+
 services:
-  opensearch-node1:
-    image: opensearchproject/opensearch:${OPENSEARCH_VERSION}
-    container_name: opensearch-node1
+  opensearch3-node1:
+    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION}
+    container_name: opensearch3-node1
     environment:
-      - cluster.name=opensearch-cluster
-      - node.name=opensearch-node1
-      - discovery.seed_hosts=opensearch-node1,opensearch-node2
-      - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
-      # disables swapping
+      - cluster.name=opensearch3-cluster
+      - node.name=opensearch3-node1
+      - discovery.seed_hosts=opensearch3-node1,opensearch3-node2
+      - cluster.initial_master_nodes=opensearch3-node1,opensearch3-node2
       - bootstrap.memory_lock=true
-      # min and max Java heap size, recommend 50% of system RAM
       - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
-      # using .env to provide admin password
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
     ulimits:
       memlock:
         soft: -1
         hard: -1
       nofile:
-        # max open files for OpenSearch user, at least 65536
         soft: 65536
         hard: 65536
     volumes:
-      - opensearch-data1:/usr/share/opensearch/data
+      - opensearch3-data1:/usr/share/opensearch/data
     ports:
       - 9200:9200
-      # required for Performance Analyzer
       - 9600:9600
     networks:
-      - opensearch-net
+      - opensearch3-net
     healthcheck:
       test: ["CMD", "curl", "-f", "-k",
              "-u", "admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD}",
@@ -38,17 +35,17 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-  opensearch-node2:
-    image: opensearchproject/opensearch:${OPENSEARCH_VERSION}
-    container_name: opensearch-node2
+
+  opensearch3-node2:
+    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION}
+    container_name: opensearch3-node2
     environment:
-      - cluster.name=opensearch-cluster
-      - node.name=opensearch-node2
-      - discovery.seed_hosts=opensearch-node1,opensearch-node2
-      - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
+      - cluster.name=opensearch3-cluster
+      - node.name=opensearch3-node2
+      - discovery.seed_hosts=opensearch3-node1,opensearch3-node2
+      - cluster.initial_master_nodes=opensearch3-node1,opensearch3-node2
       - bootstrap.memory_lock=true
       - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
-      # using .env to provide admin password
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
     ulimits:
       memlock:
@@ -58,9 +55,9 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-      - opensearch-data2:/usr/share/opensearch/data
+      - opensearch3-data2:/usr/share/opensearch/data
     networks:
-      - opensearch-net
+      - opensearch3-net
     healthcheck:
       test: ["CMD", "curl", "-f", "-k",
              "-u", "admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD}",
@@ -69,19 +66,20 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:${OPENSEARCH_VERSION}
-    container_name: opensearch-dashboards
+
+  opensearch3-dashboards:
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH3_VERSION}
+    container_name: opensearch3-dashboards
     ports:
       - 5601:5601
     expose:
       - "5601"
     environment:
       OPENSEARCH_HOSTS: >-
-        ["https://opensearch-node1:9200",
-        "https://opensearch-node2:9200"]
+        ["https://opensearch3-node1:9200",
+        "https://opensearch3-node2:9200"]
     networks:
-      - opensearch-net
+      - opensearch3-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5601"]
       interval: 10s
@@ -90,8 +88,8 @@ services:
       start_period: 30s
 
 volumes:
-  opensearch-data1:
-  opensearch-data2:
+  opensearch3-data1:
+  opensearch3-data2:
 
 networks:
-  opensearch-net:
+  opensearch3-net:

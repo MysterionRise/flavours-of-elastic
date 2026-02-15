@@ -1,7 +1,7 @@
 # Issues and Improvements Tracker
 
 **Generated:** 2025-11-13
-**Last Updated:** 2025-11-13
+**Last Updated:** 2026-02-15
 **Context:** Educational repository for teaching Elastic, OpenSearch, and Elastic OSS
 
 This document tracks identified issues and improvements for the flavours-of-elastic repository, prioritized from P0 (critical) to P3 (nice to have).
@@ -242,25 +242,67 @@ This document tracks identified issues and improvements for the flavours-of-elas
   - Application monitoring
 - **Status:** ⏸️ DEFERRED - Partially covered in Comparison Table
 
+### ✅ 29. Configuration: Missing health checks on elk-single and opensearch
+- **Issue:** elk-single and opensearch Docker Compose lack health checks on ES/OS services
+- **Impact:** No reliable way to determine when services are ready
+- **Fix:** Add healthcheck directives to elasticsearch, kibana, opensearch-node1/2, and opensearch-dashboards services
+- **Status:** ✅ COMPLETED
+
+### ✅ 30. Configuration: Inconsistent Docker Compose versions
+- **Issue:** elk/elk-ml use 3.8, opensearch/elk-oss use 3.7
+- **Impact:** Inconsistent configuration across stacks
+- **Fix:** Bump opensearch and elk-oss to version 3.8
+- **Status:** ✅ COMPLETED
+
+### ✅ 31. Configuration: Legacy/orphaned files
+- **Issue:** `data/enrich.py` (deprecated), `exercises/day4-semantic-search/` (legacy duplicate), `*.rep` files in root
+- **Impact:** Confusing repository structure
+- **Fix:** Delete deprecated files, move .rep files to benchmarks/
+- **Status:** ✅ COMPLETED
+
+### ✅ 32. Configuration: Incomplete requirements.txt
+- **Issue:** Only lists PyYAML and requests; missing aiohttp, sentence-transformers, elasticsearch
+- **Impact:** Students can't run data pipeline scripts without manual dependency hunting
+- **Fix:** Add all missing dependencies, remove unused PyYAML
+- **Status:** ✅ COMPLETED
+
+### ✅ 33. Configuration: Outdated .env.example
+- **Issue:** Shows ELK 8.15.2 / OpenSearch 2.17.1 while .env has newer versions
+- **Impact:** Students get confused about correct version numbers
+- **Fix:** Sync .env.example with .env
+- **Status:** ✅ COMPLETED
+
+### ✅ 34. Feature: Add Elasticsearch 9 stack
+- **Issue:** No ES 9.x configuration available
+- **Impact:** Students can't experiment with next-gen Elasticsearch features
+- **Fix:** Create docker/elk-9/ with single-node ES 9.3.0 config, add validator, CI job
+- **Status:** ✅ COMPLETED
+
+### ✅ 35. Feature: Add OpenSearch 3 stack
+- **Issue:** No OS 3.x configuration available
+- **Impact:** Students can't experiment with next-gen OpenSearch features
+- **Fix:** Create docker/opensearch-3/ with 2-node OS 3.5.0 config, add validator, CI job
+- **Status:** ✅ COMPLETED
+
 ---
 
 ## Summary Statistics
 
 ### Overall Progress
-- **Total Issues:** 28
-- **✅ Completed:** 22 (79%)
-- **⏸️ Deferred:** 2 (7%)
-- **❌ Not Started:** 4 (14%)
+- **Total Issues:** 35
+- **✅ Completed:** 30 (86%)
+- **⏸️ Deferred:** 2 (6%)
+- **❌ Not Started:** 3 (9%)
 
 ### By Priority Level
 - **P0 (Critical):** 3 issues - ✅ 3 completed (100%)
 - **P1 (High):** 5 issues - ✅ 5 completed (100%)
 - **P2 (Medium):** 10 issues - ✅ 10 completed (100%)
-- **P3 (Low):** 10 issues - ✅ 4 completed, ⏸️ 2 deferred, ❌ 4 not started
+- **P3 (Low):** 17 issues - ✅ 12 completed, ⏸️ 2 deferred, ❌ 3 not started
 
 ### Completion Summary
 
-**All critical (P0, P1, P2) issues have been resolved!** 🎉
+**All critical (P0, P1, P2) issues have been resolved!**
 
 The repository is now significantly improved for educational use:
 - ✅ All bugs preventing functionality are fixed
@@ -270,6 +312,10 @@ The repository is now significantly improved for educational use:
 - ✅ Sample queries and next steps provided
 - ✅ Development/contributing guidelines documented
 - ✅ CI/CD pipeline and validation script ensure quality
+- ✅ Elasticsearch 9.3.0 and OpenSearch 3.5.0 stacks added
+- ✅ Health checks added to all stacks
+- ✅ Legacy/orphaned files cleaned up
+- ✅ Dependencies and version numbers updated
 
 **Remaining work** (P3 - Nice to Have):
 - Architecture diagrams (low priority)

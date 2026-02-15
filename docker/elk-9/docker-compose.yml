@@ -3,8 +3,8 @@ version: "3.8"
 
 services:
   setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
-    container_name: elasticsearch-single-setup
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK9_VERSION}
+    container_name: elasticsearch-9-setup
     user: "0"
     command: >
       bash -c '
@@ -16,25 +16,25 @@ services:
           exit 1;
         fi;
         echo "Waiting for Elasticsearch availability";
-        until curl -s http://elasticsearch:9200 |
+        until curl -s http://elasticsearch-9:9200 |
           grep -q "missing authentication credentials"; do
           sleep 5;
         done;
         echo "Setting kibana_system password";
         until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" \
           -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/kibana_system/_password \
+          http://elasticsearch-9:9200/_security/user/kibana_system/_password \
           -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
           sleep 5;
         done;
         echo "All done!";
       '
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
-    container_name: elasticsearch-single
+  elasticsearch-9:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK9_VERSION}
+    container_name: elasticsearch-9
     environment:
-      - node.name=elasticsearch
+      - node.name=elasticsearch-9
       - cluster.name=${CLUSTER_NAME}
       - discovery.type=single-node
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -48,7 +48,7 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - esdata:/usr/share/elasticsearch/data
+      - esdata9:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
     healthcheck:
@@ -59,19 +59,19 @@ services:
       retries: 10
       start_period: 30s
 
-  kibana:
+  kibana-9:
     depends_on:
       setup:
         condition: service_completed_successfully
-    image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
-    container_name: kibana-single
+    image: docker.elastic.co/kibana/kibana:${ELK9_VERSION}
+    container_name: kibana-9
     volumes:
-      - kibanadata:/usr/share/kibana/data
+      - kibanadata9:/usr/share/kibana/data
     ports:
       - 5601:5601
     environment:
       - SERVERNAME=kibana
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-9:9200
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
     healthcheck:
@@ -82,7 +82,7 @@ services:
       start_period: 30s
 
 volumes:
-  esdata:
+  esdata9:
     driver: local
-  kibanadata:
+  kibanadata9:
     driver: local

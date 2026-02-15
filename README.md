@@ -10,10 +10,12 @@ Docker Compose configurations for running and comparing Elasticsearch-based sear
 
 | Stack | Version | Use Case |
 |-------|---------|----------|
-| **Elastic Stack** | 8.18.0 | Production-like 2-node cluster with TLS |
-| **Elastic Single** | 8.18.0 | Beginner-friendly single-node (4GB RAM) |
-| **Elastic ML** | 8.18.0 | ML/ELSER features for semantic search (8GB+ RAM) |
-| **OpenSearch** | 2.19.1 | Open-source alternative |
+| **Elastic Stack** | 8.19.11 | Production-like 2-node cluster with TLS |
+| **Elastic Single** | 8.19.11 | Beginner-friendly single-node (4GB RAM) |
+| **Elastic ML** | 8.19.11 | ML/ELSER features for semantic search (8GB+ RAM) |
+| **Elastic 9** | 9.3.0 | Next-gen single-node for testing ES 9 features |
+| **OpenSearch** | 2.19.4 | Open-source alternative |
+| **OpenSearch 3** | 3.5.0 | Next-gen OpenSearch 2-node cluster |
 | **Elastic OSS** | 7.10.2 | Legacy support (frozen, no updates) |
 
 ## Quick Start
@@ -96,21 +98,23 @@ All course materials (Marp slides + exercises) are in the `course/` directory. S
 
 ## Stack Comparison
 
-| Feature | Elastic Stack | Elastic Single | Elastic ML | OpenSearch | Elastic OSS |
-|---------|--------------|----------------|------------|------------|-------------|
-| **Nodes** | 2 | 1 | 2 | 2 | 2 |
-| **Protocol** | HTTPS | HTTP | HTTPS | HTTPS | HTTP |
-| **Auth** | elastic/elastic | elastic/elastic | elastic/elastic | admin/password | None |
-| **Memory** | 2-3GB | ~2GB | 6-8GB | 4GB | 1GB |
-| **ML/ELSER** | No | No | **Yes** | No | No |
-| **Best For** | Production-like | Beginners | Day 4 Semantic | Open source | Legacy |
+| Feature | Elastic Stack | Elastic Single | Elastic ML | Elastic 9 | OpenSearch | OpenSearch 3 | Elastic OSS |
+|---------|--------------|----------------|------------|-----------|------------|--------------|-------------|
+| **Nodes** | 2 | 1 | 2 | 1 | 2 | 2 | 2 |
+| **Protocol** | HTTPS | HTTP | HTTPS | HTTP | HTTPS | HTTPS | HTTP |
+| **Auth** | elastic/elastic | elastic/elastic | elastic/elastic | elastic/elastic | admin/password | admin/password | None |
+| **Memory** | 2-3GB | ~2GB | 6-8GB | ~2GB | 4GB | 4GB | 1GB |
+| **ML/ELSER** | No | No | **Yes** | No | No | No | No |
+| **Best For** | Production-like | Beginners | Day 4 Semantic | ES 9 features | Open source | OS 3 features | Legacy |
 
 ### When to Use Each
 
 - **Elastic Single**: Learning basics, limited RAM, Days 1-2
 - **Elastic Stack**: Production-like testing, TLS experience
 - **Elastic ML**: Vector search, semantic search, ELSER, Day 4
+- **Elastic 9**: Testing Elasticsearch 9.x new features
 - **OpenSearch**: Open-source preference, AWS compatibility
+- **OpenSearch 3**: Testing OpenSearch 3.x new features
 - **Elastic OSS**: Legacy 7.x applications only
 
 ## Prerequisites
@@ -141,8 +145,14 @@ docker compose -f docker/elk/docker-compose.yml --env-file .env up
 # Elastic ML (for ELSER/semantic search)
 docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
 
+# Elasticsearch 9 (next-gen single-node)
+docker compose -f docker/elk-9/docker-compose.yml --env-file .env up
+
 # OpenSearch
 docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
+
+# OpenSearch 3 (next-gen)
+docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env up
 
 # Elasticsearch OSS (legacy)
 docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
@@ -220,14 +230,15 @@ flavours-of-elastic/
 │   ├── elk/              # Elastic Stack (2-node, TLS)
 │   ├── elk-single/       # Single-node for beginners
 │   ├── elk-ml/           # ML-enabled for ELSER
+│   ├── elk-9/            # Elasticsearch 9 single-node
 │   ├── opensearch/       # OpenSearch cluster
+│   ├── opensearch-3/     # OpenSearch 3 cluster
 │   └── elk-oss/          # Legacy OSS (7.10.2)
 ├── data/
 │   ├── datasets/         # Sample datasets (movies)
 │   ├── load_data.py      # Unified data loader
 │   └── README.md         # Data loading guide
-├── exercises/
-│   └── day4-semantic-search/  # Legacy standalone exercises
+├── benchmarks/           # Performance test files and reports
 ├── .env                  # Environment configuration
 ├── validate.py           # Stack validation script
 └── README.md
@@ -249,6 +260,8 @@ python validate.py --stack elk-ml
 python validate.py --stack elastic
 python validate.py --stack opensearch
 python validate.py --stack elk-oss
+python validate.py --stack elk-9
+python validate.py --stack opensearch-3
 ```
 
 ### CI Pipeline

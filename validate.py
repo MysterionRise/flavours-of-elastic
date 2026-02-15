@@ -297,6 +297,28 @@ class ElasticSingleValidator(StackValidator):
         self.ui_name = "Kibana"
 
 
+class Elastic9Validator(StackValidator):
+    """Validator for Elasticsearch 9 single-node stack."""
+
+    def __init__(self):
+        super().__init__("Elastic 9", "docker/elk-9/docker-compose.yml")
+        self.base_url = "http://localhost:9200"
+        self.auth = ("elastic", "elastic")  # From .env
+        self.verify_ssl = True
+        self.ui_name = "Kibana 9"
+
+
+class OpenSearch3Validator(StackValidator):
+    """Validator for OpenSearch 3 stack."""
+
+    def __init__(self):
+        super().__init__("OpenSearch 3", "docker/opensearch-3/docker-compose.yml")
+        self.base_url = "https://localhost:9200"
+        self.auth = ("admin", "MyStrongPassword123!")  # From .env
+        self.verify_ssl = False
+        self.ui_name = "OpenSearch 3 Dashboards"
+
+
 class ElasticMLValidator(StackValidator):
     """Validator for Elastic ML Stack (for ELSER and ML features)."""
 
@@ -491,7 +513,16 @@ def main():
     parser = argparse.ArgumentParser(description="Validate flavours-of-elastic stacks")
     parser.add_argument(
         "--stack",
-        choices=["elk-oss", "opensearch", "elastic", "elk-single", "elk-ml", "all"],
+        choices=[
+            "elk-oss",
+            "opensearch",
+            "elastic",
+            "elk-single",
+            "elk-ml",
+            "elk-9",
+            "opensearch-3",
+            "all",
+        ],
         default="all",
         help="Which stack to validate (default: all)",
     )
@@ -509,6 +540,8 @@ def main():
         "elastic": ElasticValidator(),
         "elk-single": ElasticSingleValidator(),
         "elk-ml": ElasticMLValidator(),
+        "elk-9": Elastic9Validator(),
+        "opensearch-3": OpenSearch3Validator(),
     }
 
     if args.stack == "all":
