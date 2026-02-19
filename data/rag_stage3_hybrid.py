@@ -17,7 +17,6 @@ Usage:
     python data/rag_stage3_hybrid.py
 """
 
-import json
 import os
 import sys
 

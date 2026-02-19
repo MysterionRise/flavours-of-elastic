@@ -14,7 +14,6 @@ Usage:
     python data/rag_stage2_knn.py
 """
 
-import json
 import os
 import sys
 

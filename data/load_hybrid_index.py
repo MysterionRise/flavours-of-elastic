@@ -201,8 +201,8 @@ def main():
     args = parser.parse_args()
 
     print(f"\n=== Creating '{INDEX}' index ({args.limit} docs) ===")
-    print(f"  Dense vectors: EmbeddingGemma-300M (768-dim)")
-    print(f"  Sparse vectors: ELSER via semantic_text\n")
+    print("  Dense vectors: EmbeddingGemma-300M (768-dim)")
+    print("  Sparse vectors: ELSER via semantic_text\n")
 
     print("[1/4] Checking ELSER endpoint...")
     if not ensure_elser_endpoint():
@@ -221,21 +221,21 @@ def main():
     elapsed = time.time() - t0
 
     print(f"\n  Done! {loaded} docs in {elapsed:.0f}s")
-    print(f"\nTry in Kibana Dev Tools:")
+    print("\nTry in Kibana Dev Tools:")
     print(f"  GET /{INDEX}/_count")
-    print(f"  # BM25 (text search)")
+    print("  # BM25 (text search)")
     print(f"  GET /{INDEX}/_search")
     print(
-        f'  {{ "query": {{ "multi_match": {{ "query": "space adventure", "fields": ["title^3","overview"] }} }} }}'
+        '  { "query": { "multi_match": { "query": "space adventure", "fields": ["title^3","overview"] } } }'
     )
-    print(f"  # Semantic (ELSER)")
+    print("  # Semantic (ELSER)")
     print(f"  GET /{INDEX}/_search")
     print(
-        f'  {{ "query": {{ "semantic": {{ "field": "overview_semantic", "query": "animated kids adventure" }} }} }}'
+        '  { "query": { "semantic": { "field": "overview_semantic", "query": "animated kids adventure" } } }'
     )
-    print(f"  # kNN (dense vector)")
-    print(f"  # Use overview_embedding field with knn query")
-    print(f"  # Three-way hybrid RRF: combines all three retrievers")
+    print("  # kNN (dense vector)")
+    print("  # Use overview_embedding field with knn query")
+    print("  # Three-way hybrid RRF: combines all three retrievers")
 
 
 if __name__ == "__main__":

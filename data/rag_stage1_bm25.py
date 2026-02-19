@@ -14,9 +14,7 @@ Usage:
     python data/rag_stage1_bm25.py
 """
 
-import json
 import os
-import sys
 
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
