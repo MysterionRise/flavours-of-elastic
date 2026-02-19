@@ -87,7 +87,7 @@ POST /vector-demo/_bulk
 
 ## Task 2: Real Movie Embeddings kNN — Setup (Basic)
 
-Using the `movies-embeddings` index (500 movies with 384-dim vectors):
+Using the `movies-embeddings` index (~5100 movies with 768-dim vectors):
 
 1. Get the embedding from movie ID 1 (The Shawshank Redemption):
    ```json
@@ -166,7 +166,7 @@ Using the same query from Task 2, run the kNN search with different `num_candida
 
 Compare the results and the `took` time. At what point do results stabilize?
 
-> **Hint:** With only 500 documents, differences will be small. In production with millions of docs, `num_candidates` has a significant impact. Lower values are faster but may miss relevant results. Higher values are more accurate but slower.
+> **Hint:** With only 5100 documents, differences will be small. In production with millions of docs, `num_candidates` has a significant impact. Lower values are faster but may miss relevant results. Higher values are more accurate but slower.
 
 ---
 
@@ -427,9 +427,9 @@ For each combination, note:
 
 **Questions:**
 1. What effect does lowering `rank_constant` have?
-2. Does increasing `rank_window_size` change results with 500 documents?
+2. Does increasing `rank_window_size` change results with 5100 documents?
 
-> **Hint:** With `rank_constant=10`, the top-ranked results from each retriever get disproportionately high RRF scores — it emphasizes the #1 result much more than #10. With `rank_constant=100`, the difference between ranks is smaller, making the fusion more "democratic." With only 500 documents, `rank_window_size` changes may be subtle.
+> **Hint:** With `rank_constant=10`, the top-ranked results from each retriever get disproportionately high RRF scores — it emphasizes the #1 result much more than #10. With `rank_constant=100`, the difference between ranks is smaller, making the fusion more "democratic." With only 5100 documents, `rank_window_size` changes may be subtle.
 
 ---
 
@@ -470,7 +470,7 @@ PUT /movies-quantized
       "overview": { "type": "text" },
       "overview_embedding": {
         "type": "dense_vector",
-        "dims": 384,
+        "dims": 768,
         "index": true,
         "similarity": "cosine",
         "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
@@ -491,7 +491,7 @@ Reindex from `movies-embeddings` into `movies-quantized`. Run the same kNN query
 1. Are the results identical?
 2. Compare index sizes: `GET /_cat/indices/movies-embeddings,movies-quantized?v`
 
-> **Hint:** Use `POST /_reindex` to copy data. With only 500 documents, size and accuracy differences will be minimal. In production with millions of vectors, int8_hnsw saves ~75% memory with typically <5% accuracy loss.
+> **Hint:** Use `POST /_reindex` to copy data. With only 5100 documents, size and accuracy differences will be minimal. In production with millions of vectors, int8_hnsw saves ~75% memory with typically <5% accuracy loss.
 
 ---
 
@@ -543,7 +543,7 @@ GET /movies-embeddings/_search
 
 Compare results and `took` time. Are the top 10 identical?
 
-> **Hint:** With 500 documents, approximate kNN should return the exact same results as brute-force (the HNSW graph is small enough to explore thoroughly). The difference becomes significant at scale (millions of documents) where approximate kNN is orders of magnitude faster but may miss some true neighbors.
+> **Hint:** With 5100 documents, approximate kNN should return the exact same results as brute-force (the HNSW graph is small enough to explore thoroughly). The difference becomes significant at scale (millions of documents) where approximate kNN is orders of magnitude faster but may miss some true neighbors.
 
 ---
 

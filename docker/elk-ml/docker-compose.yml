@@ -1,6 +1,3 @@
----
-version: "3.8"
-
 services:
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
@@ -101,7 +98,7 @@ services:
       - xpack.security.transport.ssl.certificate=certs/es01/es01.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-      - xpack.license.self_generated.type=${LICENSE}
+      - xpack.license.self_generated.type=trial
       - xpack.ml.enabled=true
       - xpack.ml.max_machine_memory_percent=50
       - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
@@ -147,7 +144,7 @@ services:
       - xpack.security.transport.ssl.certificate=certs/es02/es02.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-      - xpack.license.self_generated.type=${LICENSE}
+      - xpack.license.self_generated.type=trial
       - xpack.ml.enabled=true
       - xpack.ml.max_machine_memory_percent=50
       - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
@@ -185,7 +182,7 @@ services:
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
-      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=a]W-G+#'0Rp5jV@c3L2yBQEP.fKM$N,s
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=a]W-G+#'0Rp5jV@c3L2yBQEP.fKM$N,s!x
     healthcheck:
       test:
         [

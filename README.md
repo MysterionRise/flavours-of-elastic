@@ -235,10 +235,12 @@ flavours-of-elastic/
 │   ├── opensearch-3/     # OpenSearch 3 cluster
 │   └── elk-oss/          # Legacy OSS (7.10.2)
 ├── data/
-│   ├── datasets/         # Sample datasets (movies)
-│   ├── load_data.py      # Unified data loader
-│   └── README.md         # Data loading guide
-├── benchmarks/           # Performance test files and reports
+│   ├── load_data.py      # Unified data loader (auto-detects stack)
+│   ├── movies_enriched.csv        # 5100 movies with multilingual data
+│   ├── movies_enriched_1000.csv   # 1000-movie subset
+│   ├── embedding_service.py       # Embedding generation service
+│   ├── load_hybrid_index.py       # Hybrid index loader
+│   └── rag_stage*.py              # RAG demo scripts (BM25, kNN, hybrid)
 ├── .env                  # Environment configuration
 ├── validate.py           # Stack validation script
 └── README.md

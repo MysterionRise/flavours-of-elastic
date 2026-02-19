@@ -3,6 +3,7 @@
 Unified data loader for flavours-of-elastic.
 
 This script loads sample datasets into Elasticsearch for course exercises.
+Reads directly from movies_enriched.csv files.
 
 Usage:
     python data/load_data.py --dataset movies --size small
@@ -14,7 +15,10 @@ Requirements:
 """
 
 import argparse
+import csv
 import json
+import random
+import re
 import sys
 from pathlib import Path
 
@@ -27,49 +31,124 @@ except ImportError:
     print("Error: requests library required. Install with: pip install requests")
     sys.exit(1)
 
-# Dataset configurations
-DATASETS = {
-    "movies": {
-        "small": "datasets/movies_100.json",
-        "full": "datasets/movies_5000.json",
-        "embeddings": "datasets/movies_embeddings.json",
-        "index_name": "movies",
-        "mapping": {
-            "properties": {
-                "id": {"type": "integer"},
-                "title": {"type": "text", "analyzer": "english"},
-                "overview": {
-                    "type": "text",
-                    "analyzer": "english",
-                    "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
-                },
-                "genres": {"type": "keyword"},
-                "vote_average": {"type": "float"},
-                "release_date": {"type": "date"},
-            }
+SCRIPT_DIR = Path(__file__).parent
+
+# Mapping for standard movies index
+MOVIES_MAPPING = {
+    "properties": {
+        "id": {"type": "integer"},
+        "title": {"type": "text", "analyzer": "english"},
+        "overview": {
+            "type": "text",
+            "analyzer": "english",
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        "mapping_with_embeddings": {
-            "properties": {
-                "id": {"type": "integer"},
-                "title": {"type": "text", "analyzer": "english"},
-                "overview": {
-                    "type": "text",
-                    "analyzer": "english",
-                    "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
-                },
-                "genres": {"type": "keyword"},
-                "vote_average": {"type": "float"},
-                "release_date": {"type": "date"},
-                "overview_embedding": {
-                    "type": "dense_vector",
-                    "dims": 384,
-                    "index": True,
-                    "similarity": "cosine",
-                },
-            }
+        "genres": {"type": "keyword"},
+        "vote_average": {"type": "float"},
+        "release_date": {"type": "date"},
+    }
+}
+
+# Mapping with dense_vector for embeddings index
+MOVIES_EMBEDDING_MAPPING = {
+    "properties": {
+        "id": {"type": "integer"},
+        "title": {"type": "text", "analyzer": "english"},
+        "overview": {
+            "type": "text",
+            "analyzer": "english",
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
+        },
+        "genres": {"type": "keyword"},
+        "vote_average": {"type": "float"},
+        "release_date": {"type": "date"},
+        "overview_embedding": {
+            "type": "dense_vector",
+            "dims": 768,
+            "index": True,
+            "similarity": "cosine",
         },
     }
 }
+
+
+def extract_year(title):
+    """Extract year from title like 'Toy Story (1995)'."""
+    match = re.search(r"\((\d{4})\)", title)
+    return int(match.group(1)) if match else None
+
+
+def generate_vote_average(movie_id):
+    """Generate a reproducible vote_average based on movieId."""
+    rng = random.Random(movie_id)
+    val = rng.gauss(6.5, 1.5)
+    return round(max(1.0, min(10.0, val)), 1)
+
+
+def load_movies_from_csv(csv_path, limit=None):
+    """Load movies from enriched CSV and transform to ES document format."""
+    documents = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for i, row in enumerate(reader):
+            if limit and i >= limit:
+                break
+            movie_id = int(row["movieId"])
+            title = row["title"]
+            year = extract_year(title)
+
+            doc = {
+                "id": movie_id,
+                "title": title,
+                "overview": row.get("abstract_en", ""),
+                "abstract_en": row["abstract_en"],
+                "abstract_fr": row["abstract_fr"],
+                "abstract_kk": row["abstract_kk"],
+                "genres": row["genres"].split("|") if row["genres"] else [],
+                "vote_average": generate_vote_average(movie_id),
+            }
+            if year:
+                doc["release_date"] = f"{year}-01-01"
+
+            documents.append(doc)
+    return documents
+
+
+def load_movies_with_embeddings(csv_path, embeddings_path, limit=None):
+    """Load movies from CSV and merge with pre-computed embeddings."""
+    documents = load_movies_from_csv(csv_path, limit=limit)
+
+    print(f"Loading embeddings from: {embeddings_path}")
+    with open(embeddings_path, encoding="utf-8") as f:
+        embeddings_data = json.load(f)
+
+    # Build lookups by movieId
+    emb_lookup = {}
+    desc_lookup = {}
+    for item in embeddings_data:
+        mid = int(item.get("movieId", 0))
+        # Use description_en embedding as overview_embedding
+        emb = item.get("description_en_embedding")
+        desc = item.get("description_en", "")
+        if emb:
+            emb_lookup[mid] = emb
+        if desc:
+            desc_lookup[mid] = desc
+
+    matched = 0
+    for doc in documents:
+        emb = emb_lookup.get(doc["id"])
+        if emb:
+            doc["overview_embedding"] = emb
+            # Use description_en as overview to match embedding source
+            doc["overview"] = desc_lookup.get(doc["id"], doc.get("overview", ""))
+            matched += 1
+
+    print(f"  Matched {matched}/{len(documents)} movies with embeddings")
+
+    # Only keep documents that have embeddings
+    documents = [d for d in documents if "overview_embedding" in d]
+    return documents
 
 
 class DataLoader:
@@ -79,7 +158,6 @@ class DataLoader:
         self.base_url = base_url.rstrip("/")
         self.auth = auth
         self.verify_ssl = verify_ssl
-        self.script_dir = Path(__file__).parent
 
     def check_connection(self) -> bool:
         """Verify Elasticsearch is accessible."""
@@ -108,7 +186,6 @@ class DataLoader:
         """Create an index with mapping."""
         url = f"{self.base_url}/{index_name}"
 
-        # Delete existing index if requested
         if delete_existing:
             try:
                 requests.delete(url, auth=self.auth, verify=self.verify_ssl, timeout=10)
@@ -116,7 +193,6 @@ class DataLoader:
             except Exception:
                 pass
 
-        # Create index with mapping
         try:
             response = requests.put(
                 url,
@@ -137,7 +213,7 @@ class DataLoader:
             print(f"Error creating index: {e}")
             return False
 
-    def bulk_load(self, index_name: str, documents: list, batch_size: int = 500) -> int:
+    def bulk_load(self, index_name: str, documents: list, batch_size: int = 100) -> int:
         """Load documents using bulk API."""
         url = f"{self.base_url}/_bulk"
         loaded = 0
@@ -176,48 +252,38 @@ class DataLoader:
 
         return loaded
 
-    def load_dataset(
-        self, dataset_name: str, size: str = "small", with_embeddings: bool = False
-    ) -> bool:
-        """Load a dataset into Elasticsearch."""
-        if dataset_name not in DATASETS:
-            print(f"Unknown dataset: {dataset_name}")
-            print(f"Available datasets: {list(DATASETS.keys())}")
-            return False
-
-        config = DATASETS[dataset_name]
-
-        # Determine which file to load
+    def load_movies(self, size="small", with_embeddings=False) -> bool:
+        """Load movies dataset into Elasticsearch."""
         if with_embeddings:
-            file_path = self.script_dir / config["embeddings"]
-            mapping = config["mapping_with_embeddings"]
-            index_name = f"{config['index_name']}-embeddings"
+            csv_path = SCRIPT_DIR / "movies_enriched.csv"
+            emb_path = SCRIPT_DIR / "movies_enriched_with_embeddings.json"
+            if not emb_path.exists():
+                print(f"Error: Embeddings file not found: {emb_path}")
+                print("Run: python data/generate_embeddings.py")
+                return False
+            mapping = MOVIES_EMBEDDING_MAPPING
+            index_name = "movies-embeddings"
+            print(f"\nLoading movies with embeddings from: {csv_path}")
+            documents = load_movies_with_embeddings(csv_path, emb_path)
         else:
-            file_path = self.script_dir / config[size]
-            mapping = config["mapping"]
-            index_name = config["index_name"]
+            if size == "small":
+                csv_path = SCRIPT_DIR / "movies_enriched_1000.csv"
+                limit = 100
+            else:
+                csv_path = SCRIPT_DIR / "movies_enriched.csv"
+                limit = 5000
+            mapping = MOVIES_MAPPING
+            index_name = "movies"
+            print(f"\nLoading {size} movies dataset from: {csv_path}")
+            documents = load_movies_from_csv(csv_path, limit=limit)
 
-        # Load JSON file
-        print(f"\nLoading data from: {file_path}")
-        try:
-            with open(file_path) as f:
-                documents = json.load(f)
-            print(f"Loaded {len(documents)} documents from file")
-        except FileNotFoundError:
-            print(f"Error: File not found: {file_path}")
-            return False
-        except json.JSONDecodeError as e:
-            print(f"Error: Invalid JSON: {e}")
-            return False
+        print(f"Prepared {len(documents)} documents")
 
-        # Create index
         if not self.create_index(index_name, mapping):
             return False
 
-        # Load documents
         loaded = self.bulk_load(index_name, documents)
 
-        # Refresh index to make documents searchable
         requests.post(
             f"{self.base_url}/{index_name}/_refresh",
             auth=self.auth,
@@ -285,7 +351,7 @@ Examples:
   # Load full movies dataset (5000 docs)
   python data/load_data.py --dataset movies --size full
 
-  # Load movies with pre-computed embeddings
+  # Load movies with pre-computed embeddings (768-dim)
   python data/load_data.py --dataset movies --with-embeddings
 
   # Specify custom Elasticsearch URL
@@ -294,7 +360,7 @@ Examples:
     )
     parser.add_argument(
         "--dataset",
-        choices=list(DATASETS.keys()),
+        choices=["movies"],
         default="movies",
         help="Dataset to load (default: movies)",
     )
@@ -302,12 +368,12 @@ Examples:
         "--size",
         choices=["small", "full"],
         default="small",
-        help="Dataset size (default: small)",
+        help="Dataset size: small=100, full=5000 (default: small)",
     )
     parser.add_argument(
         "--with-embeddings",
         action="store_true",
-        help="Load dataset with pre-computed embeddings (for vector search)",
+        help="Load dataset with pre-computed 768-dim embeddings (for vector search)",
     )
     parser.add_argument(
         "--url",
@@ -345,7 +411,6 @@ Examples:
             auth = None
         verify = not args.insecure
     else:
-        # Auto-detect running stack
         print("Auto-detecting Elasticsearch stack...")
         stack = detect_stack()
         if not stack:
@@ -357,19 +422,18 @@ Examples:
         auth = stack["auth"]
         verify = stack["verify"]
 
-    # Create loader and verify connection
     loader = DataLoader(base_url, auth, verify)
     if not loader.check_connection():
         sys.exit(1)
 
-    # Load the dataset
-    success = loader.load_dataset(args.dataset, args.size, args.with_embeddings)
+    success = loader.load_movies(args.size, args.with_embeddings)
 
     if success:
         print("\nData loaded successfully!")
         print("\nTry these queries in Kibana Dev Tools:")
-        print(f"  GET /{args.dataset}/_search")
-        print(f"  GET /{args.dataset}/_search?q=title:*")
+        index_name = "movies-embeddings" if args.with_embeddings else "movies"
+        print(f"  GET /{index_name}/_search")
+        print(f"  GET /{index_name}/_count")
         if args.with_embeddings:
             print("\nFor vector search, use a kNN query in the API.")
     else:

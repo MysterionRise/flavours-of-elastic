@@ -117,11 +117,14 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `course/day2-query-dsl/` - Day 2 slides (~54) and exercises (13 tasks)
 - `course/day3-indexing-analysis/` - Day 3 slides (~59) and exercises (19 tasks across 4 parts)
 - `course/day4-semantic-search/` - Day 4 slides (~52) and exercises (18 tasks across 4 parts)
+- `data/embedding_service.py` - Embedding generation service for vector search
+- `data/load_hybrid_index.py` - Load hybrid (BM25 + vector) index
+- `data/rag_stage1_bm25.py` - RAG demo: BM25 retrieval stage
+- `data/rag_stage2_knn.py` - RAG demo: kNN retrieval stage
+- `data/rag_stage3_hybrid.py` - RAG demo: hybrid retrieval (BM25 + kNN)
 - `validate.py` - Stack validation script with OOP design
-- `benchmarks/` - Performance test CSV files and benchmark reports (geonames, noaa)
 - `.marprc.yml` - Marp CLI configuration (theme and font settings)
 - `.env.example` - Environment variable template with documentation
-- `ISSUES.md` - Issue tracker with prioritized improvements (P0-P3)
 
 ### Stack Differences
 
@@ -201,13 +204,6 @@ marp course/day1-fundamentals/day1-slides.md --theme course/theme/epam.css --all
 # Live preview
 marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides.md
 ```
-
-## Known Issues & Technical Debt
-
-- **Missing dataset JSON files**: `load_data.py` references `datasets/movies_100.json`, `datasets/movies_5000.json`, `datasets/movies_embeddings.json` — these files do not exist in the repo; the script will fail
-- **Hardcoded encryption key in elk-ml**: `docker/elk-ml/docker-compose.yml` contains `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY` in plaintext — should be in .env
-- **Hardcoded credentials**: Python scripts (load_data.py, index.py, validate.py) hardcode auth instead of reading from .env
-- See `ISSUES.md` for the full prioritized tracker
 
 ## System Requirements
 

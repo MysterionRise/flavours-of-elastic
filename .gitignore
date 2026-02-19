@@ -12,7 +12,10 @@ __pycache__/
 .venv/
 venv/
 
-# Coverage (if added later)
+# Coverage
 .coverage
 htmlcov/
 coverage.xml
+
+# Large data files (generate locally)
+data/movies_enriched_with_embeddings.json

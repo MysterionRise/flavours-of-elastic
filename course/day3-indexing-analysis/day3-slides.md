@@ -56,11 +56,17 @@ PUT /my-index
 }
 ```
 
+---
+
+# Index Settings: Defaults
+
 | Setting | Default | Note |
 |---------|---------|------|
 | `number_of_shards` | 1 | Fixed at creation |
 | `number_of_replicas` | 1 | Can change dynamically |
 | `refresh_interval` | `1s` | Set to `-1` to disable |
+
+> Shard count is **fixed at creation time**. To change it, you must reindex.
 
 ---
 
@@ -119,7 +125,9 @@ POST /movies/_update/1
 }
 ```
 
-### Script update
+---
+
+# Update Operations: Script
 
 ```json
 POST /movies/_update/1
@@ -130,6 +138,8 @@ POST /movies/_update/1
   }
 }
 ```
+
+Use `params` to avoid script recompilation — Elasticsearch caches parameterized scripts.
 
 ---
 
@@ -158,7 +168,9 @@ POST /movies/_update/42
 DELETE /movies/_doc/42
 ```
 
-### Delete by query
+---
+
+# Delete by Query
 
 ```json
 POST /movies/_delete_by_query
@@ -191,12 +203,16 @@ POST /movies/_refresh
 POST /movies/_flush
 ```
 
+---
+
+# Refresh & Flush: Timing
+
 | Operation | Default Interval | Purpose |
 |-----------|-----------------|---------|
 | Refresh | 1 second | Make docs searchable |
 | Flush | Automatic | Persist to disk (translog) |
 
-> Disable refresh during bulk loading: `"refresh_interval": "-1"` then re-enable after.
+> **Performance tip:** Disable refresh during bulk loading: `"refresh_interval": "-1"` then re-enable after.
 
 ---
 
@@ -216,7 +232,9 @@ POST /_reindex
 }
 ```
 
-### With query filter
+---
+
+# Reindex with Query Filter
 
 ```json
 POST /_reindex
@@ -249,7 +267,9 @@ POST /_aliases
     { "add": { "index": "movies-v1", "alias": "movies" } }
   ]
 }
+```
 
+```json
 # Swap alias to new index (atomic)
 POST /_aliases
 {
@@ -260,10 +280,15 @@ POST /_aliases
 }
 ```
 
-**Use cases:**
-- Zero-downtime reindexing
-- Grouping time-based indices (`logs-2024-*` → `logs`)
-- A/B testing different mappings
+---
+
+# Aliases: Use Cases
+
+- **Zero-downtime reindexing** — swap alias from old to new index
+- **Grouping time-based indices** — `logs-2024-*` → `logs`
+- **A/B testing** different mappings or analyzers
+
+> Alias operations are **atomic** — no downtime when swapping indices.
 
 ---
 
@@ -283,9 +308,7 @@ PUT /_index_template/movies-template
     "mappings": {
       "properties": {
         "title": { "type": "text", "analyzer": "english" },
-        "genres": { "type": "keyword" },
-        "vote_average": { "type": "float" },
-        "release_date": { "type": "date" }
+        "genres": { "type": "keyword" }
       }
     }
   },
@@ -293,7 +316,21 @@ PUT /_index_template/movies-template
 }
 ```
 
-Now `PUT /movies-2024` automatically gets these settings and mappings.
+---
+
+# Index Templates: Usage
+
+Now `PUT /movies-2024` automatically gets the template's settings and mappings.
+
+```json
+PUT /movies-2024/_doc/1
+{ "title": "Test Movie", "genres": ["Action"] }
+
+GET /movies-2024/_mapping
+```
+
+- Higher `priority` wins when multiple templates match
+- Component templates allow reusable building blocks
 
 ---
 
@@ -347,7 +384,10 @@ GET /_analyze
 }
 ```
 
-Response:
+---
+
+# _analyze API: Response
+
 ```json
 {
   "tokens": [
@@ -363,6 +403,8 @@ Response:
   ]
 }
 ```
+
+9 tokens: lowercased, punctuation removed, no stemming or stop-word removal.
 
 ---
 
@@ -458,25 +500,21 @@ GET /my-index/_analyze
 Map related terms to each other:
 
 ```json
-PUT /movies-synonyms
-{
-  "settings": {
-    "analysis": {
-      "filter": {
-        "my_synonyms": {
-          "type": "synonym",
-          "synonyms": [
-            "film,movie,picture",
-            "scary,horror,frightening",
-            "sci-fi => science fiction"
-          ]
-        }
-      },
-      ...
-    }
+"filter": {
+  "my_synonyms": {
+    "type": "synonym",
+    "synonyms": [
+      "film,movie,picture",
+      "scary,horror,frightening",
+      "sci-fi => science fiction"
+    ]
   }
 }
 ```
+
+- `"film,movie,picture"` — bidirectional: all terms expand to each other
+- `"sci-fi => science fiction"` — one-way mapping
+- Place synonym filter **after** lowercase in the filter chain
 
 ---
 
@@ -499,8 +537,7 @@ PUT /movies-synonyms
 }
 ```
 
-- `"film,movie,picture"` — bidirectional: all terms expand to each other
-- `"sci-fi => science fiction"` — one-way mapping
+> Searching for "horror" will also match documents containing "scary" or "frightening".
 
 ---
 
@@ -515,9 +552,7 @@ PUT /autocomplete-index
     "analysis": {
       "filter": {
         "edge_ngram_filter": {
-          "type": "edge_ngram",
-          "min_gram": 2,
-          "max_gram": 15
+          "type": "edge_ngram", "min_gram": 2, "max_gram": 15
         }
       },
       "analyzer": {
@@ -531,7 +566,15 @@ PUT /autocomplete-index
 }
 ```
 
+---
+
+# Edge N-gram: How It Works
+
 `"Inception"` → `["in", "inc", "ince", "incep", "incept", "incepti", "inceptio", "inception"]`
+
+- Each token generates prefix substrings from `min_gram` to `max_gram`
+- Typing "inc" matches the indexed token "inc"
+- Trade-off: larger index size for instant type-ahead results
 
 ---
 
@@ -556,9 +599,7 @@ PUT /autocomplete-index
 
 - **Index time:** `"Inception"` → `["in", "inc", "ince", ...]`
 - **Search time:** `"inc"` → `["inc"]` (standard, no edge_ngram)
-- Result: typing `"inc"` matches the indexed token `"inc"` → autocomplete works!
-
-> Without `search_analyzer`, the search query would also be edge-n-grammed, causing bad results.
+- Without `search_analyzer`, the query would also be edge-n-grammed → bad results
 
 ---
 
@@ -570,9 +611,9 @@ PUT /autocomplete-index
 
 ---
 
-# Dynamic vs Explicit Mapping
+# Dynamic Mapping
 
-### Dynamic mapping (auto-detected)
+ES auto-detects field types from the first document:
 
 ```json
 POST /my-index/_doc/1
@@ -585,7 +626,13 @@ POST /my-index/_doc/1
 }
 ```
 
-### Explicit mapping (defined upfront)
+Convenient for prototyping, but not ideal for production.
+
+---
+
+# Explicit Mapping
+
+Define field types upfront:
 
 ```json
 PUT /my-index
@@ -616,7 +663,7 @@ PUT /my-index
 | `boolean` | True/false | `active`, `published` |
 | `object` | Nested JSON (flattened) | Address, metadata |
 | `nested` | Independent inner objects | Tags with attributes |
-| `dense_vector` | ML embeddings | 384-dim vectors (Day 4) |
+| `dense_vector` | ML embeddings | 768-dim vectors (Day 4) |
 
 ---
 
@@ -634,6 +681,10 @@ PUT /my-index
 }
 ```
 
+---
+
+# text vs keyword: Comparison
+
 | | `text` | `keyword` |
 |--|--------|-----------|
 | Analyzed? | Yes (tokenized) | No (exact string) |
@@ -641,6 +692,8 @@ PUT /my-index
 | Sortable? | No | Yes |
 | Aggregatable? | No | Yes |
 | Max size | Unlimited | 256 chars (default) |
+
+> Use **multi-fields** to get both: full-text search + exact match on the same field.
 
 ---
 
@@ -666,8 +719,6 @@ Index the same data in **multiple ways**:
   }
 }
 ```
-
-Access via: `title` (full-text), `title.keyword` (exact), `title.autocomplete` (type-ahead)
 
 ---
 
@@ -755,19 +806,24 @@ GET /movies/_search
     },
     "rating_stats": {
       "stats": { "field": "vote_average" }
-    },
-    "unique_genres": {
-      "cardinality": { "field": "genres" }
     }
   }
 }
 ```
 
+---
+
+# Metric Aggregation Types
+
 | Agg | Returns |
 |-----|---------|
 | `avg`, `sum`, `min`, `max` | Single value |
 | `stats` | count, min, max, avg, sum |
+| `extended_stats` | + std deviation, variance |
 | `cardinality` | Approximate distinct count |
+| `percentiles` | Distribution breakdown |
+
+> `stats` is a convenient shortcut — one aggregation returns 5 values.
 
 ---
 
@@ -790,7 +846,10 @@ GET /movies/_search
 }
 ```
 
-Response:
+---
+
+# terms Aggregation: Response
+
 ```json
 "genres_breakdown": {
   "buckets": [
@@ -800,6 +859,10 @@ Response:
   ]
 }
 ```
+
+- `size` controls how many buckets to return (default: 10)
+- Only works on `keyword` fields (not `text`)
+- Results are approximate for large datasets
 
 ---
 
@@ -813,28 +876,21 @@ GET /movies/_search
   "size": 0,
   "aggs": {
     "movies_by_decade": {
-      "date_histogram": {
-        "field": "release_date",
-        "calendar_interval": "year"
-      }
+      "date_histogram": { "field": "release_date", "calendar_interval": "year" }
     }
   }
 }
 ```
 
-### Fixed intervals
-
-```json
-"fixed_interval": "30d"    // Every 30 days
-"calendar_interval": "month"  // Calendar month
-"calendar_interval": "year"   // Calendar year
-```
+**Interval options:**
+- `"calendar_interval": "year"` / `"month"` / `"week"` / `"day"`
+- `"fixed_interval": "30d"` / `"1h"` / `"90m"`
 
 ---
 
-# Bucket Aggregations: range & histogram
+# Bucket Aggregations: range
 
-### Numeric range buckets
+Custom numeric range buckets:
 
 ```json
 GET /movies/_search
@@ -855,7 +911,11 @@ GET /movies/_search
 }
 ```
 
-### Histogram (even intervals)
+---
+
+# Bucket Aggregations: histogram
+
+Even intervals (auto-bucketing):
 
 ```json
 "rating_histogram": {
@@ -865,6 +925,11 @@ GET /movies/_search
   }
 }
 ```
+
+Creates buckets: `[0-1)`, `[1-2)`, `[2-3)`, ..., `[9-10)`
+
+- `range` — you define the bucket boundaries
+- `histogram` — ES creates even-width buckets automatically
 
 ---
 
@@ -892,8 +957,6 @@ GET /movies/_search
 }
 ```
 
-Each genre bucket contains its own avg and max rating!
-
 ---
 
 # Aggregations + Query Scope
@@ -919,8 +982,6 @@ GET /movies/_search
 }
 ```
 
-Only movies from 2000+ are included in the aggregation.
-
 ---
 
 # Pipeline Aggregations
@@ -933,26 +994,34 @@ GET /movies/_search
   "size": 0,
   "aggs": {
     "by_year": {
-      "date_histogram": {
-        "field": "release_date",
-        "calendar_interval": "year"
-      },
+      "date_histogram": { "field": "release_date", "calendar_interval": "year" },
       "aggs": {
-        "avg_rating": {
-          "avg": { "field": "vote_average" }
-        }
+        "avg_rating": { "avg": { "field": "vote_average" } }
       }
     },
     "max_avg_rating_year": {
-      "max_bucket": {
-        "buckets_path": "by_year>avg_rating"
-      }
+      "max_bucket": { "buckets_path": "by_year>avg_rating" }
     }
   }
 }
 ```
 
+---
+
+# Pipeline Aggregations: How They Work
+
 `max_bucket` finds the year with the **highest** average rating.
+
+**Common pipeline aggs:**
+
+| Pipeline Agg | Purpose |
+|-------------|---------|
+| `max_bucket` | Find bucket with highest value |
+| `min_bucket` | Find bucket with lowest value |
+| `avg_bucket` | Average across all buckets |
+| `derivative` | Rate of change between buckets |
+
+> Pipeline aggs are **siblings** — same level as the bucket agg, not nested inside.
 
 ---
 
@@ -977,7 +1046,9 @@ GET /movies/_search
 }
 ```
 
-### ES|QL
+---
+
+# ES|QL: Same Query, Simpler Syntax
 
 ```sql
 FROM movies
@@ -986,6 +1057,10 @@ FROM movies
 | SORT count DESC
 | LIMIT 5
 ```
+
+- ES|QL is more readable for SQL-familiar users
+- Query DSL aggregations are more flexible (nested aggs, pipeline)
+- Both produce the same results
 
 ---
 
@@ -1045,8 +1120,7 @@ Internally, ES **flattens** this:
 }
 ```
 
-Query: "Find posts where Alice gave rating 2" → **false positive!**
-The association between author and rating is **lost**.
+Query: "Find posts where Alice gave rating 2" → **false positive!** The association between author and rating is **lost**.
 
 ---
 
@@ -1095,9 +1169,7 @@ GET /blog/_search
 }
 ```
 
-Now correctly finds posts where **Alice specifically** rated >= 4.
-
-> Nested queries require the `nested` wrapper with the `path` parameter.
+Now correctly finds posts where **Alice specifically** rated >= 4. Nested queries require the `nested` wrapper with the `path` parameter.
 
 ---
 
@@ -1136,7 +1208,9 @@ PUT /blog-pc/_doc/1
   "body": "Learn Elasticsearch...",
   "join_field": "post"
 }
+```
 
+```json
 # Child document (must specify routing!)
 PUT /blog-pc/_doc/c1?routing=1
 {
@@ -1149,13 +1223,11 @@ PUT /blog-pc/_doc/c1?routing=1
 }
 ```
 
-> Children **must** be routed to the same shard as their parent.
-
 ---
 
-# has_child / has_parent Queries
+# has_child Query
 
-### Find posts that have a comment by Alice
+Find posts that have a comment by Alice:
 
 ```json
 GET /blog-pc/_search
@@ -1171,7 +1243,13 @@ GET /blog-pc/_search
 }
 ```
 
-### Find comments whose parent post contains "ES"
+Returns the **parent** documents that match the child condition.
+
+---
+
+# has_parent Query
+
+Find comments whose parent post contains "ES":
 
 ```json
 GET /blog-pc/_search
@@ -1186,6 +1264,8 @@ GET /blog-pc/_search
   }
 }
 ```
+
+Returns the **child** documents whose parent matches the condition.
 
 ---
 

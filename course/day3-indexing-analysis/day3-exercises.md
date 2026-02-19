@@ -87,11 +87,11 @@ Verify that 9001 is gone and 9002 exists.
 
 ## Task 3: Script Update (Intermediate)
 
-Write a script update that adds 0.5 to the `vote_average` of movie ID 1 (The Shawshank Redemption), but only if the current value is below 9.0.
+Write a script update that adds 0.5 to the `vote_average` of movie ID 318 (The Shawshank Redemption), but only if the current value is below 9.0.
 
 Then verify the new value.
 
-> **Hint:** Use `POST /movies/_update/1` with a `script` that uses a conditional: `if (ctx._source.vote_average < 9.0) { ctx._source.vote_average += params.boost }`. Pass `boost` as a param.
+> **Hint:** Use `POST /movies/_update/318` with a `script` that uses a conditional: `if (ctx._source.vote_average < 9.0) { ctx._source.vote_average += params.boost }`. Pass `boost` as a param.
 
 ---
 
@@ -143,7 +143,7 @@ Use the `_analyze` API to analyze the text `"The runners were running quickly in
 ## Task 6: Compare Analyzers (continued)
 
 > **Hint:** Use `GET /_analyze` with `"analyzer": "standard"` (and each other analyzer) on the text.
-> The english analyzer applies stemming so "runners" and "running" both become "run".
+> The english analyzer applies stemming: "runners" becomes "runner" and "running" becomes "run".
 > The keyword analyzer keeps the entire string as one token.
 
 ---
@@ -325,7 +325,7 @@ Index 2-3 movies with cast information.
 
 Then write a nested query to find movies where Morgan Freeman had billing position 1. It should return **no results** (he was billing 2). Verify the query correctly excludes false positives.
 
-> **Hint:** Map `cast` as `type: "nested"` with properties: name (keyword), role (text), billing (integer). Use a `nested` query with `path: "comments"` and a `bool` combining `term` on `cast.name` and `term` on `cast.billing`.
+> **Hint:** Map `cast` as `type: "nested"` with properties: name (keyword), role (text), billing (integer). Use a `nested` query with `path: "cast"` and a `bool` combining `term` on `cast.name` and `term` on `cast.billing`.
 
 ---
 
