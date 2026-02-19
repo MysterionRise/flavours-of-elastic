@@ -30,7 +30,10 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 ES_URL = os.getenv("ELASTICSEARCH_URL", "https://localhost:9200")
 ES_AUTH = ("elastic", "elastic")
 ES_INDEX = "movies-hybrid"
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+OPENROUTER_API_KEY = os.getenv(
+    "OPENROUTER_API_KEY",
+    "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",
+)
 LLM_MODEL = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-001")
 EMBEDDING_MODEL = "google/embeddinggemma-300m"
 TOP_K = 10
@@ -47,7 +50,9 @@ def get_encoder():
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError:
-            print("[!] sentence-transformers required: pip install sentence-transformers")
+            print(
+                "[!] sentence-transformers required: pip install sentence-transformers"
+            )
             sys.exit(1)
         print(f"  Loading embedding model: {EMBEDDING_MODEL}...")
         _encoder = SentenceTransformer(EMBEDDING_MODEL)
@@ -92,11 +97,11 @@ def search_movies_hybrid(query_text, top_k=TOP_K):
                             "query": {
                                 "semantic": {
                                     "field": "overview_semantic",
-                                    "query": query_text
+                                    "query": query_text,
                                 }
                             }
                         }
-                    }
+                    },
                 ],
                 "rank_window_size": 50,
                 "rank_constant": 60,
@@ -132,7 +137,9 @@ def format_context(movies):
         return "No relevant movies found."
     parts = []
     for i, m in enumerate(movies, 1):
-        genres = ", ".join(m["genres"]) if isinstance(m["genres"], list) else m["genres"]
+        genres = (
+            ", ".join(m["genres"]) if isinstance(m["genres"], list) else m["genres"]
+        )
         rating = m.get("vote_average", "N/A")
         parts.append(
             f"{i}. **{m['title']}** ({genres}, rating: {rating})\n"

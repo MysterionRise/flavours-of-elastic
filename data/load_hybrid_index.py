@@ -62,7 +62,9 @@ def ensure_elser_endpoint():
     """Create ELSER inference endpoint if it doesn't exist."""
     r = requests.get(
         f"{ES_URL}/_inference/{ELSER_ENDPOINT}",
-        auth=ES_AUTH, verify=False, timeout=10,
+        auth=ES_AUTH,
+        verify=False,
+        timeout=10,
     )
     if r.status_code == 200:
         print(f"  ELSER endpoint '{ELSER_ENDPOINT}' already exists")
@@ -78,7 +80,9 @@ def ensure_elser_endpoint():
                 "num_threads": 1,
             },
         },
-        auth=ES_AUTH, verify=False, timeout=60,
+        auth=ES_AUTH,
+        verify=False,
+        timeout=60,
     )
     if r.status_code in (200, 201):
         print("  ELSER endpoint created, waiting for model to load...")
@@ -87,7 +91,9 @@ def ensure_elser_endpoint():
             check = requests.post(
                 f"{ES_URL}/_inference/sparse_embedding/{ELSER_ENDPOINT}",
                 json={"input": ["test"]},
-                auth=ES_AUTH, verify=False, timeout=30,
+                auth=ES_AUTH,
+                verify=False,
+                timeout=30,
             )
             if check.status_code == 200:
                 print("  ELSER model ready!")
@@ -120,7 +126,9 @@ def load_embeddings_data(limit):
             "overview_semantic": overview_text,
             "overview_embedding": emb,
             "genres": item["genres"].split("|") if item.get("genres") else [],
-            "vote_average": float(item.get("vote_average", 0)) if item.get("vote_average") else 6.0,
+            "vote_average": (
+                float(item.get("vote_average", 0)) if item.get("vote_average") else 6.0
+            ),
         }
         docs.append(doc)
 
@@ -134,7 +142,9 @@ def create_index():
     r = requests.put(
         f"{ES_URL}/{INDEX}",
         json=MAPPING,
-        auth=ES_AUTH, verify=False, timeout=30,
+        auth=ES_AUTH,
+        verify=False,
+        timeout=30,
     )
     if r.status_code in (200, 201):
         print(f"  Created index '{INDEX}'")
@@ -154,14 +164,18 @@ def index_docs(docs, batch_size=5):
         batch = docs[i : i + batch_size]
         bulk_body = ""
         for doc in batch:
-            bulk_body += json.dumps({"index": {"_index": INDEX, "_id": doc["id"]}}) + "\n"
+            bulk_body += (
+                json.dumps({"index": {"_index": INDEX, "_id": doc["id"]}}) + "\n"
+            )
             bulk_body += json.dumps(doc) + "\n"
 
         r = requests.post(
             f"{ES_URL}/_bulk",
             data=bulk_body,
             headers={"Content-Type": "application/x-ndjson"},
-            auth=ES_AUTH, verify=False, timeout=120,
+            auth=ES_AUTH,
+            verify=False,
+            timeout=120,
         )
         if r.status_code in (200, 201):
             result = r.json()
@@ -181,7 +195,9 @@ def index_docs(docs, batch_size=5):
 
 def main():
     parser = argparse.ArgumentParser(description="Load movies-hybrid index")
-    parser.add_argument("--limit", type=int, default=100, help="Number of docs (default: 100)")
+    parser.add_argument(
+        "--limit", type=int, default=100, help="Number of docs (default: 100)"
+    )
     args = parser.parse_args()
 
     print(f"\n=== Creating '{INDEX}' index ({args.limit} docs) ===")
@@ -209,10 +225,14 @@ def main():
     print(f"  GET /{INDEX}/_count")
     print(f"  # BM25 (text search)")
     print(f"  GET /{INDEX}/_search")
-    print(f'  {{ "query": {{ "multi_match": {{ "query": "space adventure", "fields": ["title^3","overview"] }} }} }}')
+    print(
+        f'  {{ "query": {{ "multi_match": {{ "query": "space adventure", "fields": ["title^3","overview"] }} }} }}'
+    )
     print(f"  # Semantic (ELSER)")
     print(f"  GET /{INDEX}/_search")
-    print(f'  {{ "query": {{ "semantic": {{ "field": "overview_semantic", "query": "animated kids adventure" }} }} }}')
+    print(
+        f'  {{ "query": {{ "semantic": {{ "field": "overview_semantic", "query": "animated kids adventure" }} }} }}'
+    )
     print(f"  # kNN (dense vector)")
     print(f"  # Use overview_embedding field with knn query")
     print(f"  # Three-way hybrid RRF: combines all three retrievers")
