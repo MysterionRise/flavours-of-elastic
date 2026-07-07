@@ -1,0 +1,74 @@
+---
+queries:
+  - id: toy_friendship
+    text: talking toys friendship space ranger cowboy
+    relevant_ids: [1]
+  - id: jungle_board_game
+    text: magical board game jungle animals children
+    relevant_ids: [2]
+  - id: fishing_rivals_romance
+    text: old rivals fishing romantic comedy
+    relevant_ids: [3]
+  - id: women_friendship_relationships
+    text: women friendship heartbreak relationships phoenix
+    relevant_ids: [4]
+  - id: police_bank_robbers
+    text: police chase professional bank robbers crime thriller
+    relevant_ids: [6]
+  - id: bond_spy
+    text: secret agent spy action goldeneye
+    relevant_ids: [10]
+  - id: vampire_parody
+    text: vampire horror comedy parody
+    relevant_ids: [12]
+  - id: alaska_dog
+    text: animated dog alaska medicine children adventure
+    relevant_ids: [13]
+  - id: president_romance
+    text: american president white house romance comedy
+    relevant_ids: [11]
+  - id: casino_mafia
+    text: casino mafia las vegas crime drama
+    relevant_ids: [16]
+  - id: austen_sisters
+    text: jane austen sisters inheritance romance
+    relevant_ids: [17]
+  - id: pet_detective
+    text: pet detective animal comedy
+    relevant_ids: [19]
+  - id: serial_killer
+    text: serial killer seven deadly sins mystery thriller
+    relevant_ids: [47]
+  - id: con_man_mystery
+    text: criminal lineup mystery unreliable suspect
+    relevant_ids: [50]
+  - id: time_travel_virus
+    text: time travel virus apocalypse monkeys sci fi
+    relevant_ids: [32]
+  - id: farm_pig
+    text: pig farm family children drama
+    relevant_ids: [34]
+  - id: martial_arts_tournament
+    text: martial arts fantasy fighting tournament
+    relevant_ids: [44]
+  - id: death_row_nun
+    text: death row nun crime drama redemption
+    relevant_ids: [36]
+  - id: magical_cupboard
+    text: child magical cupboard adventure fantasy
+    relevant_ids: [60]
+  - id: shakespeare_jealousy
+    text: shakespeare othello jealousy tragedy
+    relevant_ids: [26]
+  - id: pirate_adventure
+    text: pirate island action adventure romance
+    relevant_ids: [15]
+  - id: political_biopic
+    text: nixon president political biography drama
+    relevant_ids: [14]
+  - id: futuristic_city
+    text: dark fantasy city lost children science fiction
+    relevant_ids: [29]
+  - id: football_children
+    text: children soccer team family comedy
+    relevant_ids: [54]

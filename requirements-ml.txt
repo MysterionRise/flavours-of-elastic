@@ -1,0 +1,7 @@
+-r requirements.txt
+
+aiohttp>=3.9.0
+sentence-transformers>=3.0.0
+elasticsearch>=8.0.0
+fastapi>=0.110.0
+uvicorn>=0.29.0

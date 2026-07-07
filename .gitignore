@@ -1,6 +1,9 @@
 # OS
 .DS_Store
 
+# Local environment
+.env
+
 # IDE
 .idea/
 *.iml
@@ -12,10 +15,10 @@ __pycache__/
 .venv/
 venv/
 
-# Coverage
+# Coverage (if added later)
 .coverage
 htmlcov/
 coverage.xml
 
-# Large data files (generate locally)
+# Generated ML artifacts
 data/movies_enriched_with_embeddings.json

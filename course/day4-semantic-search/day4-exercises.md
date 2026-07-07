@@ -87,9 +87,9 @@ POST /vector-demo/_bulk
 
 ## Task 2: Real Movie Embeddings kNN — Setup (Basic)
 
-Using the `movies-embeddings` index (~5100 movies with 768-dim vectors):
+Using the `movies-embeddings` index (100 movies with deterministic 384-dim vectors):
 
-1. Get the embedding from movie ID 1 (The Shawshank Redemption):
+1. Get the embedding from movie ID 1 (Toy Story):
    ```json
    GET /movies-embeddings/_doc/1
    ```
@@ -111,7 +111,7 @@ GET /movies-embeddings/_search
     "k": 5,
     "num_candidates": 50
   },
-  "_source": ["title", "overview", "genres", "vote_average"]
+  "_source": ["title", "overview", "genres", "year"]
 }
 ```
 
@@ -120,10 +120,10 @@ GET /movies-embeddings/_search
 ## Task 2: Real Movie Embeddings kNN — Questions (Basic)
 
 **Questions:**
-1. Do the results make thematic sense? Are they similar to Shawshank?
-2. Try with movie ID 8 (Interstellar). Are the neighbors space-related?
+1. Do the results make thematic sense? Are they similar to Toy Story?
+2. Try with movie ID 2 (Jumanji). Are the neighbors adventure/family/fantasy related?
 
-> **Hint:** The first result will be Shawshank itself (distance 0). The other results should be thematically similar — dramas about hardship, redemption, or prison. For Interstellar, expect sci-fi/space movies.
+> **Hint:** The first result will be the movie itself (distance 0). With deterministic local embeddings, expect lexical/genre similarity rather than production-grade semantic quality.
 
 ---
 
@@ -134,7 +134,7 @@ Using movie ID 1's embedding from Task 2, find similar movies but:
 
 1. First, search **without** any filter (k=10)
 2. Then, add a filter to only include `"Drama"` genre
-3. Then, add a filter for `vote_average >= 7.5` AND genre `"Drama"`
+3. Then, add a filter for `year >= 1995` AND genre `"Drama"`
 
 Compare the results across all three queries.
 
@@ -148,7 +148,7 @@ Compare the results across all three queries.
 >   "bool": {
 >     "must": [
 >       { "term": { "genres": "Drama" } },
->       { "range": { "vote_average": { "gte": 7.5 } } }
+>       { "range": { "year": { "gte": 1995 } } }
 >     ]
 >   }
 > }
@@ -166,7 +166,7 @@ Using the same query from Task 2, run the kNN search with different `num_candida
 
 Compare the results and the `took` time. At what point do results stabilize?
 
-> **Hint:** With only 5100 documents, differences will be small. In production with millions of docs, `num_candidates` has a significant impact. Lower values are faster but may miss relevant results. Higher values are more accurate but slower.
+> **Hint:** With only 100 documents, differences will be small. In production with millions of docs, `num_candidates` has a significant impact. Lower values are faster but may miss relevant results. Higher values are more accurate but slower.
 
 ---
 
@@ -253,7 +253,7 @@ PUT /movies-semantic
         "inference_id": "my-elser-endpoint"
       },
       "genres": { "type": "keyword" },
-      "vote_average": { "type": "float" }
+      "year": { "type": "integer" }
     }
   }
 }
@@ -301,7 +301,7 @@ Then try:
 Write a query that combines semantic search with traditional filters:
 
 1. Semantic query: `"science fiction technology"`
-2. Filter: `vote_average >= 8.0`
+2. Filter: `year >= 1990`
 3. Filter: genre must be one of `["Action", "Science Fiction"]`
 
 Use a `bool` query with `must` for semantic and `filter` for the constraints.
@@ -322,7 +322,7 @@ Use a `bool` query with `must` for semantic and `filter` for the constraints.
 >         }
 >       },
 >       "filter": [
->         { "range": { "vote_average": { "gte": 8.0 } } },
+>         { "range": { "year": { "gte": 1990 } } },
 >         { "terms": { "genres": ["Action", "Science Fiction"] } }
 >       ]
 >     }
@@ -399,7 +399,7 @@ Create a hybrid query for "crime family power" that:
 
 1. Uses BM25 (`multi_match` on title and overview)
 2. Uses kNN (get embedding from movie ID 2 — The Godfather)
-3. Filters both retrievers to: `vote_average >= 7.0` AND genres contains `"Crime"` or `"Drama"`
+3. Filters both retrievers to: `year >= 1990` AND genres contains `"Crime"` or `"Drama"`
 
 Remember: filters must be applied to **each retriever separately**.
 
@@ -427,9 +427,9 @@ For each combination, note:
 
 **Questions:**
 1. What effect does lowering `rank_constant` have?
-2. Does increasing `rank_window_size` change results with 5100 documents?
+2. Does increasing `rank_window_size` change results with 100 documents?
 
-> **Hint:** With `rank_constant=10`, the top-ranked results from each retriever get disproportionately high RRF scores — it emphasizes the #1 result much more than #10. With `rank_constant=100`, the difference between ranks is smaller, making the fusion more "democratic." With only 5100 documents, `rank_window_size` changes may be subtle.
+> **Hint:** With `rank_constant=10`, the top-ranked results from each retriever get disproportionately high RRF scores — it emphasizes the #1 result much more than #10. With `rank_constant=100`, the difference between ranks is smaller, making the fusion more "democratic." With only 100 documents, `rank_window_size` changes may be subtle.
 
 ---
 
@@ -470,13 +470,13 @@ PUT /movies-quantized
       "overview": { "type": "text" },
       "overview_embedding": {
         "type": "dense_vector",
-        "dims": 768,
+        "dims": 384,
         "index": true,
         "similarity": "cosine",
         "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
       },
       "genres": { "type": "keyword" },
-      "vote_average": { "type": "float" }
+      "year": { "type": "integer" }
     }
   }
 }
@@ -491,7 +491,7 @@ Reindex from `movies-embeddings` into `movies-quantized`. Run the same kNN query
 1. Are the results identical?
 2. Compare index sizes: `GET /_cat/indices/movies-embeddings,movies-quantized?v`
 
-> **Hint:** Use `POST /_reindex` to copy data. With only 5100 documents, size and accuracy differences will be minimal. In production with millions of vectors, int8_hnsw saves ~75% memory with typically <5% accuracy loss.
+> **Hint:** Use `POST /_reindex` to copy data. With only 100 documents, size and accuracy differences will be minimal. In production with millions of vectors, int8_hnsw saves ~75% memory with typically <5% accuracy loss.
 
 ---
 
@@ -543,7 +543,7 @@ GET /movies-embeddings/_search
 
 Compare results and `took` time. Are the top 10 identical?
 
-> **Hint:** With 5100 documents, approximate kNN should return the exact same results as brute-force (the HNSW graph is small enough to explore thoroughly). The difference becomes significant at scale (millions of documents) where approximate kNN is orders of magnitude faster but may miss some true neighbors.
+> **Hint:** With 100 documents, approximate kNN should return the exact same results as brute-force (the HNSW graph is small enough to explore thoroughly). The difference becomes significant at scale (millions of documents) where approximate kNN is orders of magnitude faster but may miss some true neighbors.
 
 ---
 

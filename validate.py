@@ -11,6 +11,7 @@ This script validates that all three stacks (Elastic, OpenSearch, ELK-OSS) can:
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -26,6 +27,22 @@ except ImportError:
     sys.exit(1)
 
 
+def elastic_auth():
+    """Return Elastic basic auth from env with local-dev defaults."""
+    return (
+        os.getenv("ELASTIC_USER", "elastic"),
+        os.getenv("ELASTIC_PASSWORD", "elastic"),
+    )
+
+
+def opensearch_auth():
+    """Return OpenSearch basic auth from env with local-dev defaults."""
+    return (
+        "admin",
+        os.getenv("OPENSEARCH_INITIAL_ADMIN_PASSWORD", "MyStrongPassword123!"),
+    )
+
+
 class StackValidator:
     """Base class for stack validation."""
 
@@ -35,6 +52,7 @@ class StackValidator:
         self.base_url = None
         self.auth = None
         self.verify_ssl = True
+        self.cleanup = True
 
     def run_command(self, cmd: list, check: bool = True) -> Tuple[int, str]:
         """Run a shell command and return exit code and output."""
@@ -248,7 +266,7 @@ class StackValidator:
                 print(f"{'=' * 60}")
 
         finally:
-            self.stop_stack(cleanup=True)
+            self.stop_stack(cleanup=self.cleanup)
 
         return success
 
@@ -270,7 +288,7 @@ class OpenSearchValidator(StackValidator):
     def __init__(self):
         super().__init__("OpenSearch", "docker/opensearch/docker-compose.yml")
         self.base_url = "https://localhost:9200"
-        self.auth = ("admin", "MyStrongPassword123!")  # From .env
+        self.auth = opensearch_auth()
         self.verify_ssl = False
         self.ui_name = "OpenSearch Dashboards"
 
@@ -281,7 +299,7 @@ class ElasticValidator(StackValidator):
     def __init__(self):
         super().__init__("Elastic Stack", "docker/elk/docker-compose.yml")
         self.base_url = "https://localhost:9200"
-        self.auth = ("elastic", "elastic")  # From .env
+        self.auth = elastic_auth()
         self.verify_ssl = False
         self.ui_name = "Kibana"
 
@@ -292,7 +310,7 @@ class ElasticSingleValidator(StackValidator):
     def __init__(self):
         super().__init__("Elastic Single", "docker/elk-single/docker-compose.yml")
         self.base_url = "http://localhost:9200"
-        self.auth = ("elastic", "elastic")  # From .env
+        self.auth = elastic_auth()
         self.verify_ssl = True
         self.ui_name = "Kibana"
 
@@ -303,7 +321,7 @@ class Elastic9Validator(StackValidator):
     def __init__(self):
         super().__init__("Elastic 9", "docker/elk-9/docker-compose.yml")
         self.base_url = "http://localhost:9200"
-        self.auth = ("elastic", "elastic")  # From .env
+        self.auth = elastic_auth()
         self.verify_ssl = True
         self.ui_name = "Kibana 9"
 
@@ -314,7 +332,7 @@ class OpenSearch3Validator(StackValidator):
     def __init__(self):
         super().__init__("OpenSearch 3", "docker/opensearch-3/docker-compose.yml")
         self.base_url = "https://localhost:9200"
-        self.auth = ("admin", "MyStrongPassword123!")  # From .env
+        self.auth = opensearch_auth()
         self.verify_ssl = False
         self.ui_name = "OpenSearch 3 Dashboards"
 
@@ -325,7 +343,7 @@ class ElasticMLValidator(StackValidator):
     def __init__(self):
         super().__init__("Elastic ML", "docker/elk-ml/docker-compose.yml")
         self.base_url = "https://localhost:9200"
-        self.auth = ("elastic", "elastic")  # From .env
+        self.auth = elastic_auth()
         self.verify_ssl = False
         self.ui_name = "Kibana"
 
@@ -504,7 +522,7 @@ class ElasticMLValidator(StackValidator):
                 print(f"{'=' * 60}")
 
         finally:
-            self.stop_stack(cleanup=True)
+            self.stop_stack(cleanup=self.cleanup)
 
         return success
 
@@ -557,6 +575,7 @@ def main():
     results = {}
     for stack_name in stacks_to_test:
         validator = validators[stack_name]
+        validator.cleanup = not args.no_cleanup
         results[stack_name] = validator.validate()
 
     # Summary

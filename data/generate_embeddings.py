@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate embeddings for multilingual movie text fields using EmbeddingGemma-300M.
+Generate model-backed movie embeddings for the portfolio search demo.
 
-Reads data/movies_enriched.csv and produces data/movies_enriched_with_embeddings.json
-with 768-dim embeddings for each of the 6 text fields.
+Default path:
+    all-MiniLM-L6-v2 -> 384-dim overview_embedding
 
-Requires:
-    pip install sentence-transformers
-    export HF_TOKEN="hf_..."  (must accept license at huggingface.co/google/embeddinggemma-300m)
-
-Usage:
-    python data/generate_embeddings.py [OPTIONS]
-
-Options:
-    --input       Input CSV path   (default: data/movies_enriched.csv)
-    --output      Output JSON path (default: data/movies_enriched_with_embeddings.json)
-    --batch-size  Encoding batch   (default: 64)
+Advanced path:
+    --advanced-multilingual with a 768-dim-capable model can generate embeddings
+    for all multilingual abstract/description fields.
 """
 
 import argparse
@@ -23,17 +15,15 @@ import csv
 import json
 import sys
 import time
+from pathlib import Path
 
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    print(
-        "Error: sentence-transformers required. Install with: pip install sentence-transformers"
-    )
-    sys.exit(1)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
+from data.load_data import normalize_movie  # noqa: E402
 
-TEXT_FIELDS = [
+DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+MULTILINGUAL_FIELDS = [
     "abstract_en",
     "abstract_kk",
     "abstract_fr",
@@ -42,82 +32,82 @@ TEXT_FIELDS = [
     "description_fr",
 ]
 
-CSV_FIELDS = ["movieId", "title", "genres"] + TEXT_FIELDS
-
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Generate embeddings for movie text fields"
-    )
+    parser = argparse.ArgumentParser(description="Generate movie embeddings")
+    parser.add_argument("--input", default="data/movies_enriched.csv")
+    parser.add_argument("--output", default="data/movies_enriched_with_embeddings.json")
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--limit", type=int, default=0, help="Limit rows, 0 means all")
     parser.add_argument(
-        "--input",
-        default="data/movies_enriched.csv",
-        help="Input CSV path (default: data/movies_enriched.csv)",
-    )
-    parser.add_argument(
-        "--output",
-        default="data/movies_enriched_with_embeddings.json",
-        help="Output JSON path (default: data/movies_enriched_with_embeddings.json)",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=64,
-        help="Batch size for encoding (default: 64)",
+        "--advanced-multilingual",
+        action="store_true",
+        help="Generate embeddings for all multilingual text fields instead of only overview_embedding",
     )
     return parser.parse_args()
 
 
-def read_movies(path):
-    movies = []
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+def read_rows(path, limit):
+    rows = []
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
         for row in reader:
-            movies.append(row)
-    return movies
+            rows.append(row)
+            if limit and len(rows) >= limit:
+                break
+    return rows
+
+
+def load_model(model_name):
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        print(
+            "Error: sentence-transformers required for model-backed embeddings. "
+            "Install ML extras with: pip install -r requirements-ml.txt"
+        )
+        sys.exit(1)
+    return SentenceTransformer(model_name)
+
+
+def encode(model, texts, batch_size):
+    embeddings = model.encode(texts, batch_size=batch_size, show_progress_bar=True)
+    return [embedding.tolist() for embedding in embeddings]
 
 
 def main():
     args = parse_args()
-
-    print(f"Reading {args.input}...")
-    movies = read_movies(args.input)
-    print(f"  Loaded {len(movies)} movies")
-
-    print("Loading EmbeddingGemma-300M model...")
-    model = SentenceTransformer("google/embeddinggemma-300m")
-    print("  Model loaded")
-
     start = time.time()
 
-    for field in TEXT_FIELDS:
-        print(f"Encoding {field}...")
-        texts = [m.get(field, "") or "" for m in movies]
-        embeddings = model.encode(
-            texts, batch_size=args.batch_size, show_progress_bar=True
-        )
-        for i, emb in enumerate(embeddings):
-            movies[i][f"{field}_embedding"] = emb.tolist()
-        elapsed = time.time() - start
-        print(f"  {field} done ({elapsed:.1f}s elapsed)")
+    print(f"Reading {args.input}...")
+    rows = read_rows(args.input, args.limit)
+    print(f"  Loaded {len(rows)} movies")
 
-    # Build output docs
-    docs = []
-    for m in movies:
-        doc = {}
-        for f in CSV_FIELDS:
-            doc[f] = m.get(f, "")
-        for f in TEXT_FIELDS:
-            doc[f"{f}_embedding"] = m[f"{f}_embedding"]
-        docs.append(doc)
+    print(f"Loading model: {args.model}")
+    model = load_model(args.model)
+
+    docs = [normalize_movie(row, with_embeddings=False) for row in rows]
+
+    if args.advanced_multilingual:
+        for field in MULTILINGUAL_FIELDS:
+            print(f"Encoding {field}...")
+            values = [doc.get(field, "") for doc in docs]
+            embeddings = encode(model, values, args.batch_size)
+            for doc, embedding in zip(docs, embeddings):
+                doc[f"{field}_embedding"] = embedding
+    else:
+        print("Encoding overview_embedding...")
+        values = [doc["searchable_text"] for doc in docs]
+        embeddings = encode(model, values, args.batch_size)
+        for doc, embedding in zip(docs, embeddings):
+            doc["overview_embedding"] = embedding
 
     print(f"Writing {args.output}...")
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(docs, f, ensure_ascii=False)
+    with open(args.output, "w", encoding="utf-8") as output_file:
+        json.dump(docs, output_file, ensure_ascii=False)
 
-    elapsed = time.time() - start
-    print(f"Done! {len(docs)} movies with embeddings in {elapsed:.1f}s")
-    print(f"Output: {args.output}")
+    print(f"Done in {time.time() - start:.1f}s")
 
 
 if __name__ == "__main__":
