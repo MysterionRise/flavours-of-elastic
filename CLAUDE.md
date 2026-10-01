@@ -178,6 +178,14 @@ Environment variables in `.env`:
 - `ELK_VERSION` (8.19.x), `ELK9_VERSION` (9.5.x), `OPENSEARCH_VERSION` (2.19.x), `OPENSEARCH3_VERSION` (3.9.x), `ELK_OSS_VERSION` (7.10.2, frozen) — exact patch versions live only in `.env.example`
 - `ELASTIC_PASSWORD`, `KIBANA_PASSWORD`, `OPENSEARCH_INITIAL_ADMIN_PASSWORD`
 
+### Version Updates
+
+Renovate (`renovate.json`) bumps the stack versions in `.env.example` (annotated `# renovate:` lines),
+GitHub Actions, pre-commit hooks and Python dependencies. Track rules: `ELK_VERSION` stays on 8.x,
+`OPENSEARCH_VERSION` on 2.x, `ELK_OSS_VERSION` is frozen; majors need dashboard approval; stack patch
+bumps automerge once CI is green. Docs cite minor versions only (`8.19.x`) — `python -m
+scripts.check_doc_versions [--fix]` (also a pre-commit hook) fails when a minor bump leaves docs stale.
+
 ### CI Pipeline
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every pull request and manually

@@ -47,3 +47,13 @@ repos:
     hooks:
       - id: check-github-workflows
       - id: check-github-workflows-require-timeout
+      - id: check-renovate
+
+  - repo: local
+    hooks:
+      - id: doc-versions
+        name: docs cite the stack minors from .env.example
+        entry: python -m scripts.check_doc_versions
+        language: python  # stdlib only; own interpreter, so `python` resolves everywhere
+        pass_filenames: false
+        files: '(^\.env\.example$|\.md$)'
