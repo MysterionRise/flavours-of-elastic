@@ -1,0 +1,7 @@
+# Historical OpenRouter key from d3df72d/d7ac271 (removed from the code; treated as revoked).
+d3df72dde31a501cf19483c6218364649066752d:data/rag_stage1_bm25.py:openrouter-api-key:30
+d3df72dde31a501cf19483c6218364649066752d:data/rag_stage2_knn.py:openrouter-api-key:30
+d3df72dde31a501cf19483c6218364649066752d:data/rag_stage3_hybrid.py:openrouter-api-key:33
+d7ac27139a952475b008c0e894fc070be58f28ee:data/rag_stage1_bm25.py:openrouter-api-key:32
+d7ac27139a952475b008c0e894fc070be58f28ee:data/rag_stage2_knn.py:openrouter-api-key:32
+d7ac27139a952475b008c0e894fc070be58f28ee:data/rag_stage3_hybrid.py:openrouter-api-key:35

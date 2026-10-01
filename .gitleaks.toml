@@ -1,0 +1,22 @@
+# Gitleaks configuration (used by the pre-commit hook and the CI `secrets` job).
+# Extends the default rule set with providers the defaults do not cover.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openrouter-api-key"
+description = "OpenRouter API key"
+regex = '''\bsk-or-v1-[0-9a-f]{64}\b'''
+keywords = ["sk-or-v1-"]
+
+[[allowlists]]
+description = "Documented local-development credentials (.env.example, docker compose files)"
+regexes = [
+  '''MyStrongPassword123!''',
+  '''local-dev-kibana-encryption-key-32''',
+  '''^elastic:elastic$''',
+  '''^admin:admin$''',
+  '''^(elastic|admin):(YOUR_PASSWORD_FROM_ENV|\$?\{?ELASTIC_PASSWORD\}?|\$?\{?OPENSEARCH_INITIAL_ADMIN_PASSWORD\}?)$''',
+  '''^verify_ssl=not$''',
+]

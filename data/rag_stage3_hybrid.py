@@ -29,10 +29,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 ES_URL = os.getenv("ELASTICSEARCH_URL", "https://localhost:9200")
 ES_AUTH = ("elastic", "elastic")
 ES_INDEX = "movies-hybrid"
-OPENROUTER_API_KEY = os.getenv(
-    "OPENROUTER_API_KEY",
-    "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",
-)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-001")
 EMBEDDING_MODEL = "google/embeddinggemma-300m"
 TOP_K = 10
@@ -204,8 +201,9 @@ def main():
     print("  Type 'quit' to exit, 'clear' to reset history\n")
 
     if not OPENROUTER_API_KEY:
-        print("[!] Warning: OPENROUTER_API_KEY not set. LLM calls will fail.")
-        print("    export OPENROUTER_API_KEY='sk-or-...'\n")
+        sys.exit(
+            "OPENROUTER_API_KEY is not set. Run: export OPENROUTER_API_KEY='sk-or-...'"
+        )
 
     # Pre-load embedding model
     get_encoder()

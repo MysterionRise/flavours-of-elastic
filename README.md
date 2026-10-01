@@ -115,6 +115,8 @@ python data/index.py --input data/movies_enriched_with_embeddings.json
 Additional RAG retrieval examples live in `data/rag_stage1_bm25.py`,
 `data/rag_stage2_knn.py`, `data/rag_stage3_hybrid.py`, and
 `data/load_hybrid_index.py` for staged BM25, kNN, and hybrid workflows.
+They call an LLM through OpenRouter and need your own key in the environment
+(`export OPENROUTER_API_KEY=...`); never commit keys to the repository.
 
 ## Course Structure
 

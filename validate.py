@@ -15,6 +15,7 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Dict, Tuple
 
 try:
@@ -25,6 +26,14 @@ try:
 except ImportError:
     print("Error: requests library not found. Install with: pip install requests")
     sys.exit(1)
+
+REPO_ROOT = Path(__file__).resolve().parent
+
+
+def default_env_file() -> Path:
+    """Use .env when present, otherwise the committed .env.example defaults."""
+    env_file = REPO_ROOT / ".env"
+    return env_file if env_file.exists() else REPO_ROOT / ".env.example"
 
 
 def elastic_auth():
@@ -48,11 +57,30 @@ class StackValidator:
 
     def __init__(self, name: str, compose_file: str):
         self.name = name
-        self.compose_file = compose_file
+        self.compose_file = str(REPO_ROOT / compose_file)
+        # Validation runs in its own compose project so that `down -v` can never
+        # delete the volumes of a stack a student started from the same file.
+        self.project = f"foe-validate-{Path(compose_file).parent.name}"
+        self.env_file = str(default_env_file())
         self.base_url = None
         self.auth = None
         self.verify_ssl = True
         self.cleanup = True
+        self.ui_name = name
+
+    def compose_cmd(self, *args: str) -> list:
+        """Build a docker compose command scoped to the validation project."""
+        return [
+            "docker",
+            "compose",
+            "-p",
+            self.project,
+            "-f",
+            self.compose_file,
+            "--env-file",
+            self.env_file,
+            *args,
+        ]
 
     def run_command(self, cmd: list, check: bool = True) -> Tuple[int, str]:
         """Run a shell command and return exit code and output."""
@@ -65,6 +93,11 @@ class StackValidator:
             return e.returncode, e.stdout + e.stderr
         except subprocess.TimeoutExpired:
             return -1, "Command timed out"
+        except FileNotFoundError:
+            return (
+                127,
+                f"Command not found: {cmd[0]} (is Docker installed and on PATH?)",
+            )
 
     def start_stack(self) -> bool:
         """Start the docker-compose stack."""
@@ -72,17 +105,7 @@ class StackValidator:
         print(f"Starting {self.name}...")
         print(f"{'=' * 60}")
 
-        cmd = [
-            "docker",
-            "compose",
-            "-f",
-            self.compose_file,
-            "--env-file",
-            ".env",
-            "up",
-            "-d",
-        ]
-        exit_code, output = self.run_command(cmd)
+        exit_code, output = self.run_command(self.compose_cmd("up", "-d"))
 
         if exit_code != 0:
             print(f"❌ Failed to start {self.name}")
@@ -95,11 +118,13 @@ class StackValidator:
     def stop_stack(self, cleanup: bool = True) -> None:
         """Stop the docker-compose stack."""
         print(f"\nStopping {self.name}...")
-        flag = "-v" if cleanup else ""
-        cmd = ["docker", "compose", "-f", self.compose_file, "down"]
-        if flag:
-            cmd.append(flag)
-        self.run_command(cmd, check=False)
+        args = ["down", "--remove-orphans"]
+        if cleanup:
+            args.append("-v")
+        exit_code, output = self.run_command(self.compose_cmd(*args), check=False)
+        if exit_code != 0:
+            print(f"⚠️  Failed to stop {self.name} cleanly:\n{output}")
+            return
         print(f"✅ {self.name} stopped")
 
     def wait_for_service(self, url: str, timeout: int = 180, interval: int = 5) -> bool:
@@ -238,10 +263,11 @@ class StackValidator:
         """Run full validation."""
         success = True
 
-        if not self.start_stack():
-            return False
-
         try:
+            if not self.start_stack():
+                success = False
+                return success
+
             # Wait for main service
             if not self.wait_for_service(self.base_url):
                 success = False
@@ -484,10 +510,11 @@ class ElasticMLValidator(StackValidator):
         """Run full validation including ML-specific checks."""
         success = True
 
-        if not self.start_stack():
-            return False
-
         try:
+            if not self.start_stack():
+                success = False
+                return success
+
             # Wait for main service
             if not self.wait_for_service(self.base_url):
                 success = False
