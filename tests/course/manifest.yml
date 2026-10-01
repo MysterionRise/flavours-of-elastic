@@ -13,6 +13,7 @@ days:
     files:
       - course/day2-query-dsl/day2-slides.md
       - course/day2-query-dsl/day2-exercises.md
+      - course/solutions/day2-solutions.md
     setup:
       - {load: small}
       - {kibana_sample: ecommerce}

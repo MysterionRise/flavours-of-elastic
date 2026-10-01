@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 2 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.19 | Full-text · Term-level · Bool · ES|QL
+Elasticsearch 8.19 / 9.5 | Full-text · Term-level · Bool · ES|QL
 
 ---
 
@@ -39,7 +39,7 @@ Elasticsearch 8.19 | Full-text · Term-level · Bool · ES|QL
 
 Every search follows the same structure:
 
-```json
+```json test=skip
 GET /<index>/_search
 {
   "query": { ... },          // What to search for
@@ -146,7 +146,7 @@ GET /movies/_search
   "query": {
     "match": {
       "overview": {
-        "query": "space exploration",
+        "query": "space mission",
         "operator": "and"
       }
     }
@@ -163,13 +163,13 @@ GET /movies/_search
 
 ### Require at least N terms
 
-```json
+```json contains=150
 GET /movies/_search
 {
   "query": {
     "match": {
       "overview": {
-        "query": "epic space adventure exploration",
+        "query": "astronauts lunar mission explosion",
         "minimum_should_match": "75%"
       }
     }
@@ -177,7 +177,7 @@ GET /movies/_search
 }
 ```
 
-- `"75%"` of 4 terms = at least 3 must match
+- `"75%"` of 4 terms = at least 3 must match (Apollo 13 has all four)
 - Useful for longer queries where exact match is too strict
 
 ---
@@ -186,12 +186,12 @@ GET /movies/_search
 
 Search across **multiple fields** at once:
 
-```json
+```json top=260
 GET /movies/_search
 {
   "query": {
     "multi_match": {
-      "query": "dark knight",
+      "query": "star wars",
       "fields": ["title^3", "overview"]
     }
   }
@@ -217,20 +217,22 @@ GET /movies/_search
 
 # multi_match: cross_fields
 
-```json
+```json top=858
 GET /movies/_search
 {
   "query": {
     "multi_match": {
-      "query": "Christopher Nolan batman",
+      "query": "godfather corleone",
       "fields": ["title^2", "overview"],
-      "type": "cross_fields"
+      "type": "cross_fields",
+      "operator": "and"
     }
   }
 }
 ```
 
-> `cross_fields` is ideal when the search terms may span different fields (e.g., name in title, description in overview).
+> `godfather` is only in the title, `corleone` only in the overview: `cross_fields` treats the fields as one
+> big field, so `"operator": "and"` still matches. With `best_fields` it would need both terms in one field.
 
 ---
 
@@ -238,7 +240,7 @@ GET /movies/_search
 
 Finds documents where terms appear **in the exact order**, adjacent to each other:
 
-```json
+```json contains=858
 GET /movies/_search
 {
   "query": {
@@ -249,7 +251,7 @@ GET /movies/_search
 }
 ```
 
-- `"organized crime"` matches `"...organized crime dynasty..."`
+- `"organized crime"` matches *"...influence in the world of organized crime"* (The Godfather)
 - Does NOT match `"...crime was organized..."`
 
 ---
@@ -258,22 +260,22 @@ GET /movies/_search
 
 Allow terms to be **N positions apart**:
 
-```json
+```json contains=318
 GET /movies/_search
 {
   "query": {
     "match_phrase": {
       "overview": {
-        "query": "imprisoned redemption",
-        "slop": 5
+        "query": "prisoner hope",
+        "slop": 3
       }
     }
   }
 }
 ```
 
-- `slop: 0` → terms must be adjacent (default)
-- `slop: 5` → terms can be up to 5 positions apart
+- Shawshank: *"...a fellow **prisoner** and finding **hope**..."* — the terms are 3 positions apart
+- `slop: 0` → terms must be adjacent (default); `slop: 3` → up to 3 positions apart
 - Higher slop = more flexible but less precise
 
 ---
@@ -298,7 +300,9 @@ GET /movies/_search
 // CORRECT: term on keyword field
 GET /movies/_search
 { "query": { "term": { "genres": "Drama" } } }
+```
 
+```json expect=empty
 // WRONG: term on text field (analyzed text won't match)
 GET /movies/_search
 { "query": { "term": { "title": "The Godfather" } } }
@@ -379,14 +383,14 @@ GET /movies/_search
 {
   "query": {
     "exists": {
-      "field": "tagline"
+      "field": "title_aka"
     }
   }
 }
 ```
 
-- Returns documents where the field is **not null** and **not empty**
-- Useful for filtering incomplete data
+- Movies that have at least one alternate title (`title_aka`, e.g. *Seven* a.k.a. *Se7en*)
+- `null`, `[]` and a missing field don't count as existing; an empty string `""` in a `keyword` field **does**
 
 ---
 
@@ -423,7 +427,7 @@ GET /movies/_search
 
 Combine multiple clauses with different logic:
 
-```json
+```json test=skip
 GET /movies/_search
 {
   "query": {
@@ -456,21 +460,17 @@ GET /movies/_search
 
 "Find highly-rated sci-fi movies about space, excluding horror"
 
-```json
+```json top=924
 GET /movies/_search
 {
   "query": {
     "bool": {
-      "must": {
-        "match": { "overview": "space adventure" }
-      },
+      "must": { "match": { "overview": "space voyage mission" } },
       "filter": [
-        { "term": { "genres": "Science Fiction" } },
+        { "term": { "genres": "Sci-Fi" } },
         { "range": { "vote_average": { "gte": 7.5 } } }
       ],
-      "must_not": {
-        "term": { "genres": "Horror" }
-      }
+      "must_not": { "term": { "genres": "Horror" } }
     }
   }
 }
@@ -482,7 +482,7 @@ GET /movies/_search
 
 | Clause | Role in the example |
 |--------|-----------|
-| `must` | Contributes to `_score` (relevance for "space adventure") |
+| `must` | Contributes to `_score` (relevance for "space voyage mission") |
 | `filter` | Exact criteria, fast, no scoring overhead |
 | `must_not` | Hard exclusion (removes Horror) |
 
@@ -499,12 +499,8 @@ GET /movies/_search
 {
   "query": {
     "bool": {
-      "must": {
-        "match": { "overview": "family power" }
-      },
-      "filter": {
-        "range": { "vote_average": { "gte": 8.0 } }
-      },
+      "must": { "match": { "overview": "family power" } },
+      "filter": { "range": { "vote_average": { "gte": 8.0 } } },
       "should": [
         { "term": { "genres": "Drama" } },
         { "term": { "genres": "Crime" } }
@@ -526,9 +522,7 @@ GET /movies/_search
 {
   "query": {
     "bool": {
-      "must": {
-        "match": { "overview": "war" }
-      },
+      "must": { "match": { "overview": "war" } },
       "should": [
         { "match": { "title": "war" } },
         { "range": { "vote_average": { "gte": 8.5 } } }
@@ -567,7 +561,32 @@ GET /movies/_search
 | 2 | 10 | 10 |
 | 3 | 20 | 10 |
 
-> **Limitation:** `from + size` cannot exceed **10,000**. For deep pagination, use `search_after` or the Scroll API.
+> **Limitation:** `from + size` cannot exceed **10,000**. For deep pagination use `search_after` (next slide);
+> the Scroll API is no longer recommended for that.
+
+---
+
+# Deep Pagination: search_after
+
+Sort by a unique combination, then pass the last hit's `sort` values to get the next page:
+
+```json
+GET /movies/_search
+{ "size": 3, "sort": [{ "year": "asc" }, { "id": "asc" }], "_source": ["title", "year"] }
+```
+
+```json contains=1348
+GET /movies/_search
+{
+  "size": 3,
+  "sort": [{ "year": "asc" }, { "id": "asc" }],
+  "search_after": [1921, 3310],
+  "_source": ["title", "year"]
+}
+```
+
+> For a consistent view while paging, open a **point in time** (`POST /movies/_pit?keep_alive=1m`) and pass
+> its `id` in `"pit"` instead of the index name.
 
 ---
 
@@ -628,7 +647,7 @@ Show which parts of the text matched:
 GET /movies/_search
 {
   "query": {
-    "match": { "overview": "imprisoned redemption" }
+    "match": { "overview": "prisoner hope" }
   },
   "highlight": {
     "fields": {
@@ -645,7 +664,7 @@ GET /movies/_search
 ```json
 "highlight": {
   "overview": [
-    "Two <em>imprisoned</em> men bond over years, finding <em>redemption</em>..."
+    "...forming an unlikely friendship with a fellow <em>prisoner</em> and finding <em>hope</em> amidst despair."
   ]
 }
 ```
@@ -675,7 +694,7 @@ GET /movies/_search
 
 # What is ES|QL?
 
-A **pipe-based query language** for Elasticsearch (introduced in 8.11):
+A **pipe-based query language** for Elasticsearch (preview in 8.11, GA since 8.14):
 
 ```sql
 FROM movies
@@ -689,7 +708,7 @@ FROM movies
 - SQL-like syntax with **pipe** (`|`) chaining
 - Built-in aggregations without nesting
 - Returns **columnar** data (not JSON documents)
-- Runs its own execution engine (not Lucene queries)
+- Own compute engine; `WHERE` filters and full-text functions are pushed down to Lucene
 
 ---
 
@@ -699,7 +718,7 @@ FROM movies
 |---------|---------|---------|
 | `FROM` | Source index | `FROM movies` |
 | `WHERE` | Filter rows | `WHERE vote_average > 8` |
-| `EVAL` | Compute new columns | `EVAL decade = release_date / 10 * 10` |
+| `EVAL` | Compute new columns | `EVAL decade = FLOOR(year / 10) * 10` |
 | `STATS...BY` | Aggregate + group | `STATS avg(vote_average) BY genres` |
 | `SORT` | Order results | `SORT vote_average DESC` |
 | `LIMIT` | Limit rows | `LIMIT 20` |
@@ -713,7 +732,7 @@ FROM movies
 
 ```sql
 FROM movies
-| WHERE vote_average >= 8.0 AND genres == "Drama"
+| WHERE vote_average >= 8.0 AND MATCH(genres, "Drama")
 | SORT vote_average DESC
 | LIMIT 5
 | KEEP title, vote_average
@@ -723,11 +742,32 @@ FROM movies
 
 | Operator | Example |
 |----------|---------|
-| `==`, `!=` | `genres == "Drama"` |
+| `==`, `!=` | `title == "The Godfather"` |
 | `>`, `>=`, `<`, `<=` | `vote_average >= 8.0` |
-| `AND`, `OR`, `NOT` | `genres == "Drama" AND vote_average > 7` |
+| `AND`, `OR`, `NOT` | `year >= 1990 AND vote_average > 7` |
 | `LIKE` | `title LIKE "The *"` |
-| `IN` | `genres IN ("Action", "Drama")` |
+| `IN` | `year IN (1994, 1995)` |
+
+---
+
+# ES|QL Pitfall: Multi-valued Fields
+
+`genres` holds several values. Comparisons on a multi-valued field evaluate to **null** (with a warning), so most movies silently disappear:
+
+```sql expect=warning
+FROM movies
+| WHERE genres == "Drama"
+| LIMIT 5
+```
+
+Filter with `MATCH(genres, "Drama")` — or the `:` operator, `WHERE genres : "Drama"` — or `MV_EXPAND` first:
+
+```sql
+FROM movies
+| WHERE MATCH(genres, "Drama")
+| KEEP title, genres
+| LIMIT 5
+```
 
 ---
 
@@ -743,7 +783,11 @@ FROM movies
     "Average"
   )
 | STATS count = COUNT(*) BY rating_category
+| SORT count DESC
+| LIMIT 10
 ```
+
+> Without `LIMIT`, ES|QL warns "No limit defined" and caps results at 1,000 rows.
 
 ---
 
@@ -755,10 +799,11 @@ FROM movies
 | EVAL decade = FLOOR(year / 10) * 10
 | STATS count = COUNT(*), avg_rating = AVG(vote_average) BY decade
 | SORT decade
+| LIMIT 20
 ```
 
-- `DATE_EXTRACT` pulls parts from date fields (year, month, day)
-- `FLOOR` rounds down for grouping into decades
+- `DATE_EXTRACT` takes Java `ChronoField` names: `"year"`, `"month_of_year"`, `"day_of_month"`, `"day_of_week"`
+- `FLOOR` rounds down for grouping into decades (our data also has a ready-made `year` field)
 
 ---
 
@@ -776,9 +821,10 @@ FROM movies
 | LIMIT 10
 ```
 
-### Available functions
+### Available functions (selection)
 
-`COUNT`, `AVG`, `SUM`, `MIN`, `MAX`, `MEDIAN`, `PERCENTILE`, `COUNT_DISTINCT`, `VALUES`
+`COUNT`, `COUNT_DISTINCT`, `AVG`, `SUM`, `MIN`, `MAX`, `MEDIAN`, `MEDIAN_ABSOLUTE_DEVIATION`, `PERCENTILE`,
+`TOP`, `VALUES`, `WEIGHTED_AVG` — e.g. `STATS best = TOP(vote_average, 3, "desc"), wavg = WEIGHTED_AVG(vote_average, vote_count)`
 
 ---
 
@@ -789,11 +835,14 @@ Genres is an array — use `MV_EXPAND` to unnest:
 ```sql
 FROM movies
 | MV_EXPAND genres
+| WHERE genres != "Drama"
 | STATS count = COUNT(*), avg_rating = AVG(vote_average) BY genres
 | SORT count DESC
+| LIMIT 10
 ```
 
-Without `MV_EXPAND`, multi-value fields are treated as a single entity.
+- `STATS ... BY genres` already counts a movie once per genre — no expansion needed for grouping
+- `MV_EXPAND` turns each value into its own row, which you need to `WHERE`, `SORT` or `KEEP` per value
 
 ---
 
@@ -819,9 +868,8 @@ POST /_query
 # ES|QL in Kibana: Discover
 
 1. Open **Discover**
-2. Click the language dropdown (top left)
-3. Switch from **KQL** to **ES|QL**
-4. Type your ES|QL query directly
+2. Click **Try ES|QL** (or pick ES|QL in the query-language menu)
+3. Type your ES|QL query directly
 
 - Discover renders ES|QL results as a **table** (columnar)
 - Great for quick data exploration without writing JSON
@@ -830,16 +878,31 @@ POST /_query
 
 # ES|QL vs Query DSL
 
-| Aspect | Query DSL | ES|QL |
+| Aspect | Query DSL | ES\|QL |
 |--------|-----------|-------|
 | **Syntax** | JSON | Pipe-based text |
-| **Scoring** | BM25 relevance | No scoring |
+| **Scoring** | BM25 relevance | BM25 via `METADATA _score` + `MATCH` / `QSTR` |
 | **Aggregations** | Nested JSON | `STATS...BY` |
-| **Pagination** | `from`/`size` | `LIMIT` |
-| **Use case** | Search with relevance | Analytics & exploration |
-| **Maturity** | Production-ready | GA since 8.14 |
+| **Pagination** | `from`/`size`, `search_after` | `LIMIT` |
+| **Use case** | Search UIs, relevance tuning | Analytics, exploration — and growing search support |
+| **Maturity** | Since 1.0 | GA since 8.14 |
 
-> Use **Query DSL** for search features, **ES|QL** for data exploration and analytics.
+> **Query DSL** remains the tool for tuned search experiences; **ES|QL** shines for exploration and analytics.
+
+---
+
+# ES|QL Full-Text Search and Scoring
+
+```sql
+FROM movies METADATA _score
+| WHERE MATCH(overview, "prison escape")
+| SORT _score DESC
+| KEEP title, _score
+| LIMIT 5
+```
+
+- `METADATA _score` exposes the BM25 relevance score, like Query DSL's `_score`
+- `MATCH`, `QSTR` (query string) and the `:` operator run full-text queries inside ES|QL
 
 ---
 
