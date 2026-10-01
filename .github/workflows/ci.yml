@@ -211,20 +211,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Load movies and run the evaluation smoke test
-        run: |
-          python -m scripts.with_stack elk-single --env-file .env.example --logs-dir "$RUNNER_TEMP/logs" -- \
-            bash -euo pipefail -c '
-              connect=(--url "$ELASTICSEARCH_URL" --user "$ELASTIC_USER" --password "$ELASTIC_PASSWORD")
-              python data/load_data.py --dataset movies --size small "${connect[@]}"
-              python -c "import os, requests
-          url = os.environ[\"ELASTICSEARCH_URL\"] + \"/movies/_count\"
-          auth = (os.environ[\"ELASTIC_USER\"], os.environ[\"ELASTIC_PASSWORD\"])
-          count = requests.get(url, auth=auth, timeout=30).json()[\"count\"]
-          assert count > 0, count
-          print(\"movies indexed:\", count)"
-              python data/load_data.py --dataset movies --size small --with-embeddings "${connect[@]}"
-              python search/evaluate.py --mode bm25,dense --queries evaluation/movie_queries.yml
-            '
+        run: >-
+          python -m scripts.with_stack elk-single --env-file .env.example --logs-dir "$RUNNER_TEMP/logs"
+          -- python -m scripts.smoke_data
 
       - name: Upload container logs
         if: failure()
