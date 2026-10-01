@@ -119,6 +119,7 @@ def evaluate_mode(
                 "latency_ms": response.took_ms,
                 "engine_took_ms": response.engine_took_ms,
                 "fusion": response.fusion,
+                "embedding": response.embedding,
                 "top_results": result_ids[: min(5, k)],
             }
         )
@@ -131,9 +132,10 @@ def summarize(rows: List[Dict], k: int) -> Dict:
         summary[metric] = sum(row[metric] for row in rows) / len(rows)
     summary["p50_latency_ms"] = percentile([row["latency_ms"] for row in rows], 50)
     summary["p95_latency_ms"] = percentile([row["latency_ms"] for row in rows], 95)
-    fusion = {row["fusion"] for row in rows if row["fusion"]}
-    if fusion:
-        summary["fusion"] = ",".join(sorted(fusion))
+    for key in ("fusion", "embedding"):
+        values = {row[key] for row in rows if row[key]}
+        if values:
+            summary[key] = ",".join(sorted(values))
     return summary
 
 
@@ -163,15 +165,18 @@ def evaluate(client, modes, queries, args) -> Dict:
 
 
 def below_floors(output: Dict, floors: Dict) -> List[str]:
-    failures = []
-    for mode, minimums in (floors.get("modes") or {}).items():
-        summary = output.get(mode, {}).get("summary")
+    """Floors are keyed by mode, or by `mode@embedding` (e.g. `dense@e5`), which wins."""
+    failures, table = [], floors.get("modes") or {}
+    for mode, result in output.items():
+        summary = result.get("summary")
         if summary is None:
-            continue  # not evaluated (or errored, which is reported separately)
-        for metric, minimum in minimums.items():
+            continue  # errored, which is reported separately
+        key = f"{mode}@{summary['embedding']}" if "embedding" in summary else mode
+        minimums = table.get(key) if key in table else table.get(mode)
+        for metric, minimum in (minimums or {}).items():
             if summary[metric] < minimum:
                 failures.append(
-                    f"{mode} {metric}@{summary['k']} {summary[metric]:.3f} < floor {minimum}"
+                    f"{key} {metric}@{summary['k']} {summary[metric]:.3f} < floor {minimum}"
                 )
     return failures
 
@@ -237,7 +242,9 @@ def print_table(output: Dict, k: int) -> None:
             print(f"| {mode} | error | | | | | |")
             continue
         summary = result["summary"]
-        label = f"{mode} ({summary['fusion']} fusion)" if "fusion" in summary else mode
+        details = [summary[key] for key in ("embedding",) if key in summary]
+        details += [f"{summary['fusion']} fusion"] if "fusion" in summary else []
+        label = f"{mode} ({', '.join(details)})" if details else mode
         print(
             f"| {label} | {summary['queries']} | {summary['ndcg']:.3f} | "
             f"{summary['mrr']:.3f} | {summary['recall']:.3f} | "

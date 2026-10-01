@@ -7,7 +7,17 @@
 #   dense       ndcg 0.660-0.731  mrr 0.615-0.709  recall 0.817-0.842  (hash vectors, approximate kNN)
 #   hybrid_rrf  ndcg 0.882-0.895  mrr 0.883-0.896  recall 0.912-0.925
 # Dense uses the offline hash embedder, which knows no synonyms and no French or Kazakh.
+# `mode@embedding` floors apply when the index was embedded in-cluster (`--embeddings e5`); measured
+# on elk-ml (8.19) and elk-ml-9 (9.5), identical on both:
+#   dense@e5       ndcg 0.947  mrr 0.933  recall 0.988
+#   hybrid_rrf@e5  ndcg 0.956  mrr 0.958  recall 0.967
+#   elser          ndcg 0.899  mrr 0.904  recall 0.912
+#   hybrid_all@e5  ndcg 0.970  mrr 0.975  recall 0.975
 modes:
   bm25: {ndcg: 0.88, mrr: 0.87, recall: 0.92}
   dense: {ndcg: 0.60, mrr: 0.56, recall: 0.76}
   hybrid_rrf: {ndcg: 0.83, mrr: 0.83, recall: 0.86}
+  dense@e5: {ndcg: 0.89, mrr: 0.88, recall: 0.93}
+  hybrid_rrf@e5: {ndcg: 0.90, mrr: 0.90, recall: 0.91}
+  elser: {ndcg: 0.84, mrr: 0.85, recall: 0.86}
+  hybrid_all@e5: {ndcg: 0.92, mrr: 0.92, recall: 0.92}

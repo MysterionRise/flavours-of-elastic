@@ -66,6 +66,9 @@ python data/load_data.py --dataset movies --size full
 # Load `movies-embeddings` with 384-d hash vectors (offline toy embeddings)
 python data/load_data.py --dataset movies --embeddings hash
 
+# ML stacks: in-cluster E5 vectors (ingest pipeline) + ELSER semantic_text; --warm-only just deploys the models
+python data/load_data.py --dataset movies --embeddings e5 --with-elser
+
 # Pick the cluster explicitly, skip reloads of identical data, print a JSON summary
 python data/load_data.py --stack elk-ml --size full --skip-if-current --json
 ```
@@ -73,7 +76,7 @@ python data/load_data.py --stack elk-ml --size full --skip-if-current --json
 The loader lives in `search/loader.py` (`data/load_data.py` is the entry point the course uses). It finds the
 cluster via `--stack`, `--url`, the environment from `scripts.with_stack`, or auto-detection (a 401 never
 counts as found), and exits 0 ok, 2 usage, 3 connection/credentials, 4 refused (e.g. vectors on OSS), 5 partial
-load. `search/connection.py` (retries, readable `EsError`), `search/capabilities.py` (distribution, licence,
+load, 6 inference not ready (`search/inference.py` waits for the E5/ELSER deployments). `search/connection.py` (retries, readable `EsError`), `search/capabilities.py` (distribution, licence,
 ML nodes) and `search/mappings.py` (explicit `int8_hnsw` / OpenSearch `knn_vector`, `_meta`) are shared with
 the search client: `search/client.py` builds bodies with `search/queries.py`, embeds queries with the model
 recorded in the index `_meta` (`search/embedders.py`), and runs `hybrid_rrf` with the `rrf` retriever on a

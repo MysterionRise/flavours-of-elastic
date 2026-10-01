@@ -26,7 +26,7 @@ load_movies = $(ATTACH) $(PY) data/load_data.py --dataset movies $(1)
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help setup lint fmt test validate validate-all up down load-small load-embeddings evaluate demo \
+.PHONY: help setup lint fmt test validate validate-all up down load-small load-embeddings load-ml evaluate demo \
 	up-single down-single reset-single slides slides-serve slides-clean course-test
 
 help: ## List the targets
@@ -92,6 +92,9 @@ load-small: $(VENV)/.installed ## Load the small movies dataset into the running
 
 load-embeddings: $(VENV)/.installed ## Load the small movies dataset with embeddings into the running STACK
 	$(call load_movies,--size small --embeddings hash)
+
+load-ml: $(VENV)/.installed ## Load movies-embeddings with in-cluster E5 + ELSER (ML stacks; minutes on first run)
+	$(call load_movies,--size small --embeddings e5 --with-elser)
 
 evaluate: $(VENV)/.installed ## Run the search evaluation against the running STACK (EVAL_MODES)
 	$(ATTACH) $(PY) search/evaluate.py --mode $(EVAL_MODES) --queries evaluation/movie_queries.yml
