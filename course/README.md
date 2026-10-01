@@ -68,8 +68,10 @@ Annotate a fence after the language word (Marp and GitHub ignore the rest of the
 | `requires=trial`, `requires=ml` | skipped on stacks without that capability |
 | `// → {...}` after a request | the response must contain this JSON |
 
-Known failures are recorded per day and track in `tests/course/baseline.yml`. It is a ratchet: content fixes
-remove entries (a fixed snippet still listed there fails the run), and new failures are never added.
+Every snippet passes on both tracks. While a change is in progress (e.g. a version bump whose behaviour the
+decks don't cover yet), `python -m tests.course.run --update-baseline` records the failures in
+`tests/course/baseline.yml`, a per-track ratchet: listed failures are expected, new ones fail the run, and a fixed
+snippet still listed there fails the run too. The file does not exist while the course is clean.
 
 ## File Structure
 

@@ -259,7 +259,8 @@ MovieLens ml-32m ─┬─ generate_descriptions.py (LLM, maintainers) ─► ab
 
 `tests/course/` executes every Dev Tools snippet of a day against a live stack (`make course-test DAY=2 STACK=elk-9`,
 or `python -m tests.course.run --day 2 --stack elk-single`). `manifest.yml` lists each day's decks and fixtures;
-`baseline.yml` is a per-track ratchet of known failures (fixing content removes entries). Fence annotations
+every snippet must pass (an optional `baseline.yml`, written by `--update-baseline`, is a per-track ratchet of known
+failures while a change is in progress; there is none now). Fence annotations
 (`test=skip`, `expect=empty|404|4xx|any|warning`, `min=`, `top=`, `contains=`, `track=8|9`, `requires=trial|ml`)
 and `// → {json}` expectations are documented in `course/README.md`. CI runs it per day and track (`course` job).
 

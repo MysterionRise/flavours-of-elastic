@@ -4,9 +4,12 @@
     python -m tests.course.run --day 2 --stack elk-single      # attach to your running stack
     python -m tests.course.run --day 2 --list                  # what would run (no stack needed)
 
-Known failures are listed in tests/course/baseline.yml (a ratchet): they are
-reported as expected failures, a new failure fails the run, and a baseline entry
-that now passes fails the run too - remove it, the content got fixed.
+Every snippet must pass. While a change is in progress (e.g. a new minor version
+whose behaviour the course does not cover yet), `--update-baseline` records the
+current failures in tests/course/baseline.yml, a ratchet: listed failures are
+reported as expected, a new failure fails the run, and a listed snippet that
+passes again fails the run too - remove it. The file does not exist when the
+course is clean.
 """
 
 from __future__ import annotations
