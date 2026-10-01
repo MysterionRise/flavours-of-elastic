@@ -286,6 +286,12 @@ section.small {
   font-size: 22px;
 }
 
+section.small code {
+  font-size: 19px;
+}
+
+/* The line box comes from <pre> itself, so shrink it too, not just the inner <code>. */
+section.small pre,
 section.small pre code {
   font-size: 17px;
 }

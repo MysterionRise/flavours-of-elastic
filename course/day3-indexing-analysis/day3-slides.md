@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 3 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.19 | Bulk API · Analyzers · Mappings · Aggregations · Nested/Join
+Elasticsearch 8.19 / 9.5 | Bulk API · Analyzers · Mappings · Aggregations · Nested/Join
 
 ---
 
@@ -37,24 +37,30 @@ Elasticsearch 8.19 | Bulk API · Analyzers · Mappings · Aggregations · Nested
 
 ---
 
+<!-- _class: small -->
+
 # Index Settings
 
 Every index has configurable settings:
 
 ```json
-PUT /my-index
+PUT /settings-demo
 {
   "settings": {
     "number_of_shards": 1,
     "number_of_replicas": 0,
-    "refresh_interval": "5s",
-    "analysis": { ... }
+    "refresh_interval": "5s"
   },
   "mappings": {
-    "properties": { ... }
+    "properties": {
+      "title": { "type": "text" }
+    }
   }
 }
 ```
+
+- `settings` — shards, replicas, refresh, and `analysis` (custom analyzers, later today)
+- `mappings` — the field types (after the analysis section)
 
 ---
 
@@ -63,12 +69,21 @@ PUT /my-index
 | Setting | Default | Note |
 |---------|---------|------|
 | `number_of_shards` | 1 | Fixed at creation |
-| `number_of_replicas` | 1 | Can change dynamically |
-| `refresh_interval` | `1s` | Set to `-1` to disable |
+| `number_of_replicas` | 1 | Dynamic — on one node replicas stay unassigned (yellow) |
+| `refresh_interval` | `1s` | Dynamic — `-1` disables refresh |
 
-> Shard count is **fixed at creation time**. To change it, you must reindex.
+Dynamic settings change on a live index:
+
+```json
+PUT /settings-demo/_settings
+{ "index": { "refresh_interval": "1s" } }
+```
+
+> Shard count is **fixed at creation time**. To change it, use `_split` / `_shrink` or reindex.
 
 ---
+
+<!-- _class: small -->
 
 # Bulk API
 
@@ -76,20 +91,24 @@ Index many documents in one request:
 
 ```json
 POST /_bulk
-{"index": {"_index": "movies", "_id": "200"}}
+{"index": {"_index": "my-movies", "_id": "demo-1"}}
 {"title": "Movie A", "genres": ["Drama"], "vote_average": 7.5}
-{"index": {"_index": "movies", "_id": "201"}}
-{"title": "Movie B", "genres": ["Action"], "vote_average": 6.8}
-{"delete": {"_index": "movies", "_id": "999"}}
-{"update": {"_index": "movies", "_id": "1"}}
-{"doc": {"vote_average": 9.0}}
+{"index": {"_index": "my-movies", "_id": "demo-2"}}
+{"title": "Movie B", "genres": ["Action"], "vote_average": 4.2}
+{"create": {"_index": "my-movies", "_id": "demo-3"}}
+{"title": "Movie C", "genres": ["Comedy"], "vote_average": 6.1}
+{"update": {"_index": "my-movies", "_id": "demo-1"}}
+{"doc": {"vote_average": 8.0}}
+{"delete": {"_index": "my-movies", "_id": "demo-3"}}
 ```
 
-**Actions:** `index`, `create`, `update`, `delete`
+**Actions:** `index` (create or replace), `create` (fails if the ID exists), `update` (partial), `delete` (no document line)
 
-> **Performance tip:** Optimal bulk size is 5-15 MB per request (not document count).
+> Demo documents use `demo-N` IDs in a scratch index, `my-movies` — the real `movies` index stays intact.
 
 ---
+
+<!-- _class: small -->
 
 # Bulk API: Error Handling
 
@@ -100,15 +119,18 @@ The bulk response tells you which operations succeeded/failed:
   "took": 30,
   "errors": true,
   "items": [
-    { "index": { "_id": "200", "status": 201, "result": "created" } },
-    { "index": { "_id": "201", "status": 409, "error": { ... } } }
+    { "index":  { "_id": "demo-1", "status": 200, "result": "updated" } },
+    { "create": { "_id": "demo-3", "status": 409,
+                  "error": { "type": "version_conflict_engine_exception" } } }
   ]
 }
 ```
 
 - Check `errors: true` to see if any operations failed
-- Each item has its own `status` code
+- Each item has its own `status` code — e.g. `create` on an existing ID gives 409
 - Failed items don't affect successful ones (partial success)
+
+> **Performance tip:** Size matters more than document count — start around 5–15 MB per request and measure.
 
 ---
 
@@ -117,7 +139,7 @@ The bulk response tells you which operations succeeded/failed:
 ### Partial update (merge)
 
 ```json
-POST /movies/_update/1
+POST /my-movies/_update/demo-1
 {
   "doc": {
     "tagline": "Hope can set you free"
@@ -125,12 +147,14 @@ POST /movies/_update/1
 }
 ```
 
+Only the fields in `doc` change; a new field like `tagline` gets a dynamic mapping.
+
 ---
 
 # Update Operations: Script
 
 ```json
-POST /movies/_update/1
+POST /my-movies/_update/demo-1
 {
   "script": {
     "source": "ctx._source.vote_average += params.boost",
@@ -139,7 +163,7 @@ POST /movies/_update/1
 }
 ```
 
-Use `params` to avoid script recompilation — Elasticsearch caches parameterized scripts.
+Use `params` instead of literals: Elasticsearch caches the compiled script, and a changed literal would compile a new one.
 
 ---
 
@@ -148,15 +172,16 @@ Use `params` to avoid script recompilation — Elasticsearch caches parameterize
 ### Upsert (insert if not exists)
 
 ```json
-POST /movies/_update/42
+POST /my-movies/_update/demo-4
 {
   "doc": { "vote_average": 8.0 },
   "upsert": { "title": "New Movie", "vote_average": 8.0 }
 }
 ```
 
-- If document `42` exists → merge `doc` fields
-- If document `42` does not exist → insert the `upsert` body
+- If document `demo-4` exists → merge `doc` fields
+- If document `demo-4` does not exist → insert the `upsert` body
+- `"doc_as_upsert": true` inserts `doc` itself when the document is missing
 
 ---
 
@@ -165,7 +190,7 @@ POST /movies/_update/42
 ### Delete by ID
 
 ```json
-DELETE /movies/_doc/42
+DELETE /my-movies/_doc/demo-4
 ```
 
 ---
@@ -173,7 +198,7 @@ DELETE /movies/_doc/42
 # Delete by Query
 
 ```json
-POST /movies/_delete_by_query
+POST /my-movies/_delete_by_query
 {
   "query": {
     "range": {
@@ -181,101 +206,116 @@ POST /movies/_delete_by_query
     }
   }
 }
+// → {"deleted": 1}
 ```
 
-> `_delete_by_query` is a heavy operation — it scans and deletes matching documents. Use with caution in production.
+> `_delete_by_query` searches first, then deletes every match — heavy on large indices. Add `?wait_for_completion=false` to run it as a background task.
 
 ---
 
-# Refresh & Flush
+# Refresh, Translog & Flush
 
 ```
-Document → In-memory buffer → [refresh] → Segment (searchable)
-                                                ↓
-                                          [flush] → Disk (durable)
+write ─┬─► in-memory buffer ──[refresh]──► new segment → searchable
+       └─► translog (fsynced before the write returns) → durable
+[flush] = Lucene commit: segments fsynced to disk, translog trimmed
 ```
 
 ```json
-# Force refresh (make recent docs searchable)
-POST /movies/_refresh
+# Make recent writes searchable now
+POST /my-movies/_refresh
 
-# Force flush (write to disk)
-POST /movies/_flush
+# Commit segments to disk and trim the translog
+POST /my-movies/_flush
 ```
 
 ---
 
-# Refresh & Flush: Timing
+# Refresh, Translog & Flush: Timing
 
-| Operation | Default Interval | Purpose |
-|-----------|-----------------|---------|
-| Refresh | 1 second | Make docs searchable |
-| Flush | Automatic | Persist to disk (translog) |
+| Operation | When | What it gives you |
+|-----------|------|-------------------|
+| Refresh | Every 1 s (on indices searched in the last 30 s) | New documents become searchable |
+| Translog fsync | Every write request (default) | Acknowledged writes survive a crash |
+| Flush | Automatic, as the translog grows | Lucene commit; the translog can be trimmed |
 
-> **Performance tip:** Disable refresh during bulk loading: `"refresh_interval": "-1"` then re-enable after.
+> You rarely call `_flush` yourself — durability comes from the translog.
+
+> **Performance tip:** For big bulk loads set `"refresh_interval": "-1"`, then restore it and `_refresh` afterwards.
 
 ---
+
+<!-- _class: small -->
 
 # Reindex API
 
-Copy documents from one index to another:
+Copies **documents** from one index to another — not mappings or settings. Create the destination first, or it gets dynamic mappings:
 
 ```json
-POST /_reindex
+PUT /movies-v2
 {
-  "source": {
-    "index": "movies"
-  },
-  "dest": {
-    "index": "movies-v2"
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text", "analyzer": "english",
+        "fields": { "keyword": { "type": "keyword" } }
+      },
+      "genres": { "type": "keyword" },
+      "year": { "type": "integer" },
+      "vote_average": { "type": "float" }
+    }
   }
 }
+
+POST /_reindex
+{ "source": { "index": "movies" }, "dest": { "index": "movies-v2" } }
 ```
 
 ---
+
+<!-- _class: small -->
 
 # Reindex with Query Filter
 
 ```json
 POST /_reindex
 {
-  "source": {
-    "index": "movies",
-    "query": {
-      "range": { "vote_average": { "gte": 7.0 } }
-    }
-  },
-  "dest": {
-    "index": "top-movies"
-  }
+  "source": { "index": "movies", "query": { "range": { "vote_average": { "gte": 7.0 } } } },
+  "dest": { "index": "good-movies" }
 }
+
+GET /good-movies/_mapping/field/genres
 ```
 
-> Use reindex when you need to change mappings, analyzers, or shard count.
+`good-movies` did not exist, so dynamic mapping made `genres` a `text` field with a `.keyword` sub-field — not the `keyword` it is in `movies`.
+
+> Reindex when you need new mappings, analyzers or shard counts — an existing field can't change type in place.
 
 ---
 
+<!-- _class: small -->
+
 # Aliases
 
-A virtual name that points to one or more indices:
+A virtual name that points to one or more indices — applications query the alias:
 
 ```json
 # Create an alias
 POST /_aliases
 {
   "actions": [
-    { "add": { "index": "movies-v1", "alias": "movies" } }
+    { "add": { "index": "movies", "alias": "catalog" } }
   ]
 }
 ```
 
 ```json
-# Swap alias to new index (atomic)
+# Swap it to the new index (atomic)
 POST /_aliases
 {
   "actions": [
-    { "remove": { "index": "movies-v1", "alias": "movies" } },
-    { "add": { "index": "movies-v2", "alias": "movies" } }
+    { "remove": { "index": "movies", "alias": "catalog" } },
+    { "add": { "index": "movies-v2", "alias": "catalog" } }
   ]
 }
 ```
@@ -284,13 +324,21 @@ POST /_aliases
 
 # Aliases: Use Cases
 
-- **Zero-downtime reindexing** — swap alias from old to new index
+```json
+GET /catalog/_count
+```
+
+Same request as before the swap — now answered by `movies-v2`.
+
+- **Zero-downtime reindexing** — swap the alias from the old to the new index
 - **Grouping time-based indices** — `logs-2024-*` → `logs`
 - **A/B testing** different mappings or analyzers
 
-> Alias operations are **atomic** — no downtime when swapping indices.
+> Alias operations are **atomic** — no downtime when swapping indices. An alias can't share its name with an index.
 
 ---
+
+<!-- _class: small -->
 
 # Index Templates
 
@@ -320,7 +368,7 @@ PUT /_index_template/movies-template
 
 # Index Templates: Usage
 
-Now `PUT /movies-2024` automatically gets the template's settings and mappings.
+A new index called `movies-2024` gets the template's settings and mappings:
 
 ```json
 PUT /movies-2024/_doc/1
@@ -329,6 +377,7 @@ PUT /movies-2024/_doc/1
 GET /movies-2024/_mapping
 ```
 
+- Templates apply only when an index is **created** — existing indices are not touched
 - Higher `priority` wins when multiple templates match
 - Component templates allow reusable building blocks
 
@@ -365,7 +414,7 @@ GET /movies-2024/_mapping
 │   Token Filters      │  → Lowercase, stemming, stop words
 └─────────────────────┘
        ↓
-["quick", "brown", "fox", "jump"]
+["quick", "brown", "fox", "jump"]     (english analyzer)
 ```
 
 Each step transforms the text. The final tokens go into the **inverted index**.
@@ -431,8 +480,8 @@ GET /_analyze
 // → ["the", "runners", "were", "running", "quickly"]
 ```
 
-- Just **lowercase + split** on whitespace/punctuation
-- Keeps all tokens including stop words ("the", "were")
+- Splits on word boundaries (Unicode rules), then lowercases
+- Keeps every token, including stop words ("the", "were")
 
 ---
 
@@ -444,12 +493,12 @@ GET /_analyze
   "analyzer": "english",
   "text": "The runners were running quickly"
 }
-// → ["runner", "run", "quick"]
+// → ["runner", "were", "run", "quickli"]
 ```
 
-- **Removes stop words** ("the", "were")
-- **Stems** words → `"running"` and `"runs"` both become `"run"`
-- Much better for full-text search in English
+- **Removes stop words** — a short list: "the" goes, "were" stays
+- **Stems** words → "running", "runs" and "run" all become `run`, so they match each other
+- Stems needn't be real words (`quickli`) — indexing and searching produce the same one
 
 ---
 
@@ -458,7 +507,7 @@ GET /_analyze
 Build your own analysis pipeline:
 
 ```json
-PUT /my-index
+PUT /analyzer-demo
 {
   "settings": {
     "analysis": {
@@ -480,7 +529,7 @@ PUT /my-index
 # Testing Custom Analyzers
 
 ```json
-GET /my-index/_analyze
+GET /analyzer-demo/_analyze
 {
   "analyzer": "my_custom_analyzer",
   "text": "<p>The Quick Runners are running!</p>"
@@ -495,6 +544,8 @@ GET /my-index/_analyze
 
 ---
 
+<!-- _class: small -->
+
 # Synonym Filter
 
 Map related terms to each other:
@@ -502,51 +553,99 @@ Map related terms to each other:
 ```json
 "filter": {
   "my_synonyms": {
-    "type": "synonym",
+    "type": "synonym_graph",
     "synonyms": [
-      "film,movie,picture",
-      "scary,horror,frightening",
+      "film, movie, picture",
+      "scary, horror, frightening",
       "sci-fi => science fiction"
     ]
   }
 }
 ```
 
-- `"film,movie,picture"` — bidirectional: all terms expand to each other
-- `"sci-fi => science fiction"` — one-way mapping
-- Place synonym filter **after** lowercase in the filter chain
+- `"film, movie, picture"` — equivalent: each one expands to all three
+- `"sci-fi => science fiction"` — one-way replacement (multi-word: hence `synonym_graph`)
+- Use it in a **search** analyzer, **after** `lowercase` — changing synonyms then needs no reindex
 
 ---
+
+<!-- _class: small -->
 
 # Synonym Filter: Analyzer
 
 ```json
-PUT /movies-synonyms
+PUT /synonym-demo
 {
   "settings": {
     "analysis": {
-      "filter": { "my_synonyms": { ... } },
-      "analyzer": {
-        "synonym_analyzer": {
-          "tokenizer": "standard",
-          "filter": ["lowercase", "my_synonyms"]
+      "filter": {
+        "my_synonyms": {
+          "type": "synonym_graph",
+          "synonyms": ["film, movie, picture", "scary, horror, frightening", "sci-fi => science fiction"]
         }
+      },
+      "analyzer": {
+        "synonym_analyzer": { "tokenizer": "standard", "filter": ["lowercase", "my_synonyms"] }
       }
     }
+  },
+  "mappings": {
+    "properties": { "overview": { "type": "text", "analyzer": "standard", "search_analyzer": "synonym_analyzer" } }
   }
 }
 ```
 
-> Searching for "horror" will also match documents containing "scary" or "frightening".
+---
+
+# Synonyms: Try It
+
+```json
+PUT /synonym-demo/_doc/1
+{ "overview": "A scary story about a haunted house" }
+
+GET /synonym-demo/_search
+{ "query": { "match": { "overview": "horror film" } } }
+```
+
+- The query `horror film` becomes `(horror OR scary OR frightening) (film OR movie OR picture)`
+- It finds the document through "scary" — a word the query never used
+- See the expansion: `GET /synonym-demo/_analyze` with `"analyzer": "synonym_analyzer"`
 
 ---
+
+<!-- _class: small -->
+
+# Synonyms API
+
+Store synonyms in the cluster instead of the index settings:
+
+```json
+PUT /_synonyms/movie-synonyms
+{
+  "synonyms_set": [
+    { "id": "film", "synonyms": "film, movie, picture" },
+    { "id": "scary", "synonyms": "scary, horror, frightening" }
+  ]
+}
+```
+
+Reference the set from a search-time filter: `{ "type": "synonym_graph", "synonyms_set": "movie-synonyms", "updateable": true }`. Then edit a rule — the analyzers using it reload, no reindex:
+
+```json
+PUT /_synonyms/movie-synonyms/sci-fi
+{ "synonyms": "sci-fi => science fiction" }
+```
+
+---
+
+<!-- _class: small -->
 
 # Edge N-gram: Autocomplete
 
 Tokenize prefix substrings for type-ahead search:
 
 ```json
-PUT /autocomplete-index
+PUT /autocomplete-demo
 {
   "settings": {
     "analysis": {
@@ -570,10 +669,14 @@ PUT /autocomplete-index
 
 # Edge N-gram: How It Works
 
-`"Inception"` → `["in", "inc", "ince", "incep", "incept", "incepti", "inceptio", "inception"]`
+```json
+GET /autocomplete-demo/_analyze
+{ "analyzer": "autocomplete_analyzer", "text": "Matrix" }
+// → ["ma", "mat", "matr", "matri", "matrix"]
+```
 
 - Each token generates prefix substrings from `min_gram` to `max_gram`
-- Typing "inc" matches the indexed token "inc"
+- Typing "mat" matches the indexed token "mat"
 - Trade-off: larger index size for instant type-ahead results
 
 ---
@@ -583,22 +686,20 @@ PUT /autocomplete-index
 Use different analyzers for **indexing** vs **searching**:
 
 ```json
-PUT /autocomplete-index
+PUT /autocomplete-demo/_mapping
 {
-  "mappings": {
-    "properties": {
-      "title": {
-        "type": "text",
-        "analyzer": "autocomplete_analyzer",
-        "search_analyzer": "standard"
-      }
+  "properties": {
+    "title": {
+      "type": "text",
+      "analyzer": "autocomplete_analyzer",
+      "search_analyzer": "standard"
     }
   }
 }
 ```
 
-- **Index time:** `"Inception"` → `["in", "inc", "ince", ...]`
-- **Search time:** `"inc"` → `["inc"]` (standard, no edge_ngram)
+- **Index time:** `"Matrix"` → `["ma", "mat", "matr", ...]`
+- **Search time:** `"mat"` → `["mat"]` (standard, no edge_ngram)
 - Without `search_analyzer`, the query would also be edge-n-grammed → bad results
 
 ---
@@ -616,14 +717,16 @@ PUT /autocomplete-index
 ES auto-detects field types from the first document:
 
 ```json
-POST /my-index/_doc/1
+POST /dynamic-demo/_doc/1
 {
-  "name": "John",       // → text + keyword
-  "age": 30,            // → long
-  "score": 9.5,         // → float
-  "active": true,       // → boolean
+  "name": "John",         // → text + keyword
+  "age": 30,              // → long
+  "score": 9.5,           // → float
+  "active": true,         // → boolean
   "created": "2024-01-01" // → date
 }
+
+GET /dynamic-demo/_mapping
 ```
 
 Convenient for prototyping, but not ideal for production.
@@ -635,7 +738,7 @@ Convenient for prototyping, but not ideal for production.
 Define field types upfront:
 
 ```json
-PUT /my-index
+PUT /explicit-demo
 {
   "mappings": {
     "properties": {
@@ -663,7 +766,7 @@ PUT /my-index
 | `boolean` | True/false | `active`, `published` |
 | `object` | Nested JSON (flattened) | Address, metadata |
 | `nested` | Independent inner objects | Tags with attributes |
-| `dense_vector` | ML embeddings | 768-dim vectors (Day 4) |
+| `dense_vector` | ML embeddings | 384-dim E5 vectors (Day 4) |
 
 ---
 
@@ -673,7 +776,7 @@ PUT /my-index
 "properties": {
   "title": {
     "type": "text",          // Analyzed → inverted index
-    "analyzer": "english"    // "The Godfather" → ["godfather"]
+    "analyzer": "english"    // "The Godfather" → ["godfath"]
   },
   "status": {
     "type": "keyword"        // Exact value → "Published"
@@ -691,7 +794,7 @@ PUT /my-index
 | Search with | `match`, `multi_match` | `term`, `terms` |
 | Sortable? | No | Yes |
 | Aggregatable? | No | Yes |
-| Max size | Unlimited | 256 chars (default) |
+| Long values | Fine | Values over `ignore_above` are not indexed (dynamic `.keyword`: 256) |
 
 > Use **multi-fields** to get both: full-text search + exact match on the same field.
 
@@ -722,6 +825,8 @@ Index the same data in **multiple ways**:
 
 ---
 
+<!-- _class: small -->
+
 # Viewing & Updating Mappings
 
 ### View current mapping
@@ -734,16 +839,18 @@ GET /movies/_mapping
 
 ```json
 PUT /movies/_mapping
-{
-  "properties": {
-    "tagline": {
-      "type": "text"
-    }
-  }
-}
+{ "properties": { "tagline": { "type": "text" } } }
 ```
 
-> You **cannot change** an existing field's type. You must reindex to a new index with the correct mapping.
+### Change an existing field's type — rejected
+
+```json expect=4xx
+PUT /movies/_mapping
+{ "properties": { "year": { "type": "keyword" } } }
+// → 400: mapper [year] cannot be changed from type [integer] to [keyword]
+```
+
+> You **cannot change** an existing field's type. Reindex into a new index with the correct mapping.
 
 ---
 
@@ -769,7 +876,7 @@ PUT /movies/_mapping
 
 Aggregations let you **summarize data** alongside search results:
 
-```json
+```json test=skip
 GET /movies/_search
 {
   "size": 0,
@@ -823,7 +930,7 @@ GET /movies/_search
 | `cardinality` | Approximate distinct count |
 | `percentiles` | Distribution breakdown |
 
-> `stats` is a convenient shortcut — one aggregation returns 5 values.
+> `stats` is a convenient shortcut — one aggregation returns 5 values. Its `count` only includes documents that have the field.
 
 ---
 
@@ -853,16 +960,16 @@ GET /movies/_search
 ```json
 "genres_breakdown": {
   "buckets": [
-    { "key": "Drama", "doc_count": 45 },
-    { "key": "Action", "doc_count": 28 },
-    { "key": "Comedy", "doc_count": 22 }
+    { "key": "Drama", "doc_count": 2447 },
+    { "key": "Comedy", "doc_count": 1788 },
+    { "key": "Romance", "doc_count": 837 }
   ]
 }
 ```
 
-- `size` controls how many buckets to return (default: 10)
-- Only works on `keyword` fields (not `text`)
-- Results are approximate for large datasets
+- `size` controls how many buckets to return (default: 10), largest first
+- Works on `keyword`, numeric, date and boolean fields — not on analyzed `text`
+- With several shards, counts can be approximate (`doc_count_error_upper_bound`)
 
 ---
 
@@ -875,7 +982,7 @@ GET /movies/_search
 {
   "size": 0,
   "aggs": {
-    "movies_by_decade": {
+    "movies_per_year": {
       "date_histogram": { "field": "release_date", "calendar_interval": "year" }
     }
   }
@@ -887,6 +994,8 @@ GET /movies/_search
 - `"fixed_interval": "30d"` / `"1h"` / `"90m"`
 
 ---
+
+<!-- _class: small -->
 
 # Bucket Aggregations: range
 
@@ -911,6 +1020,8 @@ GET /movies/_search
 }
 ```
 
+`from` is inclusive, `to` is exclusive.
+
 ---
 
 # Bucket Aggregations: histogram
@@ -918,22 +1029,27 @@ GET /movies/_search
 Even intervals (auto-bucketing):
 
 ```json
-"rating_histogram": {
-  "histogram": {
-    "field": "vote_average",
-    "interval": 1.0
+GET /movies/_search
+{
+  "size": 0,
+  "aggs": {
+    "movies_by_decade": {
+      "histogram": { "field": "year", "interval": 10 }
+    }
   }
 }
 ```
 
-Creates buckets: `[0-1)`, `[1-2)`, `[2-3)`, ..., `[9-10)`
+Creates buckets keyed by their lower bound: `1910`, `1920`, …, `2000`
 
 - `range` — you define the bucket boundaries
 - `histogram` — ES creates even-width buckets automatically
 
 ---
 
-# Nested Aggregations
+<!-- _class: small -->
+
+# Sub-aggregations
 
 Put metric aggs **inside** bucket aggs:
 
@@ -1008,20 +1124,39 @@ GET /movies/_search
 
 ---
 
-# Pipeline Aggregations: How They Work
+# Pipeline Aggregations: Sibling vs Parent
 
-`max_bucket` finds the year with the **highest** average rating.
+`max_bucket` finds the year with the **highest** average rating — it's a **sibling**: it sits next to `by_year` and returns one result.
 
-**Common pipeline aggs:**
+| Kind | Where | Examples |
+|------|-------|----------|
+| **Sibling** | Next to the bucket agg → one result | `max_bucket`, `min_bucket`, `avg_bucket`, `stats_bucket` |
+| **Parent** | Inside a histogram → a value per bucket | `cumulative_sum`, `derivative`, `moving_fn`, `bucket_script` |
 
-| Pipeline Agg | Purpose |
-|-------------|---------|
-| `max_bucket` | Find bucket with highest value |
-| `min_bucket` | Find bucket with lowest value |
-| `avg_bucket` | Average across all buckets |
-| `derivative` | Rate of change between buckets |
+> `buckets_path` points at the data: `by_year>avg_rating` for a sub-aggregation, `_count` for the document count.
 
-> Pipeline aggs are **siblings** — same level as the bucket agg, not nested inside.
+---
+
+# Parent Pipeline: cumulative_sum
+
+```json
+GET /movies/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_decade": {
+      "histogram": { "field": "year", "interval": 10 },
+      "aggs": {
+        "running_total": {
+          "cumulative_sum": { "buckets_path": "_count" }
+        }
+      }
+    }
+  }
+}
+```
+
+Each decade bucket gets `running_total`: the number of movies released up to the end of that decade.
 
 ---
 
@@ -1052,15 +1187,31 @@ GET /movies/_search
 
 ```sql
 FROM movies
-| MV_EXPAND genres
 | STATS avg_rating = AVG(vote_average), count = COUNT(*) BY genres
 | SORT count DESC
 | LIMIT 5
 ```
 
-- ES|QL is more readable for SQL-familiar users
-- Query DSL aggregations are more flexible (nested aggs, pipeline)
-- Both produce the same results
+- `BY genres` puts a movie in the group of each of its genres — like `terms`
+- You need `MV_EXPAND genres` only to filter, sort or keep the genres one row at a time
+- Query DSL aggregations are more flexible (deep nesting, pipelines); ES|QL is easier to read
+
+---
+
+# Kibana Lens: Data View
+
+Lens charts a **data view**. Create one for `movies` in Dev Tools (or **Stack Management** → **Data Views**):
+
+```json
+POST kbn:/api/data_views/data_view
+{
+  "data_view": { "id": "movies", "title": "movies", "name": "Movies" },
+  "override": true
+}
+```
+
+- `kbn:` sends the request to Kibana instead of Elasticsearch
+- No time field on purpose: charts then show every movie, not just the last 15 minutes
 
 ---
 
@@ -1068,14 +1219,14 @@ FROM movies
 
 Turn aggregations into charts without code:
 
-1. **Kibana** → **Visualize** → **Create visualization** → **Lens**
-2. Drag fields to axes
-3. Lens auto-generates the right aggregation type
+1. **Kibana** → **Visualize Library** → **Create visualization** → **Lens**
+2. Pick the **Movies** data view, drag fields to the axes
+3. Lens picks the right aggregation for you
 
 **Try these:**
-- Bar chart: movie count by genre (`genres` on X-axis)
-- Line chart: average rating by year (`release_date` with `date_histogram`)
-- Pie chart: rating distribution (`vote_average` with `range`)
+- Bar chart: movie count by genre (`genres` on the X-axis)
+- Line chart: average rating by year (`year` on the X-axis, average of `vote_average`)
+- Pie chart: rating distribution (`vote_average` with ranges)
 
 > Lens is the recommended way to build dashboards in Kibana.
 
@@ -1102,7 +1253,7 @@ Turn aggregations into charts without code:
 # The Problem with Object Arrays
 
 ```json
-PUT /blog/_doc/1
+PUT /blog-flat/_doc/1
 {
   "title": "ES Guide",
   "comments": [
@@ -1120,14 +1271,34 @@ Internally, ES **flattens** this:
 }
 ```
 
-Query: "Find posts where Alice gave rating 2" → **false positive!** The association between author and rating is **lost**.
+---
+
+# Object Arrays: The False Positive
+
+"Find posts where **Alice** gave rating **2**":
+
+```json
+GET /blog-flat/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "comments.author.keyword": "Alice" } },
+        { "term": { "comments.rating": 2 } }
+      ]
+    }
+  }
+}
+```
+
+It finds the post — but Alice gave 5 and Bob gave 2. The association between author and rating is **lost**.
 
 ---
 
 # Solution: Nested Type
 
 ```json
-PUT /blog
+PUT /blog-nested
 {
   "mappings": {
     "properties": {
@@ -1148,20 +1319,45 @@ Each object in the array is stored as a **separate hidden document** → associa
 
 ---
 
+<!-- _class: small -->
+
 # Nested Query
 
 ```json
-GET /blog/_search
+PUT /blog-nested/_doc/1
+{ "title": "ES Guide", "comments": [{ "author": "Alice", "rating": 5 }, { "author": "Bob", "rating": 2 }] }
+
+GET /blog-nested/_search
 {
   "query": {
     "nested": {
       "path": "comments",
-      "query": {
-        "bool": {
-          "must": [
-            { "term": { "comments.author": "Alice" } },
-            { "range": { "comments.rating": { "gte": 4 } } }
-          ]
+      "query": { "bool": { "must": [
+        { "term": { "comments.author": "Alice" } },
+        { "range": { "comments.rating": { "gte": 4 } } }
+      ] } }
+    }
+  }
+}
+```
+
+Finds the post: **Alice herself** rated it ≥ 4. With `"term": { "comments.rating": 2 }` it now finds nothing. Nested queries need the `nested` wrapper with the `path`.
+
+---
+
+# Nested Aggregation
+
+```json
+GET /blog-nested/_search
+{
+  "size": 0,
+  "aggs": {
+    "comments": {
+      "nested": { "path": "comments" },
+      "aggs": {
+        "by_author": {
+          "terms": { "field": "comments.author" },
+          "aggs": { "avg_rating": { "avg": { "field": "comments.rating" } } }
         }
       }
     }
@@ -1169,16 +1365,18 @@ GET /blog/_search
 }
 ```
 
-Now correctly finds posts where **Alice specifically** rated >= 4. Nested queries require the `nested` wrapper with the `path` parameter.
+`nested` steps into the hidden comment documents; `reverse_nested` steps back out to the posts.
 
 ---
+
+<!-- _class: small -->
 
 # Join Field Type (Parent-Child)
 
 For truly independent documents with a relationship:
 
 ```json
-PUT /blog-pc
+PUT /blog-join
 {
   "mappings": {
     "properties": {
@@ -1198,11 +1396,13 @@ PUT /blog-pc
 
 ---
 
+<!-- _class: small -->
+
 # Parent-Child: Indexing
 
 ```json
 # Parent document
-PUT /blog-pc/_doc/1
+PUT /blog-join/_doc/1
 {
   "title": "ES Guide",
   "body": "Learn Elasticsearch...",
@@ -1212,7 +1412,7 @@ PUT /blog-pc/_doc/1
 
 ```json
 # Child document (must specify routing!)
-PUT /blog-pc/_doc/c1?routing=1
+PUT /blog-join/_doc/c1?routing=1
 {
   "author": "Alice",
   "body": "Great post!",
@@ -1230,7 +1430,7 @@ PUT /blog-pc/_doc/c1?routing=1
 Find posts that have a comment by Alice:
 
 ```json
-GET /blog-pc/_search
+GET /blog-join/_search
 {
   "query": {
     "has_child": {
@@ -1252,7 +1452,7 @@ Returns the **parent** documents that match the child condition.
 Find comments whose parent post contains "ES":
 
 ```json
-GET /blog-pc/_search
+GET /blog-join/_search
 {
   "query": {
     "has_parent": {
@@ -1301,13 +1501,13 @@ Returns the **child** documents whose parent matches the condition.
 
 | Topic | Key Concepts |
 |-------|-------------|
-| **Index API** | Bulk operations, settings, refresh/flush |
+| **Index API** | Bulk operations, settings, refresh/translog/flush |
 | **Reindex & Aliases** | Zero-downtime reindexing, alias swaps |
 | **Templates** | Auto-apply settings to matching indices |
 | **Text Analysis** | Char filters → Tokenizer → Token filters |
 | **Analyzers** | standard, english, custom, synonyms, edge_ngram |
 | **Mappings** | Dynamic vs explicit, text vs keyword, multi-fields |
-| **Aggregations** | Metric, bucket, nested, pipeline |
+| **Aggregations** | Metric, bucket, sub-aggregations, sibling & parent pipelines |
 | **Nested/Join** | Nested objects, parent-child relations |
 
 ---
@@ -1316,18 +1516,31 @@ Returns the **child** documents whose parent matches the condition.
 
 Tomorrow (3-hour session):
 
-- **Vector Search** — dense_vector, kNN queries, similarity metrics
-- **ELSER** — Elastic's built-in ML model, semantic_text field
-- **Hybrid Search** — Combining BM25 + kNN with RRF
-- **Advanced** — Quantization, chunking, production tips
+- **Vector Search** — dense_vector, kNN queries, in-cluster E5 embeddings
+- **ELSER** — Elastic's sparse model, the `semantic_text` field
+- **Hybrid Search** — combining BM25 + vectors with RRF
+- **Advanced** — quantization, chunking, production tips
 
-> **Important:** Start the `elk-ml` stack **before** class tomorrow!
+> **Important:** Switch to the ML stack **before** class tomorrow — see the next slide.
+
+---
+
+<!-- _class: small -->
+
+# Day 4 Setup: Switch to the ML Stack
+
+The ML stack uses the same ports, so stop today's stack first (`down` keeps its data):
 
 ```bash
-docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up -d
+docker compose -f docker/elk-single/docker-compose.yml --env-file .env down
+
+# Two nodes, trial licence (for ELSER and RRF)
+docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up -d --wait
 ```
 
-This stack needs 8GB+ RAM and takes a few minutes to initialize.
+- On the 9.5 track: stop `elk-9`, start `elk-ml-9`
+- Needs 8 GB+ RAM for Docker; first start takes a few minutes
+- Linux only: `sudo sysctl -w vm.max_map_count=262144` first
 
 ---
 

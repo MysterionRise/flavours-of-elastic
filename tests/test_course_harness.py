@@ -9,7 +9,19 @@ from tests.course.console import (
     strip_comments,
 )
 from tests.course.markdown import extract_blocks, parse_info
-from tests.course.runner import check, subset
+from tests.course.runner import Context, check, send, subset
+
+
+class FakeSession:
+    def __init__(self):
+        self.calls = []
+
+    def post(self, url, **kwargs):
+        self.calls.append(("POST", url))
+
+    def request(self, method, url, **kwargs):
+        self.calls.append((method, url))
+        return FakeResponse(200, {})
 
 
 class FakeResponse:
@@ -176,6 +188,37 @@ class CheckTests(unittest.TestCase):
             {"hits": {"total": {"value": 5}}, "aggregations": {"avg": {"value": None}}},
         )
         self.assertIn("returned null", check(block_with(), self.request, null_agg))
+
+    def test_analyze_token_shorthand(self):
+        (request,) = parse_requests(
+            'GET /_analyze\n{"text": "x"}\n// → ["runner", "run"]'
+        )
+        ok = FakeResponse(200, {"tokens": [{"token": "runner"}, {"token": "run"}]})
+        self.assertIsNone(check(block_with(), request, ok))
+        wrong = FakeResponse(200, {"tokens": [{"token": "runner"}, {"token": "were"}]})
+        self.assertIn("tokens", check(block_with(), request, wrong))
+
+    def test_delete_by_query_is_not_esql(self):
+        (request,) = parse_requests(
+            'POST /movies/_delete_by_query\n{"query": {"match_all": {}}}'
+        )
+        self.assertIsNone(
+            check(
+                block_with(), request, FakeResponse(200, {"deleted": 3, "failures": []})
+            )
+        )
+
+    def test_refresh_before_searching_writes(self):
+        ctx = Context(
+            "http://es", "http://kb", None, 8, set(), FakeSession(), dirty=True
+        )
+        send(ctx, parse_requests("POST /m/_delete_by_query\n{}")[0], 5)
+        self.assertEqual(ctx.session.calls[0], ("POST", "http://es/_refresh"))
+        # It deleted documents, so the next search refreshes again.
+        self.assertTrue(ctx.dirty)
+        send(ctx, parse_requests("GET /m/_search")[0], 5)
+        self.assertEqual(ctx.session.calls[2], ("POST", "http://es/_refresh"))
+        self.assertFalse(ctx.dirty)
 
     def test_subset(self):
         self.assertTrue(subset({"a": {"b": 1}}, {"a": {"b": 1, "c": 2}, "d": 3}))

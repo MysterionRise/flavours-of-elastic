@@ -36,6 +36,8 @@ SEARCH_ENDPOINTS = (
     "_validate",
     "_termvectors",
 )
+# ...and before the writes that search for the documents they change.
+SEARCHING_WRITES = ("_reindex", "_delete_by_query", "_update_by_query")
 
 
 @dataclass
@@ -99,9 +101,10 @@ def subset(expected, actual) -> bool:
 def send(ctx: Context, request: Request, timeout: int):
     base = ctx.kibana_url if request.kibana else ctx.url
     headers = KIBANA_HEADERS if request.kibana else {}
-    path = request.path.split("?")[0]
-    is_search = any(part in path for part in SEARCH_ENDPOINTS)
-    if not request.kibana and ctx.dirty and is_search:
+    segments = request.path.split("?")[0].strip("/").split("/")
+    is_search = any(segment in SEARCH_ENDPOINTS for segment in segments)
+    searches = is_search or any(segment in SEARCHING_WRITES for segment in segments)
+    if not request.kibana and ctx.dirty and searches:
         ctx.session.post(f"{ctx.url}/_refresh", timeout=60)
         ctx.dirty = False
     kwargs = {"headers": headers, "timeout": timeout}
@@ -211,15 +214,25 @@ def check(block: Block, request: Request, response) -> str | None:
             and payload.get("count", 1) == 0
         ):
             return "count is 0"
-        if path.endswith("_query"):
+        # ES|QL; `_delete_by_query` and `_update_by_query` also end in `_query`.
+        if path.rstrip("/").endswith("/_query"):
             if payload.get("is_partial"):
                 return "ES|QL returned partial results"
             if not payload.get("values") and expect != "empty":
                 return "ES|QL returned no rows"
-    if request.expectation is not None and not (
-        isinstance(request.expectation, str) or subset(request.expectation, payload)
+    expected = request.expectation
+    is_token_list = isinstance(expected, list) and all(
+        isinstance(t, str) for t in expected
+    )
+    if is_token_list and isinstance(payload, dict):
+        # `// → ["a", "b"]` after `_analyze` lists the expected tokens.
+        tokens = [t.get("token") for t in payload.get("tokens", [])]
+        if "tokens" in payload and tokens != expected:
+            return f"tokens {tokens} != expected {expected}"
+    elif expected is not None and not (
+        isinstance(expected, str) or subset(expected, payload)
     ):
-        return f"response does not contain {str(request.expectation)[:200]}"
+        return f"response does not contain {str(expected)[:200]}"
     return None
 
 
