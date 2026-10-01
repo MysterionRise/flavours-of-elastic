@@ -237,6 +237,14 @@ movies source → generate_descriptions.py → movies_enriched.csv
 | 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` or `elastic` | ~59 | 19 tasks (4 parts) |
 | 4 | Vector search, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` | ~52 | 18 tasks (4 parts) |
 
+### Testing the Course Snippets
+
+`tests/course/` executes every Dev Tools snippet of a day against a live stack (`make course-test DAY=2 STACK=elk-9`,
+or `python -m tests.course.run --day 2 --stack elk-single`). `manifest.yml` lists each day's decks and fixtures;
+`baseline.yml` is a per-track ratchet of known failures (fixing content removes entries). Fence annotations
+(`test=skip`, `expect=empty|404|4xx|any|warning`, `min=`, `top=`, `contains=`, `track=8|9`, `requires=trial|ml`)
+and `// → {json}` expectations are documented in `course/README.md`. CI runs it per day and track (`course` job).
+
 ### Building Course Slides
 
 ```bash

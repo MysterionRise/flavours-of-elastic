@@ -140,6 +140,9 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Build the stack matrix from the registry
         id: matrix
         env:
@@ -159,14 +162,20 @@ jobs:
           only = os.environ.get("ONLY", "")
           with open(os.path.join(os.environ["RUNNER_TEMP"], "stacks.json")) as handle:
               stacks = json.load(handle)
+          manifest = pathlib.Path("tests/course/manifest.yml")
+          enabled = set()
+          if manifest.exists():
+              import yaml
+              days = yaml.safe_load(manifest.read_text())["days"]
+              enabled = {int(day) for day, spec in days.items() if spec.get("enabled", True)}
           cells = [
               {"stack": s["name"], "day": day}
               for s in stacks
               if s["ci"] and only in ("", s["name"])
               for day in s["course_days"]
+              if day in enabled
           ]
-          # The course snippet runner lands in a later change; until then there is nothing to run.
-          print(json.dumps(cells if pathlib.Path("tests/course/run.py").exists() else []))
+          print(json.dumps(cells))
           PY
           )
           {

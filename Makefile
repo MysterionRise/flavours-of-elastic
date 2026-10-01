@@ -28,7 +28,7 @@ load_movies = $(ATTACH) sh -c 'tls=; case "$$ELASTICSEARCH_URL" in https:*) tls=
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
 .PHONY: help setup lint fmt test validate validate-all up down load-small load-embeddings evaluate demo \
-	up-single down-single reset-single slides slides-serve slides-clean
+	up-single down-single reset-single slides slides-serve slides-clean course-test
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_%-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -100,6 +100,10 @@ evaluate: $(VENV)/.installed ## Run the search evaluation against the running ST
 demo: up-$(STACK) load-small load-embeddings evaluate ## Start STACK, load data, evaluate, then open the Streamlit demo
 	$(PY) -m pip install -q -r requirements-demo.txt
 	$(ATTACH) $(PY) -m streamlit run apps/search_demo/Home.py
+
+DAY ?= 1
+course-test: $(VENV)/.installed ## Run DAY's course snippets on a fresh STACK (e.g. make course-test DAY=2 STACK=elk-9)
+	$(PY) -m scripts.with_stack $(STACK) --env-file $(ENV_FILE) -- $(PY) -m tests.course.run --day $(DAY)
 
 slides: ## Render every slide and exercise deck to PDF in dist/slides (needs Docker)
 	@mkdir -p $(SLIDES_OUT)
