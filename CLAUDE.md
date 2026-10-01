@@ -10,7 +10,7 @@ Flavours of Elastic is an educational repository for a **4-day Elasticsearch cou
 
 1. **Elastic Single** (8.19.x) - Beginner-friendly single-node, HTTP, auth, 4GB RAM
 2. **Elastic Stack** (8.19.x) - Production-like 2-node cluster, HTTPS + auth
-3. **Elastic ML** (8.19.x) - ML-enabled for ELSER/vector search, 8GB+ RAM
+3. **Elastic ML** (8.19.x) - ML-enabled for ELSER/vector search, ~10GB Docker memory
 4. **Elastic 9** (9.5.x) - Next-gen single-node, HTTP, auth, 4GB RAM
 5. **OpenSearch** (2.19.x) - Open-source alternative with Dashboards, HTTPS + auth
 6. **OpenSearch 3** (3.9.x) - Next-gen 2-node cluster, HTTPS + auth
@@ -27,7 +27,7 @@ docker compose -f docker/elk-single/docker-compose.yml --env-file .env up
 # Elastic Stack (auth: elastic/elastic)
 docker compose -f docker/elk/docker-compose.yml --env-file .env up
 
-# Elastic ML (for ELSER/semantic search, 8GB+ RAM)
+# Elastic ML (for ELSER/semantic search, ~10GB Docker memory)
 docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
 
 # Elastic 9 (next-gen, 4GB RAM)
@@ -99,12 +99,12 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 ### Directory Structure
 
 - `docker/elk-single/` - Single-node for beginners (HTTP, auth)
-- `docker/elk/` - Elastic Stack with TLS cert generation and 2-node cluster (has Dockerfile for ingest-opennlp)
+- `docker/elk/` - Elastic Stack with TLS cert generation and 2-node cluster
 - `docker/elk-ml/` - ML-enabled 2-node cluster for ELSER
 - `docker/elk-9/` - Elasticsearch 9 single-node (HTTP, auth)
-- `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards (has Dockerfile)
+- `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards
 - `docker/opensearch-3/` - OpenSearch 3 two-node cluster with Dashboards
-- `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy (has Dockerfile for ingest-opennlp)
+- `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy
 - `data/` - Sample datasets, data loader, and enrichment pipeline scripts
 - `data/load_data.py` - Main data loader for course exercises (auto-detects stack)
 - `data/generate_descriptions.py` - Generate multilingual descriptions via OpenRouter LLM API
@@ -130,15 +130,20 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 
 ### Stack Differences
 
-| Stack | Protocol | Auth | JVM Heap | System RAM | Nodes | ML/Vector |
-|-------|----------|------|----------|------------|-------|-----------|
-| Elastic Single | HTTP | elastic/elastic | 1GB | ~4GB | 1 | Basic |
-| Elastic Stack | HTTPS | elastic/elastic | 1GB x2 | ~6GB | 2 | Basic |
-| Elastic ML | HTTPS | elastic/elastic | 2GB x2 | ~8GB+ | 2 | Full ELSER |
-| Elastic 9 | HTTP | elastic/elastic | 1GB | ~4GB | 1 | Basic |
-| OpenSearch | HTTPS | admin/MyStrongPassword123! | 2GB x2 | ~6GB | 2 | No |
-| OpenSearch 3 | HTTPS | admin/MyStrongPassword123! | 2GB x2 | ~6GB | 2 | No |
-| OSS | HTTP | none | 512MB x2 | ~2GB | 2 | No |
+| Stack | Protocol | Auth | JVM Heap | Container limits (ES + UI) | Nodes | License / ML |
+|-------|----------|------|----------|----------------------------|-------|--------------|
+| Elastic Single | HTTP | elastic/elastic | 1GB | 2GB + 2GB | 1 | `LICENSE` (basic) |
+| Elastic Stack | HTTPS | elastic/elastic | 1GB x2 | 2GB x2 + 2GB | 2 | `LICENSE` (basic) |
+| Elastic ML | HTTPS | elastic/elastic | 1GB x2 | 4GB x2 + 2GB (ML: 2GB/node) | 2 | `ELK_ML_LICENSE` (trial): ELSER, RRF |
+| Elastic 9 | HTTP | elastic/elastic | 1GB | 2GB + 2GB | 1 | `LICENSE` (basic) |
+| OpenSearch | HTTPS | admin/MyStrongPassword123! | 1GB x2 | 2GB x2 + 2GB | 2 | n/a |
+| OpenSearch 3 | HTTPS | admin/MyStrongPassword123! | 1GB x2 | 2GB x2 + 2GB | 2 | n/a |
+| OSS | HTTP | none | 512MB x2 | 1GB x2 + 1.5GB | 2 | n/a |
+
+All stacks bind to 127.0.0.1, fail fast when `--env-file` is missing, and become healthy under
+`docker compose ... up -d --wait`. Heap and limits are overridable (`ES_HEAP`, `ES_MEM_LIMIT`,
+`KIBANA_MEM_LIMIT`, `ML_NODE_HEAP`, `ML_NODE_MEM_LIMIT`; see `.env.example`). `scripts/check_compose.py`
+enforces these rules in CI.
 
 ### Validation Script Design
 
@@ -210,6 +215,7 @@ marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides
 
 ## System Requirements
 
-- Docker 20.10+, Docker Compose 1.29+
-- RAM: 4GB (elk-single), 6GB (elastic/opensearch), 8GB+ (elk-ml)
-- Linux: `sudo sysctl -w vm.max_map_count=262144`
+- Docker 20.10+ with the Compose v2 plugin (2.20+)
+- Docker memory: ~4GB (elk-single/elk-9), ~6GB (elk/opensearch), ~10GB (elk-ml)
+- `vm.max_map_count >= 262144` for the multi-node stacks (Linux host or the Docker VM): `sudo sysctl -w vm.max_map_count=262144`
+- Stacks bind to 127.0.0.1 and share ports 9200/5601 — one at a time, or override `ES_PORT`/`KIBANA_PORT`

@@ -1,92 +1,100 @@
+---
+# Elastic ML: two Elasticsearch nodes over TLS + Kibana, trial license for
+# ELSER / semantic_text / RRF (Day 4). Needs ~10 GB of memory for Docker.
+# Start: docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up -d --wait
 services:
   setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
+    user: "0"
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
-    user: "0"
-    command: >
-      bash -c '
-        if [ x${ELASTIC_PASSWORD} == x ]; then
-          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
-          exit 1;
-        elif [ x${KIBANA_PASSWORD} == x ]; then
-          echo "Set the KIBANA_PASSWORD environment variable in the .env file";
-          exit 1;
-        fi;
+      - cacert:/cacert
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is not set - pass --env-file .env}
+      KIBANA_PASSWORD: ${KIBANA_PASSWORD:?KIBANA_PASSWORD is not set - pass --env-file .env}
+      SETUP_TIMEOUT: ${SETUP_TIMEOUT:-600}
+    entrypoint: ["bash", "-euo", "pipefail", "-c"]
+    command:
+      - |
         if [ ! -f config/certs/ca.zip ]; then
-          echo "Creating CA";
-          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
-          unzip config/certs/ca.zip -d config/certs;
-        fi;
+          echo "Creating CA"
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip
+          unzip -o config/certs/ca.zip -d config/certs
+        fi
         if [ ! -f config/certs/certs.zip ]; then
-          echo "Creating certs";
-          echo -ne \
-          "instances:\n"\
-          "  - name: es01\n"\
-          "    dns:\n"\
-          "      - es01\n"\
-          "      - localhost\n"\
-          "    ip:\n"\
-          "      - 127.0.0.1\n"\
-          "  - name: es02\n"\
-          "    dns:\n"\
-          "      - es02\n"\
-          "      - localhost\n"\
-          "    ip:\n"\
-          "      - 127.0.0.1\n"\
-          > config/certs/instances.yml;
-          bin/elasticsearch-certutil cert --silent --pem \
-            -out config/certs/certs.zip \
+          echo "Creating certs"
+          printf '%s\n' \
+            "instances:" \
+            "  - name: es01" \
+            "    dns: [es01, localhost]" \
+            "    ip: [127.0.0.1]" \
+            "  - name: es02" \
+            "    dns: [es02, localhost]" \
+            "    ip: [127.0.0.1]" \
+            > config/certs/instances.yml
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip \
             --in config/certs/instances.yml \
-            --ca-cert config/certs/ca/ca.crt \
-            --ca-key config/certs/ca/ca.key;
-          unzip config/certs/certs.zip -d config/certs;
-        fi;
+            --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key
+          unzip -o config/certs/certs.zip -d config/certs
+        fi
         echo "Setting file permissions"
-        chown -R root:root config/certs;
-        find . -type d -exec chmod 750 \{\} \;;
-        find . -type f -exec chmod 640 \{\} \;;
-        echo "Waiting for Elasticsearch availability";
-        until curl -s --cacert config/certs/ca/ca.crt \
-          https://es01:9200 | \
-          grep -q "missing authentication credentials"; do
-          sleep 30;
-        done;
-        echo "Setting kibana_system password";
-        until curl -s -X POST \
-          --cacert config/certs/ca/ca.crt \
-          -u "elastic:${ELASTIC_PASSWORD}" \
-          -H "Content-Type: application/json" \
-          https://es01:9200/_security/user/kibana_system/_password \
-          -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | \
-          grep -q "^{}"; do
-          sleep 10;
-        done;
-        echo "All done!";
-      '
+        chown -R root:root config/certs
+        find config/certs -type d -exec chmod 750 {} +
+        find config/certs -type f -exec chmod 640 {} +
+        # Kibana only gets the CA certificate, never the CA key.
+        install -m 644 config/certs/ca/ca.crt /cacert/ca.crt
+        touch config/certs/.ready
+
+        deadline=$$((SECONDS + SETUP_TIMEOUT))
+        es() {
+          curl -s -o /dev/null -w '%{http_code}' --cacert config/certs/ca/ca.crt \
+            -u "elastic:$${ELASTIC_PASSWORD}" "$$@" || true
+        }
+        give_up() {
+          echo "ERROR: $$1 (last HTTP status: $$2)" >&2
+          if [ "$$2" = 401 ]; then
+            echo "ELASTIC_PASSWORD is rejected. If the elastic password was changed inside the cluster," >&2
+            echo "put it in .env, or reset the data (deletes it):" >&2
+            echo "  docker compose -f docker/elk-ml/docker-compose.yml --env-file .env down -v" >&2
+          fi
+          exit 1
+        }
+        health='https://es01:9200/_cluster/health?wait_for_status=yellow&timeout=5s'
+        echo "Waiting for the cluster"
+        until code=$$(es "$$health") && [ "$$code" = 200 ]; do
+          [ "$$SECONDS" -lt "$$deadline" ] || give_up "cluster not ready after $${SETUP_TIMEOUT}s" "$$code"
+          sleep 5
+        done
+        echo "Setting kibana_system password"
+        until code=$$(es -X POST -H 'Content-Type: application/json' \
+            https://es01:9200/_security/user/kibana_system/_password \
+            -d "{\"password\":\"$${KIBANA_PASSWORD}\"}") && [ "$$code" = 200 ]; do
+          [ "$$SECONDS" -lt "$$deadline" ] || give_up "could not set the kibana_system password" "$$code"
+          sleep 5
+        done
+        echo "All done!"
     healthcheck:
-      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ]"]
-      interval: 1s
+      test: ["CMD-SHELL", "[ -f config/certs/.ready ]"]
+      interval: 2s
       timeout: 5s
-      retries: 120
+      retries: 150
 
   es01:
     depends_on:
       setup:
         condition: service_healthy
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
     ports:
-      - 9200:9200
+      - "${BIND_ADDRESS:-127.0.0.1}:${ES_PORT:-9200}:9200"
     environment:
       - node.name=es01
-      - cluster.name=${CLUSTER_NAME}
-      - node.roles=master,data,ml,ingest
+      - cluster.name=${CLUSTER_NAME:-elastic-cluster}
       - cluster.initial_master_nodes=es01,es02
       - discovery.seed_hosts=es02
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is not set - pass --env-file .env}
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=true
@@ -98,41 +106,40 @@ services:
       - xpack.security.transport.ssl.certificate=certs/es01/es01.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-      - xpack.license.self_generated.type=trial
-      - xpack.ml.enabled=true
+      - xpack.license.self_generated.type=${ELK_ML_LICENSE:-trial}
+      # ML native memory comes on top of the heap: 50% of the container limit.
       - xpack.ml.max_machine_memory_percent=50
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "ES_JAVA_OPTS=-Xms${ML_NODE_HEAP:-1g} -Xmx${ML_NODE_HEAP:-1g}"
+    mem_limit: ${ML_NODE_MEM_LIMIT:-4g}
     ulimits:
       memlock:
         soft: -1
         hard: -1
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "curl -s --cacert config/certs/ca/ca.crt
-           https://localhost:9200 |
-           grep -q 'missing authentication credentials'",
-        ]
+        - CMD-SHELL
+        - >-
+          curl -fs --cacert config/certs/ca/ca.crt -u "elastic:$${ELASTIC_PASSWORD}"
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
       timeout: 10s
-      retries: 120
+      retries: 60
+      start_period: 60s
 
   es02:
     depends_on:
-      es01:
+      setup:
         condition: service_healthy
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata02:/usr/share/elasticsearch/data
     environment:
       - node.name=es02
-      - cluster.name=${CLUSTER_NAME}
-      - node.roles=master,data,ml,ingest
+      - cluster.name=${CLUSTER_NAME:-elastic-cluster}
       - cluster.initial_master_nodes=es01,es02
       - discovery.seed_hosts=es01
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is not set - pass --env-file .env}
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=true
@@ -144,57 +151,56 @@ services:
       - xpack.security.transport.ssl.certificate=certs/es02/es02.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-      - xpack.license.self_generated.type=trial
-      - xpack.ml.enabled=true
+      - xpack.license.self_generated.type=${ELK_ML_LICENSE:-trial}
       - xpack.ml.max_machine_memory_percent=50
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - "ES_JAVA_OPTS=-Xms${ML_NODE_HEAP:-1g} -Xmx${ML_NODE_HEAP:-1g}"
+    mem_limit: ${ML_NODE_MEM_LIMIT:-4g}
     ulimits:
       memlock:
         soft: -1
         hard: -1
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "curl -s --cacert config/certs/ca/ca.crt
-           https://localhost:9200 |
-           grep -q 'missing authentication credentials'",
-        ]
+        - CMD-SHELL
+        - >-
+          curl -fs --cacert config/certs/ca/ca.crt -u "elastic:$${ELASTIC_PASSWORD}"
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
       timeout: 10s
-      retries: 120
+      retries: 60
+      start_period: 60s
 
   kibana:
     depends_on:
-      es01:
-        condition: service_healthy
-      es02:
-        condition: service_healthy
-    image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
+      setup:
+        condition: service_completed_successfully
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     volumes:
-      - certs:/usr/share/kibana/config/certs
+      - cacert:/usr/share/kibana/config/certs/ca:ro
       - kibanadata:/usr/share/kibana/data
     ports:
-      - 5601:5601
+      - "${BIND_ADDRESS:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
     environment:
       - SERVERNAME=kibana
       - ELASTICSEARCH_HOSTS=https://es01:9200
       - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:?KIBANA_PASSWORD is not set - pass --env-file .env}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
-      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY:?set KIBANA_ENCRYPTION_KEY (see .env.example)}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+    mem_limit: ${KIBANA_MEM_LIMIT:-2g}
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'",
-        ]
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status >/dev/null"]
       interval: 10s
       timeout: 10s
-      retries: 120
+      retries: 60
+      start_period: 60s
 
 volumes:
   certs:
+    driver: local
+  cacert:
     driver: local
   esdata01:
     driver: local

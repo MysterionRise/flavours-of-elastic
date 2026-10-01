@@ -145,17 +145,22 @@ docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
 
 ## Requirements
 
-- Docker 20.10+
-- Docker Compose 1.29+
+- Docker 20.10+ with the Compose v2 plugin (`docker compose`, 2.20+)
 - Python 3.11+
-- 4GB RAM for Elastic Single
-- 8GB+ RAM for Elastic ML
+- ~4GB of Docker memory for Elastic Single / Elastic 9
+- ~10GB of Docker memory for Elastic ML (two 4GB ML nodes + Kibana)
 
-Linux users may need:
+The multi-node stacks enforce Elasticsearch's bootstrap checks and need
+`vm.max_map_count` of at least 262144 (Linux host, or the Docker VM on macOS/Windows):
 
 ```bash
-sudo sysctl -w vm.max_map_count=262144
+sudo sysctl -w vm.max_map_count=262144                  # Linux
+rdctl shell sudo sysctl -w vm.max_map_count=262144      # Rancher Desktop
 ```
+
+All stacks publish ports on `127.0.0.1` only and share 9200/5601, so run one
+at a time (or override `ES_PORT` / `KIBANA_PORT` in `.env`). Bring a stack up
+and wait until it is healthy with `up -d --wait`.
 
 ## Validation
 
