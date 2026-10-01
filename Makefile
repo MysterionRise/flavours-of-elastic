@@ -21,9 +21,8 @@ SLIDES_OUT ?= dist/slides
 
 # Runs a command against the already running $(STACK) with its connection details exported.
 ATTACH      = $(PY) -m scripts.with_stack --attach $(STACK) --env-file $(ENV_FILE) --
-# $(1): extra data/load_data.py flags; adds --insecure for the TLS stacks (self-signed CA).
-load_movies = $(ATTACH) sh -c 'tls=; case "$$ELASTICSEARCH_URL" in https:*) tls=--insecure ;; esac; \
-	exec "$$0" data/load_data.py --dataset movies --url "$$ELASTICSEARCH_URL" $$tls $(1)' $(PY)
+# $(1): extra data/load_data.py flags (the connection comes from the exported environment).
+load_movies = $(ATTACH) $(PY) data/load_data.py --dataset movies $(1)
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
@@ -92,7 +91,7 @@ load-small: $(VENV)/.installed ## Load the small movies dataset into the running
 	$(call load_movies,--size small)
 
 load-embeddings: $(VENV)/.installed ## Load the small movies dataset with embeddings into the running STACK
-	$(call load_movies,--size small --with-embeddings)
+	$(call load_movies,--size small --embeddings hash)
 
 evaluate: $(VENV)/.installed ## Run the search evaluation against the running STACK (EVAL_MODES)
 	$(ATTACH) $(PY) search/evaluate.py --mode $(EVAL_MODES) --queries evaluation/movie_queries.yml

@@ -3,14 +3,17 @@
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from data.load_data import MOVIES_MAPPING_WITH_EMBEDDINGS, DataLoader  # noqa: E402
+from search.capabilities import detect  # noqa: E402
+from search.config import resolve  # noqa: E402
+from search.connection import ConnectionFailed, EsError  # noqa: E402
+from search.loader import bulk_index  # noqa: E402
+from search.mappings import VECTOR_FIELD, index_body  # noqa: E402
 
 
 def parse_args():
@@ -18,10 +21,11 @@ def parse_args():
     parser.add_argument("--input", default="data/movies_enriched_with_embeddings.json")
     parser.add_argument("--index", default="movies-embeddings")
     parser.add_argument(
-        "--url", default=os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+        "--model", default="sentence-transformers", help="recorded in _meta"
     )
-    parser.add_argument("--user", default=os.getenv("ELASTIC_USER", "elastic"))
-    parser.add_argument("--password", default=os.getenv("ELASTIC_PASSWORD", "elastic"))
+    parser.add_argument("--url")
+    parser.add_argument("--user")
+    parser.add_argument("--password")
     parser.add_argument("--insecure", action="store_true")
     parser.add_argument("--no-auth", action="store_true")
     return parser.parse_args()
@@ -38,18 +42,32 @@ def main():
 
     with input_path.open(encoding="utf-8") as input_file:
         documents = json.load(input_file)
+    dims = len(documents[0][VECTOR_FIELD])
 
-    auth = None if args.no_auth else (args.user, args.password)
-    loader = DataLoader(args.url, auth=auth, verify_ssl=not args.insecure)
-    if not loader.check_connection():
+    try:
+        client = resolve(
+            url=args.url,
+            user=args.user,
+            password=args.password,
+            no_auth=args.no_auth,
+            insecure=args.insecure,
+        ).client()
+        caps = detect(client)
+        meta = {
+            "foe": {
+                "embedding": {"backend": "external", "model": args.model, "dims": dims}
+            }
+        }
+        client.delete(f"/{args.index}", ok=(404,))
+        client.put(f"/{args.index}", index_body(caps, meta, dims))
+        loaded, errors = bulk_index(client, args.index, documents)
+        client.post(f"/{args.index}/_refresh")
+    except (ConnectionFailed, EsError) as exc:
+        print(f"Error: {exc}")
         return 1
-
-    if not loader.create_index(args.index, MOVIES_MAPPING_WITH_EMBEDDINGS):
-        return 1
-
-    loaded = loader.bulk_load(args.index, documents)
-    loader.refresh(args.index)
     print(f"Indexed {loaded}/{len(documents)} documents into {args.index}")
+    if errors:
+        print(f"Errors by type: {errors}")
     return 0 if loaded == len(documents) else 1
 
 

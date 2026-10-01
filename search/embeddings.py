@@ -7,12 +7,17 @@ from collections import Counter
 from typing import Iterable, List
 
 DEFAULT_EMBEDDING_DIMS = 384
-TOKEN_RE = re.compile(r"[a-z0-9]+")
+# Recorded in the index `_meta`; bump it whenever the vectors change, so queries are
+# never embedded with a different scheme than the documents.
+HASH_MODEL = "foe-hash-v2"
+# Letters and digits of any script: Kazakh (Cyrillic) and accented French words are
+# tokens too, so kk/fr queries don't collapse to an all-zero vector.
+TOKEN_RE = re.compile(r"[^\W_]+")
 
 
 def tokenize(text: str) -> List[str]:
-    """Tokenize text into stable lowercase terms."""
-    return TOKEN_RE.findall((text or "").lower())
+    """Tokenize text into stable case-folded terms."""
+    return TOKEN_RE.findall((text or "").casefold())
 
 
 def deterministic_text_embedding(

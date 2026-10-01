@@ -26,7 +26,7 @@ python data/load_data.py --dataset movies --size small
 python data/load_data.py --dataset movies --size full
 
 # Load 100 movie documents with deterministic 384-dim vectors into movies-embeddings
-python data/load_data.py --dataset movies --with-embeddings
+python data/load_data.py --dataset movies --embeddings hash
 ```
 
 ## Normalized Fields
@@ -48,7 +48,7 @@ python data/load_data.py --dataset movies --with-embeddings
 
 ## Embedding Modes
 
-The default `--with-embeddings` loader path uses deterministic local embeddings. This keeps vector and hybrid search reproducible without downloading ML models.
+The `--embeddings hash` loader path uses deterministic local embeddings. This keeps vector and hybrid search reproducible without downloading ML models.
 
 For model-backed embeddings:
 
