@@ -3,12 +3,15 @@
     python data/load_data.py --size small                    # movies (200 curated films)
     python data/load_data.py --size full                     # movies (all 5,100)
     python data/load_data.py --size small --embeddings hash  # movies-embeddings (+ 384-d vectors)
+    python data/load_data.py --embeddings e5 --with-elser    # + in-cluster E5 vectors and ELSER
+    python data/load_data.py --warm-only                     # just download/deploy E5 and ELSER
     python data/load_data.py --stack elk-ml --size full --json
 
 The target cluster comes from --stack, --url, the environment or
 auto-detection (see search/config.py). Exit codes: 0 ok, 2 usage,
 3 connection/credentials, 4 refused (the cluster lacks a capability),
-5 partial load (some documents failed or the count does not match).
+5 partial load (some documents failed or the count does not match),
+6 inference not ready (E5/ELSER did not deploy within --inference-timeout).
 """
 
 from __future__ import annotations
@@ -34,7 +37,8 @@ from search.embeddings import (
     deterministic_text_embedding,
     embedding_text,
 )
-from search.mappings import MOVIES_MAPPING, VECTOR_FIELD, index_body
+from search.inference import E5, E5_DIMS, ELSER, InferenceNotReady, e5_pipeline, warm
+from search.mappings import MOVIES_MAPPING, SEMANTIC_FIELD, VECTOR_FIELD, index_body
 from search.movies import normalize_title
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +52,7 @@ EXIT_OK, EXIT_FAILED, EXIT_USAGE, EXIT_CONNECTION, EXIT_REFUSED, EXIT_PARTIAL = 
     4,
     5,
 )
+EXIT_INFERENCE = 6
 
 DATASETS = {
     "movies": {
@@ -67,9 +72,11 @@ DATASETS = {
     }
 }
 
-# Embedding backends: name -> (model id recorded in `_meta`, dims, function).
+# Embedding backends: name -> (model id recorded in `_meta`, dims, function). A
+# function of None means in-cluster: an ingest pipeline embeds the documents.
 EMBEDDERS: Dict[str, tuple] = {
     "hash": (HASH_MODEL, DEFAULT_EMBEDDING_DIMS, deterministic_text_embedding),
+    "e5": (E5, E5_DIMS, None),
 }
 
 YEAR_RE = re.compile(r"\((\d{4})\)\s*$")
@@ -201,6 +208,7 @@ class LoadResult:
     errors: Dict[str, int] = field(default_factory=dict)
     skipped: bool = False
     seconds: float = 0.0
+    warmup_seconds: Dict[str, float] = field(default_factory=dict)
 
     @property
     def complete(self) -> bool:
@@ -215,6 +223,7 @@ def bulk_index(
     retries: int = 5,
     backoff: float = 1.0,
     progress: Callable[[str], None] = print,
+    timeout: float = 120,
 ) -> tuple:
     """Index documents with `_bulk`; resend items rejected with 429. Returns (indexed, errors by type)."""
     indexed, errors = 0, Counter()
@@ -225,7 +234,9 @@ def bulk_index(
             for doc in pending:
                 lines.append(json.dumps({"index": {"_index": index, "_id": doc["id"]}}))
                 lines.append(json.dumps(doc, ensure_ascii=False))
-            result = client.post("/_bulk", ndjson="\n".join(lines) + "\n", timeout=120)
+            result = client.post(
+                "/_bulk", ndjson="\n".join(lines) + "\n", timeout=timeout
+            )
             rejected = []
             for doc, item in zip(pending, result.get("items", [])):
                 outcome = next(iter(item.values()), {})
@@ -255,6 +266,40 @@ def current_meta(client: Client, index: str) -> Optional[dict]:
     return next(iter(mapping.values()), {}).get("mappings", {}).get("_meta")
 
 
+def endpoints_for(embeddings: str, with_elser: bool) -> List[str]:
+    """The in-cluster inference endpoints a load needs."""
+    return [E5] * (embeddings == "e5") + [ELSER] * with_elser
+
+
+def check_capabilities(caps: Capabilities, embeddings: str, with_elser: bool) -> None:
+    if embeddings not in ("none", *EMBEDDERS):
+        raise Refused(f"unknown embedding backend '{embeddings}'")
+    if embeddings != "none" and not caps.vectors:
+        raise Refused(
+            f"{caps.describe()} has no vector field type: use an Elasticsearch 8+/9+"
+            " or OpenSearch stack for --embeddings"
+        )
+    if endpoints_for(embeddings, with_elser) and not caps.ml:
+        raise Refused(
+            f"{caps.describe()} cannot run in-cluster inference (needs a trial or paid"
+            " licence and an ML node): use the elk-ml or elk-ml-9 stack for"
+            " --embeddings e5 / --with-elser"
+        )
+
+
+def warm_endpoints(
+    client: Client,
+    endpoints: List[str],
+    timeout: float,
+    progress: Callable[[str], None] = print,
+) -> Dict[str, float]:
+    seconds = {}
+    for endpoint in endpoints:
+        seconds[endpoint] = round(warm(client, endpoint, timeout, progress=progress), 1)
+        progress(f"{endpoint} is ready ({seconds[endpoint]:.0f}s)")
+    return seconds
+
+
 def load(
     client: Client,
     caps: Capabilities,
@@ -262,19 +307,14 @@ def load(
     embeddings: str = "none",
     skip_if_current: bool = False,
     progress: Callable[[str], None] = print,
+    with_elser: bool = False,
+    inference_timeout: float = 900,
 ) -> LoadResult:
+    check_capabilities(caps, embeddings, with_elser)
     config = DATASETS["movies"]
     sized = config[size]
     embedder = EMBEDDERS.get(embeddings)
-    if embeddings != "none":
-        if embedder is None:
-            raise Refused(f"unknown embedding backend '{embeddings}'")
-        if not caps.vectors:
-            raise Refused(
-                f"{caps.describe()} has no vector field type: use an Elasticsearch 8+/9+"
-                " or OpenSearch stack for --embeddings"
-            )
-    index = "movies-embeddings" if embedder else config["index_name"]
+    index = "movies-embeddings" if embedder or with_elser else config["index_name"]
     meta = {
         "foe": {
             "dataset": "movies",
@@ -288,6 +328,8 @@ def load(
             "model": embedder[0],
             "dims": embedder[1],
         }
+    if with_elser:
+        meta["foe"]["semantic"] = {"field": SEMANTIC_FIELD, "inference_id": ELSER}
     started = time.perf_counter()
     documents = read_movies(
         sized["path"],
@@ -295,6 +337,9 @@ def load(
         ids=sized.get("ids"),
         embed=embedder[2] if embedder else None,
     )
+    if with_elser:
+        for doc in documents:
+            doc[SEMANTIC_FIELD] = doc["overview"]
     result = LoadResult(index, len(documents))
     progress(f"Read {len(documents)} movies from {sized['path'].name} ({size})")
 
@@ -307,14 +352,40 @@ def load(
             )
             return result
 
+    endpoints = endpoints_for(embeddings, with_elser)
+    result.warmup_seconds = warm_endpoints(
+        client, endpoints, inference_timeout, progress
+    )
+    pipeline = None
+    if embeddings == "e5":
+        pipeline = f"{index}-e5"
+        client.put(
+            f"/_ingest/pipeline/{pipeline}",
+            e5_pipeline("searchable_text", VECTOR_FIELD),
+        )
     client.delete(f"/{index}", ok=(404,))
     client.put(
         f"/{index}",
-        index_body(caps, meta, embedder[1] if embedder else None),
+        index_body(
+            caps,
+            meta,
+            embedder[1] if embedder else None,
+            semantic_inference=ELSER if with_elser else None,
+            default_pipeline=pipeline,
+        ),
     )
-    progress(f"Created index '{index}'")
+    progress(
+        f"Created index '{index}'"
+        + (f" (ingest pipeline {pipeline})" if pipeline else "")
+    )
+    # In-cluster inference runs inside the bulk request: smaller batches, longer timeout.
     result.indexed, result.errors = bulk_index(
-        client, index, documents, progress=progress
+        client,
+        index,
+        documents,
+        batch_size=100 if endpoints else 500,
+        timeout=900 if endpoints else 120,
+        progress=progress,
     )
     client.post(f"/{index}/_refresh")
     result.count = client.get(f"/{index}/_count")["count"]
@@ -338,7 +409,24 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
         "--embeddings",
         choices=["none", *EMBEDDERS],
         default=None,
-        help="add a 384-d vector per movie and load movies-embeddings (default: none)",
+        help="add a 384-d vector per movie and load movies-embeddings: hash (offline"
+        " toy vectors) or e5 (in-cluster multilingual E5; ML stacks). Default: none",
+    )
+    parser.add_argument(
+        "--with-elser",
+        action="store_true",
+        help="also add overview_semantic (semantic_text with ELSER; ML stacks)",
+    )
+    parser.add_argument(
+        "--warm-only",
+        action="store_true",
+        help="only wait until the E5 and ELSER endpoints are deployed, then exit",
+    )
+    parser.add_argument(
+        "--inference-timeout",
+        type=float,
+        default=900,
+        help="seconds to wait for a model download/deployment (default: 900)",
     )
     parser.add_argument(
         "--with-embeddings",
@@ -394,9 +482,28 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         caps = detect(client)
         progress(f"Connected to {caps.describe()} at {target.describe()}")
         summary.update(url=target.url, cluster=caps.describe())
+        if args.warm_only:
+            endpoints = endpoints_for(args.embeddings, args.with_elser) or [E5, ELSER]
+            check_capabilities(
+                caps, "e5" if E5 in endpoints else "none", ELSER in endpoints
+            )
+            summary["warmup_seconds"] = warm_endpoints(
+                client, endpoints, args.inference_timeout, progress
+            )
+            summary["ok"] = True
+            return finish(args, summary, None, EXIT_OK)
         result = load(
-            client, caps, args.size, args.embeddings, args.skip_if_current, progress
+            client,
+            caps,
+            args.size,
+            args.embeddings,
+            args.skip_if_current,
+            progress,
+            with_elser=args.with_elser,
+            inference_timeout=args.inference_timeout,
         )
+    except InferenceNotReady as exc:
+        return finish(args, summary, f"Inference not ready: {exc}", EXIT_INFERENCE)
     except ConnectionFailed as exc:
         return finish(args, summary, f"Error: {exc}", EXIT_CONNECTION)
     except Refused as exc:

@@ -7,15 +7,21 @@
   set: without it Elasticsearch returns 10 hits whatever `k` is.
 - `rrf`: the server-side `rrf` retriever (Elasticsearch 8.14+, enterprise or
   trial licence). Both legs look at `rank_window_size` candidates.
+- `rrf_all`: three-way rrf — BM25, kNN and ELSER (`semantic` query).
 - `rrf_fuse`: the same Reciprocal Rank Fusion done client-side, for clusters
   without the retriever (basic licence, OpenSearch).
+
+A query vector is either a list of floats (embedded by the client) or a
+`query_vector_builder` dict (embedded in the cluster, e.g. by E5).
 """
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple, Union
 
-from search.mappings import VECTOR_FIELD
+from search.mappings import SEMANTIC_FIELD, VECTOR_FIELD
+
+QueryVector = Union[List[float], Dict]  # a vector, or a query_vector_builder
 
 SOURCE_FIELDS = [
     "id",
@@ -48,48 +54,64 @@ def bm25(query: str, size: int) -> Dict:
     return {"size": size, "query": multi_match(query), "_source": SOURCE_FIELDS}
 
 
-def dense(vector: List[float], k: int, num_candidates: int, distribution: str) -> Dict:
+def knn_clause(vector: QueryVector, k: int, num_candidates: int) -> Dict:
+    key = "query_vector_builder" if isinstance(vector, dict) else "query_vector"
+    return {
+        "field": VECTOR_FIELD,
+        key: vector,
+        "k": k,
+        "num_candidates": num_candidates,
+    }
+
+
+def dense(vector: QueryVector, k: int, num_candidates: int, distribution: str) -> Dict:
     candidates = max(num_candidates, k)
     if distribution == "opensearch":
         query = {"knn": {VECTOR_FIELD: {"vector": vector, "k": candidates}}}
         return {"size": k, "query": query, "_source": SOURCE_FIELDS}
-    knn = {
-        "field": VECTOR_FIELD,
-        "query_vector": vector,
-        "k": k,
-        "num_candidates": candidates,
-    }
+    knn = knn_clause(vector, k, candidates)
     return {"size": k, "knn": knn, "_source": SOURCE_FIELDS}
 
 
 def rrf(
     query: str,
-    vector: List[float],
+    vector: QueryVector,
     k: int,
     num_candidates: int,
     rank_constant: int,
+    with_semantic: bool = False,
 ) -> Dict:
     window = max(num_candidates, k)
-    knn = {
-        "field": VECTOR_FIELD,
-        "query_vector": vector,
-        "k": window,
-        "num_candidates": window,
-    }
+    retrievers = [
+        {"standard": {"query": multi_match(query)}},
+        {"knn": knn_clause(vector, window, window)},
+    ]
+    if with_semantic:
+        retrievers.append({"standard": {"query": semantic_query(query)}})
     retriever = {
         "rrf": {
             "rank_constant": rank_constant,
             "rank_window_size": window,
-            "retrievers": [{"standard": {"query": multi_match(query)}}, {"knn": knn}],
+            "retrievers": retrievers,
         }
     }
     return {"size": k, "retriever": retriever, "_source": SOURCE_FIELDS}
 
 
-def semantic(query: str, size: int, field: str = "overview_semantic") -> Dict:
+def rrf_all(
+    query: str, vector: QueryVector, k: int, num_candidates: int, rank_constant: int
+) -> Dict:
+    return rrf(query, vector, k, num_candidates, rank_constant, with_semantic=True)
+
+
+def semantic_query(query: str, field: str = SEMANTIC_FIELD) -> Dict:
+    return {"semantic": {"field": field, "query": query}}
+
+
+def semantic(query: str, size: int, field: str = SEMANTIC_FIELD) -> Dict:
     return {
         "size": size,
-        "query": {"semantic": {"field": field, "query": query}},
+        "query": semantic_query(query, field),
         "_source": SOURCE_FIELDS,
     }
 

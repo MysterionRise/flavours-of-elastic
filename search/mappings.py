@@ -53,6 +53,7 @@ MOVIES_PROPERTIES = {
 
 MOVIES_MAPPING = {"properties": MOVIES_PROPERTIES}
 VECTOR_FIELD = "overview_embedding"
+SEMANTIC_FIELD = "overview_semantic"
 
 
 def vector_property(caps: Capabilities, dims: int) -> dict:
@@ -74,15 +75,31 @@ def vector_property(caps: Capabilities, dims: int) -> dict:
 
 
 def index_body(
-    caps: Capabilities, meta: dict, embedding_dims: int | None = None
+    caps: Capabilities,
+    meta: dict,
+    embedding_dims: int | None = None,
+    semantic_inference: str | None = None,
+    default_pipeline: str | None = None,
 ) -> dict:
-    """Settings + mappings for a movie index; with `embedding_dims`, add the vector field."""
+    """Settings + mappings for a movie index.
+
+    `embedding_dims` adds the vector field, `semantic_inference` a `semantic_text`
+    field bound to that inference endpoint, and `default_pipeline` runs every write
+    through an ingest pipeline (the in-cluster E5 embeddings).
+    """
     mappings = copy.deepcopy(MOVIES_MAPPING)
     settings: dict = {}
     if embedding_dims:
         mappings["properties"][VECTOR_FIELD] = vector_property(caps, embedding_dims)
         if caps.vectors == "knn_vector":
             settings["index"] = {"knn": True}
+    if semantic_inference:
+        mappings["properties"][SEMANTIC_FIELD] = {
+            "type": "semantic_text",
+            "inference_id": semantic_inference,
+        }
+    if default_pipeline:
+        settings.setdefault("index", {})["default_pipeline"] = default_pipeline
     mappings["_meta"] = meta
     body = {"mappings": mappings}
     if settings:

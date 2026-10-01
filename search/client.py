@@ -1,11 +1,18 @@
-"""Search client for the demo and the evaluation: BM25, dense, hybrid and ELSER.
+"""Search client for the demo and the evaluation.
+
+Modes:
+- `bm25`: multi_match on `movies`;
+- `dense`: kNN on `movies-embeddings` (hash vectors from the client, or E5
+  vectors embedded by the cluster through `query_vector_builder`);
+- `hybrid_rrf`: BM25 + kNN fused with Reciprocal Rank Fusion;
+- `elser`: the `semantic` query on `overview_semantic` (ELSER);
+- `hybrid_all`: BM25 + kNN + ELSER fused with RRF.
 
 The connection comes from search/config.py (environment from
-`scripts.with_stack`, or auto-detection). Hybrid search uses the
-server-side `rrf` retriever where the licence allows it and fuses the BM25
-and kNN rankings client-side otherwise, so it also works on a basic licence
-and on OpenSearch. Query vectors use the embedder recorded in the index
-`_meta` (search/embedders.py).
+`scripts.with_stack`, or auto-detection). Fusion uses the server-side `rrf`
+retriever where the licence allows it and is done client-side otherwise, so
+hybrid search also works on a basic licence and on OpenSearch. Query vectors
+use the embedder recorded in the index `_meta` (search/embedders.py).
 """
 
 from __future__ import annotations
@@ -18,14 +25,17 @@ from search import queries
 from search.capabilities import Capabilities, detect
 from search.config import Target, resolve
 from search.connection import Client
-from search.embedders import Embedder, for_index
+from search.embedders import Embedder, for_index, index_meta
 
+EMBEDDINGS_INDEX = "movies-embeddings"
 INDICES = {
     "bm25": "movies",
-    "dense": "movies-embeddings",
-    "hybrid_rrf": "movies-embeddings",
-    "elser": "movies-semantic",
+    "dense": EMBEDDINGS_INDEX,
+    "hybrid_rrf": EMBEDDINGS_INDEX,
+    "elser": EMBEDDINGS_INDEX,
+    "hybrid_all": EMBEDDINGS_INDEX,
 }
+VECTOR_MODES = ("dense", "hybrid_rrf", "hybrid_all")
 
 
 @dataclass
@@ -36,6 +46,7 @@ class SearchResponse:
     took_ms: float
     engine_took_ms: Optional[int] = None
     fusion: Optional[str] = None  # hybrid only: "server" (rrf retriever) or "client"
+    embedding: Optional[str] = None  # vector modes: the embedding backend (hash, e5)
 
 
 class PortfolioSearchClient:
@@ -62,6 +73,7 @@ class PortfolioSearchClient:
         self.http: Client = target.client()
         self._caps: Optional[Capabilities] = None
         self._embedders: Dict[str, Embedder] = {}
+        self._meta: Dict[str, dict] = {}
 
     @property
     def caps(self) -> Capabilities:
@@ -69,13 +81,22 @@ class PortfolioSearchClient:
             self._caps = detect(self.http)
         return self._caps
 
+    def meta(self, index: str) -> dict:
+        if index not in self._meta:
+            self._meta[index] = (
+                index_meta(self.http, index) if self.http.exists(f"/{index}") else {}
+            )
+        return self._meta[index]
+
     def modes(self) -> List[str]:
-        """The modes this cluster supports (ELSER only when its index exists)."""
+        """The modes this cluster and the loaded indices support."""
         available = ["bm25"]
         if self.caps.vectors:
             available += ["dense", "hybrid_rrf"]
-        if self.caps.ml and self.http.exists(f"/{INDICES['elser']}"):
+        if self.caps.ml and self.meta(EMBEDDINGS_INDEX).get("semantic"):
             available.append("elser")
+            if self.meta(EMBEDDINGS_INDEX).get("embedding"):
+                available.append("hybrid_all")
         return available
 
     def embedder(self, index: str) -> Embedder:
@@ -98,13 +119,30 @@ class PortfolioSearchClient:
         index = index or INDICES[mode]
         if mode == "bm25":
             return self._run(index, queries.bm25(query, k), mode, query)
+        if mode == "elser":
+            return self._run(index, queries.semantic(query, k), mode, query)
+        embedder = self.embedder(index)
+        vector = embedder.query_vector(query)
         if mode == "dense":
-            return self.search_dense(query, index, k, num_candidates)
-        if mode == "hybrid_rrf":
-            return self.search_hybrid_rrf(
-                query, index, k, num_candidates, rank_constant
+            body = queries.dense(vector, k, num_candidates, self.caps.distribution)
+            response = self._run(index, body, mode, query)
+        elif self.caps.rrf:
+            body = queries.rrf(
+                query, vector, k, num_candidates, rank_constant, mode == "hybrid_all"
             )
-        return self._run(index, queries.semantic(query, k), mode, query)
+            response = self._run(index, body, mode, query)
+            response.fusion = "server"
+        else:
+            window = max(num_candidates, k)
+            legs = [
+                queries.bm25(query, window),
+                queries.dense(vector, window, window, self.caps.distribution),
+            ]
+            if mode == "hybrid_all":
+                legs.append(queries.semantic(query, window))
+            response = self._client_rrf(index, legs, mode, query, k, rank_constant)
+        response.embedding = embedder.backend
+        return response
 
     def search_bm25(
         self, query: str, index: str = "movies", k: int = 10
@@ -114,53 +152,41 @@ class PortfolioSearchClient:
     def search_dense(
         self,
         query: str,
-        index: str = "movies-embeddings",
+        index: str = EMBEDDINGS_INDEX,
         k: int = 10,
         num_candidates: int = 50,
     ) -> SearchResponse:
-        vector = self.embedder(index).embed(query)
-        body = queries.dense(vector, k, num_candidates, self.caps.distribution)
-        return self._run(index, body, "dense", query)
+        return self.search(query, "dense", index, k, num_candidates)
 
     def search_hybrid_rrf(
         self,
         query: str,
-        index: str = "movies-embeddings",
+        index: str = EMBEDDINGS_INDEX,
         k: int = 10,
         num_candidates: int = 50,
         rank_constant: int = 60,
     ) -> SearchResponse:
-        vector = self.embedder(index).embed(query)
-        if self.caps.rrf:
-            body = queries.rrf(query, vector, k, num_candidates, rank_constant)
-            response = self._run(index, body, "hybrid_rrf", query)
-            response.fusion = "server"
-            return response
-        return self._client_rrf(query, vector, index, k, num_candidates, rank_constant)
+        return self.search(query, "hybrid_rrf", index, k, num_candidates, rank_constant)
 
     def search_elser(
-        self, query: str, index: str = "movies-semantic", k: int = 10
+        self, query: str, index: str = EMBEDDINGS_INDEX, k: int = 10
     ) -> SearchResponse:
         return self.search(query, "elser", index, k)
 
     def _client_rrf(
         self,
-        query: str,
-        vector: List[float],
         index: str,
+        legs: List[Dict],
+        mode: str,
+        query: str,
         k: int,
-        num_candidates: int,
         rank_constant: int,
     ) -> SearchResponse:
-        window = max(num_candidates, k)
         start = time.perf_counter()
-        lexical = self.http.post(f"/{index}/_search", queries.bm25(query, window))
-        semantic = self.http.post(
-            f"/{index}/_search",
-            queries.dense(vector, window, window, self.caps.distribution),
-        )
-        rankings, sources = [], {}
-        for payload in (lexical, semantic):
+        rankings, sources, took = [], {}, 0
+        for body in legs:
+            payload = self.http.post(f"/{index}/_search", body)
+            took += payload.get("took", 0)
             hits = payload.get("hits", {}).get("hits", [])
             rankings.append([hit["_id"] for hit in hits])
             for hit in hits:
@@ -168,11 +194,11 @@ class PortfolioSearchClient:
         fused = queries.rrf_fuse(rankings, rank_constant, k)
         hits = [{**sources[doc_id], "_score": score} for doc_id, score in fused]
         return SearchResponse(
-            mode="hybrid_rrf",
+            mode=mode,
             query=query,
             hits=to_hits(hits),
             took_ms=(time.perf_counter() - start) * 1000,
-            engine_took_ms=lexical.get("took", 0) + semantic.get("took", 0),
+            engine_took_ms=took,
             fusion="client",
         )
 
