@@ -22,18 +22,22 @@ flowchart LR
 
 ## Data Flow
 
-- `data/movies_enriched.csv` is the source of truth for the full dataset.
-- `data/movies_enriched.csv` also backs the small dataset (`--size small` = first 100 rows).
-- `data/load_data.py` normalizes rows into stable fields: `id`, `title`, `year`, `genres`, `overview`, multilingual text fields, and `searchable_text`.
-- `--with-embeddings` creates deterministic 384-dimensional local embeddings so vector and hybrid demos work without network downloads.
-- `data/generate_embeddings.py` can replace deterministic vectors with model-backed `all-MiniLM-L6-v2` embeddings when ML dependencies are installed.
+- `data/movies_enriched.csv` is the source of truth (5,100 movies); `--size small` loads the curated 200-movie
+  sample listed in `data/movies_small_ids.txt`.
+- `data/load_data.py` (implemented in `search/loader.py`) normalizes rows into stable fields: `id`, `title`, `year`,
+  `genres`, `overview`, `vote_average`, multilingual text fields, and `searchable_text`.
+- `--embeddings hash` adds deterministic 384-dimensional local vectors so vector and hybrid demos work offline.
+- `--embeddings e5 --with-elser` (ML stacks) embeds `searchable_text` in the cluster with multilingual E5 through
+  an ingest pipeline and adds an ELSER `semantic_text` field.
 
 ## Retrieval Modes
 
-- `bm25`: lexical search over title, overview, description, and genres.
-- `dense`: kNN over `overview_embedding`.
-- `hybrid_rrf`: Elasticsearch Retriever API with BM25 and kNN fused by reciprocal rank fusion.
-- `elser`: reserved for the ML stack and `semantic_text` exercises.
+- `bm25`: lexical search over title, overview, descriptions (en/fr/kk), and genres.
+- `dense`: kNN over `overview_embedding` (query vectors from the backend recorded in the index `_meta`).
+- `hybrid_rrf`: BM25 and kNN fused by reciprocal rank fusion — the `rrf` retriever on a trial licence,
+  client-side fusion otherwise.
+- `elser`: the `semantic` query on `overview_semantic`; `hybrid_all`: BM25 + kNN + ELSER.
+- `python -m search.rag` uses any of these modes to retrieve context for an LLM answer.
 
 ## Tradeoffs
 

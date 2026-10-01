@@ -3,10 +3,13 @@
 Generate multilingual abstract and description columns for movies.csv using OpenRouter LLM API.
 
 Reads ml-32m/movies.csv (movieId, title, genres) and produces
-data/movies_enriched.csv with 6 extra columns:
+data/build/movies_enriched.csv with 6 extra columns:
   abstract_en, abstract_kk, abstract_fr, description_en, description_kk, description_fr
 
-Supports resuming from where it left off if interrupted.
+Resumable: an interrupted run continues with the movies that are missing or
+whose generation failed. Progress is saved atomically, and columns the output
+already has (e.g. vote_average/vote_count from data/add_ratings.py) are kept.
+Review data/build/movies_enriched.csv before copying it over the committed file.
 
 Usage:
     export OPENROUTER_API_KEY="sk-or-..."
@@ -14,8 +17,8 @@ Usage:
 
 Options:
     --input         Input CSV path        (default: ml-32m/movies.csv)
-    --output        Output CSV path       (default: data/movies_enriched.csv)
-    --model         OpenRouter model ID   (default: google/gemini-2.0-flash-001)
+    --output        Output CSV path       (default: data/build/movies_enriched.csv)
+    --model         OpenRouter model ID   (default: $OPENROUTER_MODEL or google/gemini-3.5-flash-lite)
     --concurrency   Parallel requests     (default: 20)
     --limit         Max movies to process (default: all)
     --batch-size    Save every N movies   (default: 100)
@@ -30,14 +33,19 @@ import sys
 import time
 from pathlib import Path
 
-try:
-    import aiohttp
-except ImportError:
-    print("Error: aiohttp required. Install with: pip install aiohttp")
-    sys.exit(1)
+
+def require_aiohttp():
+    try:
+        import aiohttp
+    except ImportError:
+        print("Error: aiohttp required. Install with: pip install aiohttp")
+        sys.exit(1)
+    return aiohttp
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL") or "google/gemini-3.5-flash-lite"
+BASE_COLUMNS = ["movieId", "title", "genres"]
 
 FIELDS = [
     "abstract_en",
@@ -76,13 +84,13 @@ def parse_args():
     )
     parser.add_argument(
         "--output",
-        default="data/movies_enriched.csv",
-        help="Output CSV path (default: data/movies_enriched.csv)",
+        default="data/build/movies_enriched.csv",
+        help="Output CSV path (default: data/build/movies_enriched.csv)",
     )
     parser.add_argument(
         "--model",
-        default="google/gemini-2.0-flash-001",
-        help="OpenRouter model ID (default: google/gemini-2.0-flash-001)",
+        default=DEFAULT_MODEL,
+        help=f"OpenRouter model ID (default: $OPENROUTER_MODEL or {DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--concurrency",
@@ -115,27 +123,41 @@ def read_input(path):
     return movies
 
 
+def is_complete(row):
+    return all(row.get(field) for field in FIELDS)
+
+
 def read_existing_output(path):
-    """Read already-processed movie IDs from output CSV for resume support."""
-    done = {}
+    """Rows already in the output CSV, by movieId (complete or not), and its columns."""
+    rows, columns = {}, []
     if not Path(path).exists():
-        return done
+        return rows, columns
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+        columns = list(reader.fieldnames or [])
         for row in reader:
-            done[row["movieId"]] = row
-    return done
+            rows[row["movieId"]] = row
+    return rows, columns
 
 
-def write_output(path, rows):
-    """Write all rows to the output CSV."""
+def output_columns(existing_columns):
+    """The base columns and the generated fields first, then any others the file has."""
+    columns = BASE_COLUMNS + FIELDS
+    return columns + [c for c in existing_columns if c not in columns]
+
+
+def write_output(path, rows, columns):
+    """Write all rows atomically: a crash never leaves a truncated CSV behind."""
     if not rows:
         return
-    fieldnames = ["movieId", "title", "genres"] + FIELDS
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    with open(temporary, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+    os.replace(temporary, path)
 
 
 def parse_llm_response(text):
@@ -159,6 +181,7 @@ def parse_llm_response(text):
 
 async def call_llm(session, semaphore, movie, model, api_key, retries=3):
     """Call OpenRouter API for a single movie."""
+    aiohttp = require_aiohttp()
     title = movie["title"]
     genres = movie.get("genres", "").replace("|", ", ")
     user_msg = f"Title: {title}\nGenres: {genres}"
@@ -209,6 +232,7 @@ async def call_llm(session, semaphore, movie, model, api_key, retries=3):
 
 async def process_batch(movies, model, api_key, concurrency):
     """Process a batch of movies concurrently."""
+    aiohttp = require_aiohttp()
     semaphore = asyncio.Semaphore(concurrency)
     async with aiohttp.ClientSession() as session:
         tasks = [call_llm(session, semaphore, m, model, api_key) for m in movies]
@@ -228,9 +252,11 @@ async def main():
     all_movies = read_input(args.input)
     print(f"  Total movies in input: {len(all_movies)}")
 
-    # Read existing progress
-    done = read_existing_output(args.output)
-    if done:
+    # Read existing progress: complete rows are kept, failed ones are retried
+    existing, existing_columns = read_existing_output(args.output)
+    columns = output_columns(existing_columns)
+    done = {mid: row for mid, row in existing.items() if is_complete(row)}
+    if existing:
         print(f"  Already processed: {len(done)} (will resume)")
 
     # Filter to remaining movies
@@ -243,8 +269,8 @@ async def main():
         print("Nothing to do!")
         return
 
-    # Collect all results (start with existing)
-    all_results = {mid: row for mid, row in done.items()}
+    # Collect all results (start with existing rows, keeping their extra columns)
+    all_results = dict(existing)
 
     # Process in batches
     total = len(remaining)
@@ -256,11 +282,12 @@ async def main():
         results = await process_batch(batch, args.model, api_key, args.concurrency)
 
         for movie, result in zip(batch, results):
-            row = {
-                "movieId": movie["movieId"],
-                "title": movie["title"],
-                "genres": movie.get("genres", ""),
-            }
+            row = dict(existing.get(movie["movieId"], {}))
+            row.update(
+                movieId=movie["movieId"],
+                title=movie["title"],
+                genres=movie.get("genres", ""),
+            )
             row.update(result)
             all_results[movie["movieId"]] = row
 
@@ -285,7 +312,7 @@ async def main():
         for m in all_movies:
             if m["movieId"] in all_results:
                 ordered.append(all_results[m["movieId"]])
-        write_output(args.output, ordered)
+        write_output(args.output, ordered, columns)
 
     elapsed = time.time() - start_time
     total_done = sum(1 for r in all_results.values() if r.get("abstract_en"))
