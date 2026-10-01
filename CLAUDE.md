@@ -47,6 +47,13 @@ docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env up
 docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
 ```
 
+### Make Targets
+
+`make` lists everything. `STACK` defaults to `elk-single`, `ENV_FILE` to `.env` (falls back to `.env.example`).
+`make setup` (venv + hooks), `make test` (unit + compose policy + doc versions), `make lint`, `make up-<stack>`
+(waits until healthy), `make down-<stack>` (keeps data), `make reset-<stack>` (deletes data), `make load-small`,
+`make load-embeddings`, `make evaluate` and `make demo` (all against the running `STACK`), `make validate STACK=...`.
+
 ### Loading Sample Data
 
 ```bash
