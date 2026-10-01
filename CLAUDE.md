@@ -57,15 +57,25 @@ docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
 ### Loading Sample Data
 
 ```bash
-# Load small movies dataset (100 docs)
+# Load the curated small sample (200 movies) into `movies`
 python data/load_data.py --dataset movies --size small
 
-# Load full movies dataset (5000 docs)
+# Load the full dataset (5,100 movies)
 python data/load_data.py --dataset movies --size full
 
-# Load movies with embeddings (for Day 4 vector search)
-python data/load_data.py --dataset movies --with-embeddings
+# Load `movies-embeddings` with 384-d hash vectors (offline toy embeddings)
+python data/load_data.py --dataset movies --embeddings hash
+
+# Pick the cluster explicitly, skip reloads of identical data, print a JSON summary
+python data/load_data.py --stack elk-ml --size full --skip-if-current --json
 ```
+
+The loader lives in `search/loader.py` (`data/load_data.py` is the entry point the course uses). It finds the
+cluster via `--stack`, `--url`, the environment from `scripts.with_stack`, or auto-detection (a 401 never
+counts as found), and exits 0 ok, 2 usage, 3 connection/credentials, 4 refused (e.g. vectors on OSS), 5 partial
+load. `search/connection.py` (retries, readable `EsError`), `search/capabilities.py` (distribution, licence,
+ML nodes) and `search/mappings.py` (explicit `int8_hnsw` / OpenSearch `knn_vector`, `_meta`) are shared with
+the search client.
 
 ### Validation & Testing
 
@@ -125,12 +135,12 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `docker/opensearch-3/` - OpenSearch 3 two-node cluster with Dashboards
 - `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy
 - `data/` - Sample datasets, data loader, and enrichment pipeline scripts
-- `data/load_data.py` - Main data loader for course exercises (auto-detects stack)
+- `data/load_data.py` - Entry point of the data loader (`search/loader.py`) used by the course
 - `data/generate_descriptions.py` - Generate multilingual descriptions via OpenRouter LLM API
 - `data/generate_embeddings.py` - Generate 768-dim embeddings via EmbeddingGemma-300M
 - `data/index.py` - Index enriched movies with embeddings into Elasticsearch
 - `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions and MovieLens ratings
-  (`vote_average` 1-10, `vote_count`); `--size small` loads its first 100 rows
+  (`vote_average` 1-10, `vote_count`); `--size small` loads the curated 200-movie sample
 - `data/add_ratings.py` - maintainer tool that computes the rating columns from MovieLens ml-32m
 - `data/build_sample.py` + `data/sample.yml` - deterministic curated `--size small` sample (200 movies) written to
   `data/movies_small_ids.txt`; always contains the films listed in `course/movies.yml`

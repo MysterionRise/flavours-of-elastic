@@ -63,7 +63,7 @@ Direct commands:
 ```bash
 python data/load_data.py --dataset movies --size small
 python data/load_data.py --dataset movies --size full
-python data/load_data.py --dataset movies --with-embeddings
+python data/load_data.py --dataset movies --embeddings hash
 python search/evaluate.py --mode bm25,dense,hybrid_rrf --queries evaluation/movie_queries.yml
 streamlit run apps/search_demo/Home.py
 ```
@@ -102,7 +102,7 @@ The checked-in source of truth is `data/movies_enriched.csv` (5,100 movies; `--s
 - `searchable_text`
 - optional `overview_embedding`
 
-The default `--with-embeddings` path uses deterministic 384-dimensional local embeddings so vector and hybrid search work without downloading models. For model-backed embeddings:
+The `--embeddings hash` path uses deterministic 384-dimensional local embeddings so vector and hybrid search work without downloading models. For model-backed embeddings:
 
 ```bash
 pip install -r requirements-ml.txt
