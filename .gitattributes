@@ -1,0 +1,3 @@
+# Data files keep their exact bytes (CRLF line endings) and are hidden from diffs/language stats.
+data/*.csv -text linguist-generated
+data/*.json -text linguist-generated

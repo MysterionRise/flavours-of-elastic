@@ -23,7 +23,7 @@ flowchart LR
 ## Data Flow
 
 - `data/movies_enriched.csv` is the source of truth for the full dataset.
-- `data/movies_enriched_1000.csv` is the small local-review dataset source.
+- `data/movies_enriched.csv` also backs the small dataset (`--size small` = first 100 rows).
 - `data/load_data.py` normalizes rows into stable fields: `id`, `title`, `year`, `genres`, `overview`, multilingual text fields, and `searchable_text`.
 - `--with-embeddings` creates deterministic 384-dimensional local embeddings so vector and hybrid demos work without network downloads.
 - `data/generate_embeddings.py` can replace deterministic vectors with model-backed `all-MiniLM-L6-v2` embeddings when ML dependencies are installed.
