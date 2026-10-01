@@ -69,10 +69,12 @@ class EnrichedCsvTests(unittest.TestCase):
 
 
 class LoaderTests(unittest.TestCase):
-    def test_small_dataset_is_the_head_of_the_full_csv(self):
+    def test_small_dataset_comes_from_the_full_csv(self):
         movies = DATASETS["movies"]
         self.assertEqual(movies["small"]["path"], movies["full"]["path"])
-        self.assertEqual(movies["small"]["limit"], 100)
+        self.assertTrue(
+            movies["small"]["ids"].exists()
+        )  # curated sample, see tests/test_sample.py
 
     def test_mapping_has_rating_fields(self):
         properties = DATASETS["movies"]["mapping"]["properties"]

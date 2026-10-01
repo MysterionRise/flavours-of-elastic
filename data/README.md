@@ -9,8 +9,11 @@ This directory contains the checked-in movie data and scripts used by the course
 - `add_ratings.py`: maintainer tool that (re)computes `vote_average` / `vote_count` from MovieLens ml-32m.
 - `LICENSE-DATA.md`: MovieLens usage terms and the synthetic-text disclosure.
 
-`--size small` loads the first 100 rows of `movies_enriched.csv`; `--size full` loads all 5,100.
-- `movies_embeddings_sample.json`: checked-in sample of the deterministic embedding document shape.
+`--size small` loads a curated 200-movie sample (1910s-2000s, all genres, every film the course names, see
+`course/movies.yml`); `--size full` loads all 5,100. Titles are indexed in readable form ("The Godfather"),
+alternate titles in `title_aka`, the MovieLens original in `title_raw`.
+- `movies_small_ids.txt`: the curated `--size small` sample (200 movieIds), built by `build_sample.py` from `sample.yml`.
+- `build_sample.py` / `sample.yml`: deterministic sample selection; `python data/build_sample.py report` prints counts.
 - `movies_enriched_with_embeddings.json`: optional generated artifact, ignored by git.
 
 ## Load Data

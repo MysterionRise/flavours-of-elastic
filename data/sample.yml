@@ -1,0 +1,19 @@
+---
+# Configuration of the curated `--size small` dataset (built by data/build_sample.py).
+seed: foe-sample-v1
+size: 200
+# Fill films need at least this many MovieLens votes (well-known, stable ratings).
+min_votes: 50
+# These films are always included (the course's named films and the evaluation judgements).
+must_include_from:
+  - course/movies.yml
+  - evaluation/movie_queries.yml
+min_per_decade: 5     # or every selectable film when a decade has fewer (the 1910s have 2 with >= 50 votes)
+min_per_genre: 5      # all 19 MovieLens genres, including IMAX, Film-Noir and Documentary
+exclude: []
+# Facts the course relies on; the build fails if the sample stops satisfying them.
+invariants:
+  - {vote_average_gte: 8.5, min: 5}
+  - {vote_average_lt: 6.0, min: 10}
+  - {genre: Drama, year_gte: 2000, min: 5}
+  - {genre: Sci-Fi, min: 10}
