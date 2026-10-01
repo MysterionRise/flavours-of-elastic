@@ -19,8 +19,8 @@ lexical and embedding indices, runs the evaluation and opens a Streamlit UI for 
 
 - BM25 lexical search
 - dense vector kNN search
-- hybrid RRF search — the RRF retriever needs a trial license: use the ML stack
-  (`make demo STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf`) or set `LICENSE=trial` in `.env`
+- hybrid RRF search — on a trial licence (the ML stacks) Elasticsearch's `rrf` retriever fuses the
+  rankings; on a basic licence and on OpenSearch the client fuses them itself, with the same formula
 
 Run the evaluation again at any time (against the running `STACK`):
 
@@ -51,7 +51,7 @@ make lint                   # every pre-commit hook, same as CI
 make up-elk-single          # start a stack and wait until healthy (any docker/<stack>)
 make load-small             # load the lexical movies index into the running STACK
 make load-embeddings        # load the 384-dim embedding index
-make evaluate               # BM25 + dense (EVAL_MODES=... to change)
+make evaluate               # BM25 + dense + hybrid (EVAL_MODES=... to change)
 make down-elk-single        # stop, keeping the data
 make reset-elk-single       # stop and DELETE the data
 

@@ -75,7 +75,10 @@ cluster via `--stack`, `--url`, the environment from `scripts.with_stack`, or au
 counts as found), and exits 0 ok, 2 usage, 3 connection/credentials, 4 refused (e.g. vectors on OSS), 5 partial
 load. `search/connection.py` (retries, readable `EsError`), `search/capabilities.py` (distribution, licence,
 ML nodes) and `search/mappings.py` (explicit `int8_hnsw` / OpenSearch `knn_vector`, `_meta`) are shared with
-the search client.
+the search client: `search/client.py` builds bodies with `search/queries.py`, embeds queries with the model
+recorded in the index `_meta` (`search/embedders.py`), and runs `hybrid_rrf` with the `rrf` retriever on a
+trial licence or fuses client-side otherwise. `search/evaluate.py --fail-under evaluation/floors.yml`
+fails below the per-mode quality floors (CI runs it in `scripts/smoke_data.py`).
 
 ### Validation & Testing
 

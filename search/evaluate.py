@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
-"""Evaluate portfolio search modes against hand-labeled movie queries."""
+"""Evaluate search modes against hand-labeled movie queries.
+
+    python search/evaluate.py --mode bm25,dense,hybrid_rrf
+    python search/evaluate.py --stack elk-ml --fail-under evaluation/floors.yml --output report.json
+
+Each mode is evaluated on its own: a mode the cluster can't run (dense on
+Elasticsearch OSS, an index that was never loaded) is reported as an error
+without hiding the others. Exit code 1 when a mode errors or falls below
+its floor in `--fail-under`.
+"""
+
+from __future__ import annotations
 
 import argparse
 import json
 import math
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from search.client import PortfolioSearchClient  # noqa: E402
+from search.client import INDICES, PortfolioSearchClient  # noqa: E402
+from search.config import resolve  # noqa: E402
+
+METRICS = ("ndcg", "mrr", "recall")
 
 
 def dcg(relevances: Iterable[int]) -> float:
@@ -59,16 +73,19 @@ def relevance_map(query_def: Dict) -> Dict[int, int]:
     return {int(doc_id): 1 for doc_id in query_def.get("relevant_ids", [])}
 
 
-def load_queries(path: Path) -> List[Dict]:
+def load_yaml(path: Path):
     try:
         import yaml
     except ImportError:
         print("Error: PyYAML required. Install with: pip install -r requirements.txt")
         sys.exit(1)
 
-    with path.open(encoding="utf-8") as query_file:
-        payload = yaml.safe_load(query_file)
-    return payload["queries"]
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def load_queries(path: Path) -> List[Dict]:
+    return load_yaml(path)["queries"]
 
 
 def evaluate_mode(
@@ -96,71 +113,141 @@ def evaluate_mode(
                 "query_id": query_def["id"],
                 "query": query_def["text"],
                 "mode": mode,
-                "ndcg_at_10": ndcg_at_k(result_ids, relevance, k),
-                "mrr_at_10": reciprocal_rank(result_ids, relevant_ids),
-                "recall_at_10": recall_at_k(result_ids, relevant_ids, k),
+                "ndcg": ndcg_at_k(result_ids, relevance, k),
+                "mrr": reciprocal_rank(result_ids[:k], relevant_ids),
+                "recall": recall_at_k(result_ids, relevant_ids, k),
                 "latency_ms": response.took_ms,
                 "engine_took_ms": response.engine_took_ms,
+                "fusion": response.fusion,
                 "top_results": result_ids[: min(5, k)],
             }
         )
     return rows
 
 
-def summarize(rows: List[Dict]) -> Dict:
-    return {
-        "queries": len(rows),
-        "ndcg_at_10": sum(row["ndcg_at_10"] for row in rows) / len(rows),
-        "mrr_at_10": sum(row["mrr_at_10"] for row in rows) / len(rows),
-        "recall_at_10": sum(row["recall_at_10"] for row in rows) / len(rows),
-        "p50_latency_ms": percentile([row["latency_ms"] for row in rows], 50),
-        "p95_latency_ms": percentile([row["latency_ms"] for row in rows], 95),
-    }
+def summarize(rows: List[Dict], k: int) -> Dict:
+    summary = {"queries": len(rows), "k": k}
+    for metric in METRICS:
+        summary[metric] = sum(row[metric] for row in rows) / len(rows)
+    summary["p50_latency_ms"] = percentile([row["latency_ms"] for row in rows], 50)
+    summary["p95_latency_ms"] = percentile([row["latency_ms"] for row in rows], 95)
+    fusion = {row["fusion"] for row in rows if row["fusion"]}
+    if fusion:
+        summary["fusion"] = ",".join(sorted(fusion))
+    return summary
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate portfolio search quality")
+def judged_ids(queries: List[Dict]) -> List[int]:
+    return sorted({doc_id for query in queries for doc_id in relevance_map(query)})
+
+
+def evaluate(client, modes, queries, args) -> Dict:
+    output: Dict[str, Dict] = {}
+    judged = judged_ids(queries)
+    for mode in modes:
+        try:
+            index = INDICES.get(mode)
+            missing = (
+                sorted(set(judged) - client.ids_present(index, judged)) if index else []
+            )
+            rows = evaluate_mode(
+                client, mode, queries, args.k, args.num_candidates, args.rank_constant
+            )
+        except Exception as exc:  # noqa: BLE001 - one mode failing must not hide the others
+            output[mode] = {"error": f"{type(exc).__name__}: {exc}"}
+            continue
+        output[mode] = {"summary": summarize(rows, args.k), "rows": rows}
+        if missing:
+            output[mode]["missing_judged_ids"] = missing
+    return output
+
+
+def below_floors(output: Dict, floors: Dict) -> List[str]:
+    failures = []
+    for mode, minimums in (floors.get("modes") or {}).items():
+        summary = output.get(mode, {}).get("summary")
+        if summary is None:
+            continue  # not evaluated (or errored, which is reported separately)
+        for metric, minimum in minimums.items():
+            if summary[metric] < minimum:
+                failures.append(
+                    f"{mode} {metric}@{summary['k']} {summary[metric]:.3f} < floor {minimum}"
+                )
+    return failures
+
+
+def parse_args(argv: Optional[List[str]] = None):
+    parser = argparse.ArgumentParser(
+        description="Evaluate search quality per retrieval mode"
+    )
     parser.add_argument("--mode", default="bm25,dense,hybrid_rrf")
     parser.add_argument("--queries", default="evaluation/movie_queries.yml")
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--num-candidates", type=int, default=50)
     parser.add_argument("--rank-constant", type=int, default=60)
     parser.add_argument(
+        "--stack",
+        help="a stack from scripts/stacks.py (default: environment, then auto-detect)",
+    )
+    parser.add_argument(
         "--json", action="store_true", help="Print machine-readable JSON"
     )
-    return parser.parse_args()
+    parser.add_argument("--output", help="also write the JSON report to this file")
+    parser.add_argument(
+        "--fail-under", help="YAML file with per-mode metric floors (exit 1 below them)"
+    )
+    return parser.parse_args(argv)
 
 
-def main():
-    args = parse_args()
+def main(argv: Optional[List[str]] = None) -> int:
+    args = parse_args(argv)
     queries = load_queries(Path(args.queries))
-    client = PortfolioSearchClient()
+    client = PortfolioSearchClient(target=resolve(stack=args.stack))
     modes = [mode.strip() for mode in args.mode.split(",") if mode.strip()]
+    output = evaluate(client, modes, queries, args)
+    failures = (
+        below_floors(output, load_yaml(Path(args.fail_under)))
+        if args.fail_under
+        else []
+    )
+    errors = [
+        f"{mode}: {result['error']}"
+        for mode, result in output.items()
+        if "error" in result
+    ]
 
-    output = {}
-    for mode in modes:
-        rows = evaluate_mode(
-            client, mode, queries, args.k, args.num_candidates, args.rank_constant
+    if args.output:
+        Path(args.output).write_text(
+            json.dumps(output, indent=2) + "\n", encoding="utf-8"
         )
-        output[mode] = {
-            "summary": summarize(rows),
-            "rows": rows,
-        }
-
     if args.json:
         print(json.dumps(output, indent=2))
-        return 0
+    else:
+        print_table(output, args.k)
+    for problem in errors + failures:
+        print(f"FAIL {problem}", file=sys.stderr)
+    return 1 if errors or failures else 0
 
-    print("| Mode | Queries | NDCG@10 | MRR@10 | Recall@10 | p50 ms | p95 ms |")
+
+def print_table(output: Dict, k: int) -> None:
+    print(f"| Mode | Queries | NDCG@{k} | MRR@{k} | Recall@{k} | p50 ms | p95 ms |")
     print("|---|---:|---:|---:|---:|---:|---:|")
     for mode, result in output.items():
+        if "error" in result:
+            print(f"| {mode} | error | | | | | |")
+            continue
         summary = result["summary"]
+        label = f"{mode} ({summary['fusion']} fusion)" if "fusion" in summary else mode
         print(
-            f"| {mode} | {summary['queries']} | {summary['ndcg_at_10']:.3f} | "
-            f"{summary['mrr_at_10']:.3f} | {summary['recall_at_10']:.3f} | "
+            f"| {label} | {summary['queries']} | {summary['ndcg']:.3f} | "
+            f"{summary['mrr']:.3f} | {summary['recall']:.3f} | "
             f"{summary['p50_latency_ms']:.1f} | {summary['p95_latency_ms']:.1f} |"
         )
-    return 0
+    for mode, result in output.items():
+        if result.get("missing_judged_ids"):
+            print(
+                f"\nnote: {mode}: judged movies missing from the index: {result['missing_judged_ids']}"
+            )
 
 
 if __name__ == "__main__":

@@ -2,7 +2,8 @@
 
 Loads the small movies dataset with data/load_data.py (which checks that
 every document is indexed), and runs search/evaluate.py with every mode the stack supports
-(bm25 everywhere; dense with vector support; hybrid_rrf with a trial licence).
+(bm25 everywhere; dense and hybrid_rrf with vector support), and fails when a
+mode errors or scores below evaluation/floors.yml.
 Connection details come from the environment exported by scripts.with_stack:
 
     python -m scripts.with_stack elk-single -- python -m scripts.smoke_data
@@ -27,17 +28,18 @@ def main() -> int:
     capabilities = set(filter(None, os.environ.get("FOE_CAPABILITIES", "").split(",")))
     run("data/load_data.py", "--dataset", "movies", "--size", "small")
     modes = ["bm25"]
-    if "dense_vector" in capabilities:
+    if capabilities & {"dense_vector", "os_knn"}:
         run("data/load_data.py", "--size", "small", "--embeddings", "hash")
-        modes.append("dense")
-        if "rrf" in capabilities:
-            modes.append("hybrid_rrf")
+        # hybrid_rrf: the rrf retriever on a trial licence, client-side fusion otherwise.
+        modes += ["dense", "hybrid_rrf"]
     run(
         "search/evaluate.py",
         "--mode",
         ",".join(modes),
         "--queries",
         "evaluation/movie_queries.yml",
+        "--fail-under",
+        "evaluation/floors.yml",
     )
     return 0
 

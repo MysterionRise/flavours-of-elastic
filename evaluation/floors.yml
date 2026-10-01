@@ -1,0 +1,13 @@
+---
+# Minimum average quality per mode over evaluation/movie_queries.yml at k=10, on the small
+# dataset (`search/evaluate.py --fail-under evaluation/floors.yml`; scripts/smoke_data.py in CI).
+# About 0.05 below the lowest score measured on elk-single and elk (8.19, basic: client-side fusion),
+# elk-ml-9 (9.5, trial: rrf retriever) and opensearch-3 (2026-10):
+#   bm25        ndcg 0.930  mrr 0.924  recall 0.967  (identical everywhere)
+#   dense       ndcg 0.660-0.731  mrr 0.615-0.709  recall 0.817-0.842  (hash vectors, approximate kNN)
+#   hybrid_rrf  ndcg 0.882-0.895  mrr 0.883-0.896  recall 0.912-0.925
+# Dense uses the offline hash embedder, which knows no synonyms and no French or Kazakh.
+modes:
+  bm25: {ndcg: 0.88, mrr: 0.87, recall: 0.92}
+  dense: {ndcg: 0.60, mrr: 0.56, recall: 0.76}
+  hybrid_rrf: {ndcg: 0.83, mrr: 0.83, recall: 0.86}
