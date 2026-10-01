@@ -14,13 +14,15 @@ make setup
 make demo
 ```
 
-This starts Elastic Single, loads the checked-in movie dataset, creates both lexical and embedding indices, and opens a Streamlit UI for comparing:
+This starts Elastic Single (waiting until it is healthy), loads the checked-in movie dataset, creates both
+lexical and embedding indices, runs the evaluation and opens a Streamlit UI for comparing:
 
 - BM25 lexical search
 - dense vector kNN search
-- hybrid RRF search
+- hybrid RRF search — the RRF retriever needs a trial license: use the ML stack
+  (`make demo STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf`) or set `LICENSE=trial` in `.env`
 
-Run evaluation metrics in another terminal:
+Run the evaluation again at any time (against the running `STACK`):
 
 ```bash
 make evaluate
@@ -38,27 +40,22 @@ The evaluator reports `NDCG@10`, `MRR@10`, `Recall@10`, p50 latency, and p95 lat
 
 ## Core Commands
 
+Run `make` for the full list. `STACK` defaults to `elk-single`; `ENV_FILE` defaults to `.env`, falling back to
+`.env.example`.
+
 ```bash
-# Install lightweight demo dependencies
-make setup
+make setup                  # .venv with dependencies + git hooks (PEP 668-safe)
+make test                   # unit tests, compose policy, doc version check (no containers)
+make lint                   # every pre-commit hook, same as CI
 
-# Validate Python and Docker Compose configuration
-make test
+make up-elk-single          # start a stack and wait until healthy (any docker/<stack>)
+make load-small             # load the lexical movies index into the running STACK
+make load-embeddings        # load the 384-dim embedding index
+make evaluate               # BM25 + dense (EVAL_MODES=... to change)
+make down-elk-single        # stop, keeping the data
+make reset-elk-single       # stop and DELETE the data
 
-# Start the default reviewer stack
-make up-single
-
-# Load lexical index only
-make load-small
-
-# Load deterministic 384-dim embedding index
-make load-embeddings
-
-# Evaluate BM25, dense, and hybrid retrieval
-make evaluate
-
-# Stop and remove local volumes
-make down-single
+make validate STACK=elk-ml  # full validation in an isolated project (your stack is untouched)
 ```
 
 Direct commands:
