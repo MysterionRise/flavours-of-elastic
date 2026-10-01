@@ -46,11 +46,15 @@ def check_raw(text: str) -> list[str]:
         if line.startswith("version:"):
             problems.append(f"line {lineno}: obsolete top-level `version:` key")
         if line.strip().startswith("container_name:"):
-            problems.append(f"line {lineno}: fixed container_name prevents isolated runs")
+            problems.append(
+                f"line {lineno}: fixed container_name prevents isolated runs"
+            )
     return problems
 
 
-def check_rendered(config: dict, secrets: list[str], expect_host_ip: str, ports: dict[int, str]) -> list[str]:
+def check_rendered(
+    config: dict, secrets: list[str], expect_host_ip: str, ports: dict[int, str]
+) -> list[str]:
     """Checks on the output of `docker compose config --format json`.
 
     `ports` maps container port -> expected published host port.
@@ -60,14 +64,19 @@ def check_rendered(config: dict, secrets: list[str], expect_host_ip: str, ports:
     dependents = {name: set() for name in services}
     for name, svc in services.items():
         for dep, cond in (svc.get("depends_on") or {}).items():
-            if dep in dependents and cond.get("condition") == "service_completed_successfully":
+            if (
+                dep in dependents
+                and cond.get("condition") == "service_completed_successfully"
+            ):
                 dependents[dep].add(name)
 
     for name, svc in services.items():
         where = f"service `{name}`"
         if name in ONESHOT_SERVICES:
             if not dependents[name]:
-                problems.append(f"{where}: one-shot service has no dependent waiting for completion")
+                problems.append(
+                    f"{where}: one-shot service has no dependent waiting for completion"
+                )
         else:
             if not svc.get("mem_limit"):
                 problems.append(f"{where}: missing mem_limit")
@@ -80,24 +89,47 @@ def check_rendered(config: dict, secrets: list[str], expect_host_ip: str, ports:
                 problems.append(f"{where}: unexpected published port {target}")
                 continue
             if port.get("host_ip") != expect_host_ip:
-                problems.append(f"{where}: port {target} bound to {port.get('host_ip') or '0.0.0.0'}")
+                problems.append(
+                    f"{where}: port {target} bound to {port.get('host_ip') or '0.0.0.0'}"
+                )
             if str(port.get("published")) != ports[target]:
-                problems.append(f"{where}: port {target} published on {port.get('published')}, expected {ports[target]}")
+                published = port.get("published")
+                problems.append(
+                    f"{where}: port {target} published on {published}, expected {ports[target]}"
+                )
 
-        rendered = json.dumps([svc.get("command"), svc.get("entrypoint"), svc.get("healthcheck")])
+        rendered = json.dumps(
+            [svc.get("command"), svc.get("entrypoint"), svc.get("healthcheck")]
+        )
         for secret in secrets:
             if secret and secret in rendered:
-                problems.append(f"{where}: a password value appears in command/entrypoint/healthcheck")
+                problems.append(
+                    f"{where}: a password value appears in command/entrypoint/healthcheck"
+                )
                 break
 
         image = svc.get("image", "")
         if ":" not in image.rsplit("/", 1)[-1] or image.endswith(":latest"):
-            problems.append(f"{where}: image `{image}` must use an explicit version tag")
+            problems.append(
+                f"{where}: image `{image}` must use an explicit version tag"
+            )
     return problems
 
 
-def render(compose_file: Path, env_file: Path, extra_env: dict[str, str] | None = None) -> dict:
-    cmd = ["docker", "compose", "-f", str(compose_file), "--env-file", str(env_file), "config", "--format", "json"]
+def render(
+    compose_file: Path, env_file: Path, extra_env: dict[str, str] | None = None
+) -> dict:
+    cmd = [
+        "docker",
+        "compose",
+        "-f",
+        str(compose_file),
+        "--env-file",
+        str(env_file),
+        "config",
+        "--format",
+        "json",
+    ]
     # Process environment takes precedence over --env-file in docker compose.
     env = {**os.environ, **SENTINELS, **(extra_env or {})}
     result = subprocess.run(cmd, capture_output=True, text=True, env=env, check=False)
@@ -122,11 +154,18 @@ def main(argv: list[str] | None = None) -> int:
         stack = compose_file.parent.name
         try:
             problems = check_raw(compose_file.read_text())
-            problems += check_rendered(render(compose_file, env_file), secrets, "127.0.0.1", {9200: "9200", 5601: "5601"})
+            problems += check_rendered(
+                render(compose_file, env_file),
+                secrets,
+                "127.0.0.1",
+                {9200: "9200", 5601: "5601"},
+            )
             overridden = render(compose_file, env_file, OVERRIDES)
             problems += [
                 f"with overrides: {p}"
-                for p in check_rendered(overridden, secrets, "0.0.0.0", {9200: "19200", 5601: "15601"})
+                for p in check_rendered(
+                    overridden, secrets, "0.0.0.0", {9200: "19200", 5601: "15601"}
+                )
             ]
         except RuntimeError as exc:
             problems = [f"docker compose config failed: {exc}"]
