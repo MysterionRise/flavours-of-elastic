@@ -42,7 +42,7 @@ class NormalizeTitleTests(unittest.TestCase):
                 self.assertEqual(normalize_title(raw), (title, aka))
 
     def test_idempotent(self):
-        for raw, title, _ in CASES:
+        for _raw, title, _ in CASES:
             self.assertEqual(normalize_title(title)[0], title)
 
     def test_every_dataset_title(self):

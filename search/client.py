@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 from search import queries
 from search.capabilities import Capabilities, detect
@@ -42,11 +41,11 @@ VECTOR_MODES = ("dense", "hybrid_rrf", "hybrid_all")
 class SearchResponse:
     mode: str
     query: str
-    hits: List[Dict]
+    hits: list[dict]
     took_ms: float
-    engine_took_ms: Optional[int] = None
-    fusion: Optional[str] = None  # hybrid only: "server" (rrf retriever) or "client"
-    embedding: Optional[str] = None  # vector modes: the embedding backend (hash, e5)
+    engine_took_ms: int | None = None
+    fusion: str | None = None  # hybrid only: "server" (rrf retriever) or "client"
+    embedding: str | None = None  # vector modes: the embedding backend (hash, e5)
 
 
 class PortfolioSearchClient:
@@ -54,10 +53,10 @@ class PortfolioSearchClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        auth: Optional[Tuple[str, str]] = None,
-        verify_ssl: Optional[bool] = None,
-        target: Optional[Target] = None,
+        base_url: str | None = None,
+        auth: tuple[str, str] | None = None,
+        verify_ssl: bool | None = None,
+        target: Target | None = None,
     ):
         if target is None:
             if base_url:
@@ -71,9 +70,9 @@ class PortfolioSearchClient:
                 target = resolve()
         self.target = target
         self.http: Client = target.client()
-        self._caps: Optional[Capabilities] = None
-        self._embedders: Dict[str, Embedder] = {}
-        self._meta: Dict[str, dict] = {}
+        self._caps: Capabilities | None = None
+        self._embedders: dict[str, Embedder] = {}
+        self._meta: dict[str, dict] = {}
 
     @property
     def caps(self) -> Capabilities:
@@ -88,7 +87,7 @@ class PortfolioSearchClient:
             )
         return self._meta[index]
 
-    def modes(self) -> List[str]:
+    def modes(self) -> list[str]:
         """The modes this cluster and the loaded indices support."""
         available = ["bm25"]
         if self.caps.vectors:
@@ -108,7 +107,7 @@ class PortfolioSearchClient:
         self,
         query: str,
         mode: str = "bm25",
-        index: Optional[str] = None,
+        index: str | None = None,
         k: int = 10,
         num_candidates: int = 50,
         rank_constant: int = 60,
@@ -176,7 +175,7 @@ class PortfolioSearchClient:
     def _client_rrf(
         self,
         index: str,
-        legs: List[Dict],
+        legs: list[dict],
         mode: str,
         query: str,
         k: int,
@@ -202,13 +201,13 @@ class PortfolioSearchClient:
             fusion="client",
         )
 
-    def cluster_info(self) -> Dict:
+    def cluster_info(self) -> dict:
         return self.http.get("/")
 
     def count(self, index: str) -> int:
         return self.http.get(f"/{index}/_count")["count"]
 
-    def ids_present(self, index: str, ids: List[int]) -> set:
+    def ids_present(self, index: str, ids: list[int]) -> set:
         """Which of these movie ids the index holds."""
         found = self.http.post(
             f"/{index}/_mget",
@@ -221,7 +220,7 @@ class PortfolioSearchClient:
         stats = self.http.get(f"/{index}/_stats/store")
         return int(stats["indices"][index]["total"]["store"]["size_in_bytes"])
 
-    def _run(self, index: str, body: Dict, mode: str, query: str) -> SearchResponse:
+    def _run(self, index: str, body: dict, mode: str, query: str) -> SearchResponse:
         start = time.perf_counter()
         payload = self.http.post(f"/{index}/_search", body)
         return SearchResponse(
@@ -233,7 +232,7 @@ class PortfolioSearchClient:
         )
 
 
-def to_hits(raw_hits: List[Dict]) -> List[Dict]:
+def to_hits(raw_hits: list[dict]) -> list[dict]:
     hits = []
     for rank, hit in enumerate(raw_hits, start=1):
         source = hit.get("_source", {})

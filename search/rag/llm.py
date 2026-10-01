@@ -9,7 +9,6 @@ public model list before the first question, so a typo fails fast.
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
 
 API = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
@@ -31,7 +30,7 @@ ERRORS = {
 
 class OpenRouter:
     def __init__(
-        self, api_key: Optional[str] = None, model: Optional[str] = None, session=None
+        self, api_key: str | None = None, model: str | None = None, session=None
     ):
         self.api_key = (
             api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
@@ -64,7 +63,7 @@ class OpenRouter:
                 )
 
     def chat(
-        self, messages: List[Dict], max_tokens: int = 500, temperature: float = 0.2
+        self, messages: list[dict], max_tokens: int = 500, temperature: float = 0.2
     ) -> str:
         import requests
 

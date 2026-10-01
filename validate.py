@@ -22,9 +22,9 @@ import os
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
 
 from scripts.stacks import (
     STACKS,

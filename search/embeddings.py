@@ -4,7 +4,7 @@ import hashlib
 import math
 import re
 from collections import Counter
-from typing import Iterable, List
+from collections.abc import Iterable
 
 DEFAULT_EMBEDDING_DIMS = 384
 # Recorded in the index `_meta`; bump it whenever the vectors change, so queries are
@@ -15,14 +15,14 @@ HASH_MODEL = "foe-hash-v2"
 TOKEN_RE = re.compile(r"[^\W_]+")
 
 
-def tokenize(text: str) -> List[str]:
+def tokenize(text: str) -> list[str]:
     """Tokenize text into stable case-folded terms."""
     return TOKEN_RE.findall((text or "").casefold())
 
 
 def deterministic_text_embedding(
     text: str, dims: int = DEFAULT_EMBEDDING_DIMS
-) -> List[float]:
+) -> list[float]:
     """Create a deterministic unit vector without external model downloads.
 
     This is intentionally simple: it hashes lexical tokens into a fixed-size vector

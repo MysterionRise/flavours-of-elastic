@@ -18,10 +18,10 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASE_ES_PORT = 9200
