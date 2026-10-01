@@ -76,15 +76,17 @@ python validate.py --stack opensearch-3
 
 ```bash
 # Install pre-commit hooks (run once)
-pip install -r requirements.txt
-pip install pre-commit
+pip install -r requirements-dev.txt
 pre-commit install
 
-# Run all checks manually
+# Run all checks manually (same as the CI lint job)
 pre-commit run --all-files
 ```
 
-Pre-commit runs: check-yaml, end-of-file-fixer, trailing-whitespace, detect-private-key, black, isort, flake8 (max-line-length=120, ignores W605, E203, W503)
+Pre-commit runs (all versions pinned in `.pre-commit-config.yaml`): pre-commit-hooks (yaml/toml/json, whitespace,
+line endings, merge conflicts, large files, private keys), ruff check + ruff format (config in `pyproject.toml`:
+format width 88, lint limit 120), gitleaks (config in `.gitleaks.toml`), yamllint (`.yamllint.yaml`), actionlint,
+and check-jsonschema for GitHub workflows (every job needs `timeout-minutes`).
 
 ### Cleanup
 
@@ -159,8 +161,9 @@ Environment variables in `.env`:
 ### CI Pipeline
 
 GitHub Actions runs on push/PR to main/master:
-- **lint** - black, isort, flake8 checks
-- **validate-yaml** - yamllint on all docker-compose files
+- **lint** - `pre-commit run --all-files` (ruff, yamllint, actionlint, workflow schema, file hygiene)
+- **unit** - `python -m unittest discover -s tests` on Python 3.11 and 3.14
+- **secrets** - gitleaks over the commits a push/PR introduces (full history on manual runs)
 - **test-elk-single** - Start, health check, CRUD, UI test
 - **test-elk-oss** - Start, health check, CRUD, UI test
 - **test-opensearch** - Start, health check, CRUD, UI test

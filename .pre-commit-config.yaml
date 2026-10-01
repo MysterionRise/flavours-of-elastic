@@ -1,31 +1,49 @@
+---
+minimum_pre_commit_version: "4.0.0"
+# Large data files keep their original bytes (CRLF, no trailing newline).
+exclude: '^data/.*\.(csv|json)$'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
+      - id: check-toml
+      - id: check-json
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        language_version: python3
+        args: [--markdown-linebreak-ext=md]
+      - id: mixed-line-ending
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
       - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
     hooks:
-      - id: black
+      - id: yamllint
+        args: [--strict]
 
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
     hooks:
-      - id: isort
+      - id: actionlint
 
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.38.2
     hooks:
-      - id: flake8
-        language_version: python3
-        args: ['--max-line-length=120', '--ignore=W605, E203, W503']
+      - id: check-github-workflows
+      - id: check-github-workflows-require-timeout
