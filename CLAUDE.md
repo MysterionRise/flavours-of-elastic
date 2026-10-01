@@ -245,10 +245,10 @@ MovieLens ml-32m ─┬─ generate_descriptions.py (LLM, maintainers) ─► ab
 
 | Day | Topic | Duration | Stack | Slides | Exercises |
 |-----|-------|----------|-------|--------|-----------|
-| 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` | ~53 | 6 tasks (14 subtasks) |
-| 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` | ~54 | 13 tasks |
-| 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` or `elastic` | ~59 | 19 tasks (4 parts) |
-| 4 | Vector search, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` | ~52 | 18 tasks (4 parts) |
+| 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` / `elk-9` | ~53 | 6 tasks (14 subtasks) |
+| 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` / `elk-9` | ~54 | 13 tasks |
+| 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` / `elk-9` | ~59 | 19 tasks (4 parts) |
+| 4 | Vector search, E5, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` / `elk-ml-9` | ~52 | 18 tasks (4 parts) |
 
 ### Testing the Course Snippets
 

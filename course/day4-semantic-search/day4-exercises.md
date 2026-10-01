@@ -8,443 +8,220 @@ paginate: true
 
 # Day 4 Exercises: Vector Search, Semantic Search & Hybrid Search
 
-**Stack:** `elk-ml` (8GB+ RAM) | **Duration:** ~85 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
+**Stack:** `elk-ml` (8.19) or `elk-ml-9` (9.5) | **Duration:** ~100 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
 
 ## Prerequisites
 
-- `elk-ml` stack running: `docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up -d`
-- Movies embeddings dataset loaded: `python data/load_data.py --dataset movies --with-embeddings`
-
-> If RAM is limited, you can do Part A with `elk-single` (kNN works without ML nodes). Parts B-C require `elk-ml` for ELSER.
+- The ML stack running (see the "Stack Check" slide) — `GET _license` shows `trial`
+- `movies` and `movies-embeddings` loaded:
+  `python data/load_data.py --dataset movies --size small --embeddings e5 --with-elser`
 
 ---
 
 <!-- _class: divider -->
 
-# Part A: Vector Search Basics (5 tasks, ~20 min)
+# Part A: Vector Search (5 tasks, ~25 min)
 
 ---
 
-## Task 1: 3D Vector Demo — Create Index (Basic)
+<!-- _class: small -->
 
-Create a vector demo index and explore how similarity works with simple 3D vectors.
+## Task 1: Toy Vectors (Basic)
 
-**Step 1:** Create the index:
+Create an index `vector-demo` with a 3-dimensional `dense_vector` field `embedding` (cosine similarity) and index:
 
-```json
-PUT /vector-demo
-{
-  "mappings": {
-    "properties": {
-      "title": { "type": "text" },
-      "description": { "type": "text" },
-      "embedding": {
-        "type": "dense_vector",
-        "dims": 3,
-        "index": true,
-        "similarity": "cosine"
-      }
-    }
-  }
-}
-```
+| _id | title | embedding |
+|-----|-------|-----------|
+| 1 | Action Movie | `[1.0, 0.2, 0.1]` |
+| 2 | Romantic Comedy | `[0.1, 1.0, 0.2]` |
+| 3 | Sci-Fi Thriller | `[0.8, 0.3, 0.9]` |
+| 4 | Action Comedy | `[0.7, 0.8, 0.2]` |
+| 5 | Horror Film | `[0.2, 0.1, 0.9]` |
+
+Run a kNN query with `[0.9, 0.3, 0.2]` (k=3), then with `[0.1, 0.9, 0.1]`.
+
+**Questions:** What are the top 3 each time, and why? What are the `_score` values, and how do they relate to cosine similarity?
 
 ---
 
+## Task 2: The Inference API (Basic)
 
-## Task 1: 3D Vector Demo — Index Documents (Basic)
+1. Embed the text `"a heist that goes wrong"` with `POST _inference/text_embedding/.multilingual-e5-small-elasticsearch`. How many numbers come back?
+2. Embed two texts in **one** request (`"input"` takes a list).
+3. Search `movies-embeddings` for `"a heist that goes wrong"` with `knn` + `query_vector_builder` (k=5).
 
-**Step 2:** Index these documents:
+**Question:** Which movies come back? Would a `match` query on `overview` find them?
 
-```json
-POST /vector-demo/_bulk
-{"index": {"_id": "1"}}
-{"title": "Action Movie", "description": "Explosions and car chases", "embedding": [1.0, 0.2, 0.1]}
-{"index": {"_id": "2"}}
-{"title": "Romantic Comedy", "description": "Love and laughter", "embedding": [0.1, 1.0, 0.2]}
-{"index": {"_id": "3"}}
-{"title": "Sci-Fi Thriller", "description": "Space and suspense", "embedding": [0.8, 0.3, 0.9]}
-{"index": {"_id": "4"}}
-{"title": "Action Comedy", "description": "Funny action scenes", "embedding": [0.7, 0.8, 0.2]}
-{"index": {"_id": "5"}}
-{"title": "Horror Film", "description": "Scary and suspenseful", "embedding": [0.2, 0.1, 0.9]}
-```
+> **Hint:** `query_vector_builder.text_embedding` takes `model_id` (the endpoint id) and `model_text`.
 
 ---
-
-## Task 1: 3D Vector Demo — Query & Questions (Basic)
-
-**Step 3:** Run a kNN query with query vector `[0.9, 0.3, 0.2]`, k=3, num_candidates=10.
-
-**Questions:**
-1. What are the top 3 results? Why do they match?
-2. Change the query vector to `[0.1, 0.9, 0.1]`. How do results change?
-
-> **Hint:** The vector `[0.9, 0.3, 0.2]` is closest to `[1.0, 0.2, 0.1]` (Action Movie) by cosine similarity — both have a high first dimension. The vector `[0.1, 0.9, 0.1]` is closest to `[0.1, 1.0, 0.2]` (Romantic Comedy) — both have a high second dimension.
-
----
-
-
-## Task 2: Real Movie Embeddings kNN — Setup (Basic)
-
-Using the `movies-embeddings` index (100 movies with deterministic 384-dim vectors):
-
-1. Get the embedding from movie ID 1 (Toy Story):
-   ```json
-   GET /movies-embeddings/_doc/1
-   ```
-
-2. Copy the `overview_embedding` array from the response
-
----
-
-## Task 2: Real Movie Embeddings kNN — Query (Basic)
-
-3. Use it as a kNN query vector to find the 5 most similar movies:
-
-```json
-GET /movies-embeddings/_search
-{
-  "knn": {
-    "field": "overview_embedding",
-    "query_vector": [/* paste embedding here */],
-    "k": 5,
-    "num_candidates": 50
-  },
-  "_source": ["title", "overview", "genres", "year"]
-}
-```
-
----
-
-## Task 2: Real Movie Embeddings kNN — Questions (Basic)
-
-**Questions:**
-1. Do the results make thematic sense? Are they similar to Toy Story?
-2. Try with movie ID 2 (Jumanji). Are the neighbors adventure/family/fantasy related?
-
-> **Hint:** The first result will be the movie itself (distance 0). With deterministic local embeddings, expect lexical/genre similarity rather than production-grade semantic quality.
-
----
-
 
 ## Task 3: Filtered kNN (Intermediate)
 
-Using movie ID 1's embedding from Task 2, find similar movies but:
+Search for `"space adventure"` with E5 kNN (k=5):
 
-1. First, search **without** any filter (k=10)
-2. Then, add a filter to only include `"Drama"` genre
-3. Then, add a filter for `year >= 1995` AND genre `"Drama"`
+1. Without a filter
+2. Only movies released **before 1980**
+3. Only `Sci-Fi` movies from **1990 or later**
 
-Compare the results across all three queries.
+Compare the results. Do you always get 5 hits?
 
----
-
-## Task 3: Filtered kNN (continued)
-
-> **Hint:** Add a `filter` block inside the `knn` object. For multiple conditions, use `bool.must` with an array of filters:
-> ```json
-> "filter": {
->   "bool": {
->     "must": [
->       { "term": { "genres": "Drama" } },
->       { "range": { "year": { "gte": 1995 } } }
->     ]
->   }
-> }
-> ```
+> **Hint:** Put a `filter` inside the `knn` object. Several conditions: `bool` with a `filter` array.
 
 ---
 
-## Task 4: num_candidates Effect (Intermediate)
+## Task 4: Multilingual Search (Intermediate)
 
-Using the same query from Task 2, run the kNN search with different `num_candidates` values:
+The overviews are English. Search them in other languages with E5 kNN (k=3):
 
-1. `num_candidates: 5`
-2. `num_candidates: 50`
-3. `num_candidates: 200`
+- French: `"famille mafieuse sicilienne"`
+- Kazakh: `"ковбой қуыршақ ойыншық"` (cowboy doll toy)
+- Your own language — try a plot you know
 
-Compare the results and the `took` time. At what point do results stabilize?
+Then run the French query as a BM25 `match` on `overview`. What happens?
 
-> **Hint:** With only 100 documents, differences will be small. In production with millions of docs, `num_candidates` has a significant impact. Lower values are faster but may miss relevant results. Higher values are more accurate but slower.
+**Question:** Why does kNN work across languages when BM25 does not?
 
 ---
 
-## Task 5: Similarity Metrics Comparison (Bonus)
+## Task 5: num_candidates and similarity (Intermediate)
 
-Create three indices with different similarity metrics (`cosine`, `l2_norm`, `dot_product`), each with 3 dimensions. Index the same 5 documents from Task 1 into all three.
+Run the `"escaping from prison"` kNN query (k=5) with `num_candidates` 5, 50 and 200. Compare results and `took`.
 
-Run the same kNN query on all three. Do the result rankings differ?
+Then add `"similarity": 0.8` to the `knn` object, and try `0.85`.
 
 **Questions:**
-1. When would you choose `l2_norm` over `cosine`?
-2. What happens with `dot_product` if vectors aren't normalized?
+1. At what point do the results stabilize?
+2. With `similarity` set, why can you get fewer than k hits? How does `similarity` relate to `_score`?
 
-> **Hint:** For text embeddings, `cosine` and `dot_product` (with normalized vectors) give identical rankings. `l2_norm` considers magnitude — two vectors pointing the same direction but with different lengths would be "far" in L2 but "identical" in cosine. Use `l2_norm` when magnitude carries meaning (e.g., image feature vectors).
+> **Hint:** For `cosine`, `similarity` is the raw cosine; `_score = (1 + cosine) / 2`.
 
 ---
 
 <!-- _class: divider -->
 
-# Part B: ELSER & Semantic Search (4 tasks, ~20 min)
-
-> These tasks require the `elk-ml` stack with ELSER deployed. If you can't deploy ELSER (RAM limitations), read through the tasks and study the expected outputs.
+# Part B: ELSER & Semantic Search (4 tasks, ~25 min)
 
 ---
 
-## Task 6: Deploy ELSER — Setup (Basic)
+## Task 6: Look Inside ELSER (Basic)
 
-Deploy the ELSER model and create an inference endpoint.
+Run `POST _inference/sparse_embedding/.elser-2-elasticsearch` on:
 
-**Option A: Via Kibana UI**
-1. Go to Machine Learning → Trained Models
-2. Find `.elser_model_2_linux-x86_64`
-3. Download and Deploy
-
-**Option B: Via API**
-
-```json
-PUT /_inference/sparse_embedding/my-elser-endpoint
-{
-  "service": "elser",
-  "service_settings": {
-    "num_allocations": 1,
-    "num_threads": 1
-  }
-}
-```
-
----
-
-
-## Task 6: Deploy ELSER — Verify (Basic)
-
-Verify it works:
-
-```json
-POST /_inference/sparse_embedding/my-elser-endpoint
-{
-  "input": "Two men escape from a maximum security prison"
-}
-```
+- `"Two men escape from a maximum security prison"`
+- `"A young farm boy joins rebels against an evil galactic empire"`
 
 **Questions:**
-1. What does the output look like? (Sparse tokens with weights)
-2. How many tokens were generated? Are they all words from the input?
-
-> **Hint:** ELSER generates **expanded** tokens — you'll see tokens that weren't in the original text but are semantically related. For "escape from prison", you might see tokens like "jail", "convict", "flee", "inmate" with various weights. This token expansion is how ELSER captures meaning.
+1. Which tokens have the highest weights?
+2. Which tokens are **not** in the input text? Why are they there?
 
 ---
 
+## Task 7: Build a semantic_text Index (Basic)
 
-## Task 7: Create Semantic Index (Basic)
+1. Create `my-semantic` with `title` (text), `overview` (text, `copy_to: overview_semantic`) and `overview_semantic` (`semantic_text`, `inference_id: .elser-2-elasticsearch`)
+2. Fill it with `_reindex` from `movies` — only the movies with ids 1, 260, 318, 858 and 2571
+3. Check `GET /my-semantic/_count`, then run a `semantic` query for `"computer hacker discovers the truth"`
 
-Create the `movies-semantic` index with a `semantic_text` field and index a few movies:
+**Question:** Which movie comes first? `_reindex` copied only `title` and `overview` — how did `overview_semantic` get filled?
 
-```json
-PUT /movies-semantic
-{
-  "mappings": {
-    "properties": {
-      "title": { "type": "text" },
-      "overview": { "type": "text" },
-      "overview_semantic": {
-        "type": "semantic_text",
-        "inference_id": "my-elser-endpoint"
-      },
-      "genres": { "type": "keyword" },
-      "year": { "type": "integer" }
-    }
-  }
-}
-```
+> **Hint:** `_reindex` takes a `source.query` (`ids` query) and `source._source` (field list).
 
 ---
 
-## Task 7: Create Semantic Index (continued)
+## Task 8: Keyword vs Semantic (Intermediate)
 
-Index at least 5 movies (copy the overview text to both `overview` and `overview_semantic` fields). Use movies with diverse themes — e.g., Shawshank, Godfather, Inception, Interstellar, The Matrix.
+On `movies-embeddings`, run each query three ways: BM25 `match` on `overview`, `semantic` on `overview_semantic` (ELSER), and E5 kNN.
 
-> **Hint:** Use `POST /movies-semantic/_bulk` with both fields containing the same text. Indexing may take 5-10 seconds per document as ELSER generates embeddings. Check progress with `GET /movies-semantic/_count`.
-
----
-
-## Task 8: Keyword vs Semantic Comparison (Intermediate)
-
-Run the same search two ways and compare:
-
-**Search term:** `"movies about escaping from prison"`
-
-1. Keyword search: `match` on `overview`
-2. Semantic search: `semantic` on `overview_semantic`
-
-Then try:
-- `"films about family and power"`
-- `"virtual reality simulations"`
-- `"space exploration and survival"`
-
----
-
-## Task 8: Keyword vs Semantic (continued)
+| Query |
+|-------|
+| `"jailbreak"` |
+| `"mobsters"` |
+| `"a toy cowboy gets jealous"` |
+| `"dinosaurs"` |
 
 **Questions:**
-1. Which approach finds "The Shawshank Redemption" for "escaping prison"? Why?
-2. For which queries does keyword search work better? Semantic?
-
-> **Hint:** Keyword search fails for "escaping from prison" because Shawshank's overview uses "imprisoned" and "redemption" (not "escaping" or "prison"). Semantic search understands these are related concepts. Keyword search works better for exact terms or proper nouns.
+1. Which queries does BM25 miss entirely? Which method wins each query?
+2. The data has no dinosaur films. What do the semantic methods return, and why is that a problem?
 
 ---
 
+## Task 9: Semantic Search with Filters and Highlighting (Intermediate)
 
-## Task 9: Semantic with Filters (Intermediate)
+Find **dramas** from the **1990s** about `"redemption after a crime"`:
 
-Write a query that combines semantic search with traditional filters:
+1. `bool` with `must`: `semantic` query on `overview_semantic`; `filter`: genres `Drama` and year 1990–1999
+2. Add semantic highlighting (`"type": "semantic"`, one fragment)
 
-1. Semantic query: `"science fiction technology"`
-2. Filter: `year >= 1990`
-3. Filter: genre must be one of `["Action", "Science Fiction"]`
+**Question:** Does the highlighted fragment explain why each movie matched?
 
-Use a `bool` query with `must` for semantic and `filter` for the constraints.
-
----
-
-## Task 9: Semantic with Filters (continued)
-
-> **Hint:**
-> ```json
-> {
->   "query": {
->     "bool": {
->       "must": {
->         "semantic": {
->           "field": "overview_semantic",
->           "query": "science fiction technology"
->         }
->       },
->       "filter": [
->         { "range": { "year": { "gte": 1990 } } },
->         { "terms": { "genres": ["Action", "Science Fiction"] } }
->       ]
->     }
->   }
-> }
-> ```
+> **Hint:** Semantic highlighting returns whole chunks of the `semantic_text` field, best first.
 
 ---
 
 <!-- _class: divider -->
 
-# Part C: Hybrid Search with RRF (5 tasks, ~25 min)
+# Part C: Hybrid Search with RRF (5 tasks, ~30 min)
 
 ---
 
 ## Task 10: BM25 vs kNN Side by Side (Basic)
 
-Using the `movies-embeddings` index, run two separate searches for the concept of "space travel and survival":
+For `"underdog sports team"` on `movies-embeddings`, run (size 5):
 
-1. **BM25 only:** `multi_match` on title and overview
-2. **kNN only:** Use an embedding from a space movie (e.g., movie ID 8 — Interstellar)
+1. **BM25:** `multi_match` on `title^2` and `overview`
+2. **kNN:** E5 with `query_vector_builder`
 
-Compare the top 5 results from each. Which movies appear in both lists? Which are unique to each?
-
-> **Hint:** Get Interstellar's embedding with `GET /movies-embeddings/_doc/8`, then use it as `query_vector`. For BM25, use `multi_match` with `"fields": ["title^2", "overview"]`. Look for movies that appear in both result sets — these are likely the most relevant.
+Which movies appear in both lists? Which only in one?
 
 ---
 
+## Task 11: Hybrid with RRF (Basic)
 
-## Task 11: Basic Hybrid with RRF — Query (Basic)
-
-Combine BM25 + kNN into a single hybrid query using the Retriever API:
-
-```json
-GET /movies-embeddings/_search
-{
-  "retriever": {
-    "rrf": {
-      "retrievers": [
-        { "standard": { "query": {
-              "multi_match": {
-                "query": "space travel survival",
-                "fields": ["title^2", "overview"]
-              }
-        }}},
-        { "knn": {
-            "field": "overview_embedding",
-            "query_vector": [/* Interstellar's embedding */],
-            "k": 10, "num_candidates": 50
-        }}
-      ],
-      "rank_window_size": 100, "rank_constant": 60
-    }
-  },
-  "_source": ["title", "overview", "genres"], "size": 10
-}
-```
-
----
-
-## Task 11: Basic Hybrid with RRF — Questions (Basic)
+Combine the two searches from Task 10 with an `rrf` retriever (`rank_window_size: 20`, `size: 5`).
 
 **Questions:**
-1. How do the hybrid results compare to BM25-only and kNN-only?
-2. Are there movies in the hybrid results that weren't in either individual result?
+1. How does the hybrid top 5 compare with the two lists?
+2. Remove `rank_window_size`. What does it default to, and does the result change?
 
-> **Hint:** Hybrid results typically surface documents that rank well in BOTH retrievers. A movie that's #3 in BM25 and #4 in kNN will score higher than one that's #1 in BM25 but #50 in kNN. This is the power of RRF.
+> **Hint:** `"retriever": { "rrf": { "retrievers": [ { "standard": { "query": ... } }, { "knn": { ... } } ] } }`
 
 ---
 
 ## Task 12: Filtered Hybrid Search (Intermediate)
 
-Create a hybrid query for "crime family power" that:
+Hybrid search for `"crime family power"` (BM25 + E5 kNN), restricted to movies with genre `Crime` released **before 1980**.
 
-1. Uses BM25 (`multi_match` on title and overview)
-2. Uses kNN (get embedding from movie ID 2 — The Godfather)
-3. Filters both retrievers to: `year >= 1990` AND genres contains `"Crime"` or `"Drama"`
+1. With the `filter` parameter of the `rrf` retriever
+2. With the same filter repeated inside both sub-retrievers
 
-Remember: filters must be applied to **each retriever separately**.
-
-> **Hint:** For the standard retriever, wrap the multi_match in a `bool` query with `filter`. For the kNN retriever, add a `filter` block directly inside the kNN object. Both filters should have the same conditions.
+**Question:** Are the results the same? Which version is easier to maintain?
 
 ---
 
-## Task 13: Tuning RRF Parameters (Intermediate)
+## Task 13: Tuning RRF (Intermediate)
 
-Using the hybrid query from Task 11, experiment with different parameter combinations:
+Using the hybrid query from Task 11, compare:
 
 | Experiment | rank_constant | rank_window_size |
 |-----------|---------------|-----------------|
-| A | 10 | 50 |
-| B | 60 | 100 |
-| C | 100 | 200 |
-
-For each combination, note:
-1. The top 5 results and their order
-2. How the result ordering changes
-
----
-
-## Task 13: Tuning RRF Parameters (continued)
+| A | 1 | 10 |
+| B | 60 | 20 |
+| C | 1000 | 50 |
 
 **Questions:**
-1. What effect does lowering `rank_constant` have?
-2. Does increasing `rank_window_size` change results with 100 documents?
-
-> **Hint:** With `rank_constant=10`, the top-ranked results from each retriever get disproportionately high RRF scores — it emphasizes the #1 result much more than #10. With `rank_constant=100`, the difference between ranks is smaller, making the fusion more "democratic." With only 100 documents, `rank_window_size` changes may be subtle.
+1. How does the order change between A and C?
+2. Which experiment behaves most like "take the best of each list"?
 
 ---
 
-## Task 14: Three-way Comparison Report (Bonus)
+## Task 14: Three-way Hybrid (Bonus)
 
-Pick a search query that's interesting to you (e.g., "underdog overcomes impossible odds").
+Build a hybrid search for `"mobsters"` with **three** retrievers: BM25, E5 kNN and the ELSER `semantic` query.
 
-Run three separate searches on `movies-embeddings`:
-1. BM25 only (standard retriever)
-2. kNN only (use a thematically related movie's embedding)
-3. Hybrid (RRF combining both)
+Then try the `linear` retriever with the same three, weights 1 / 1 / 2 (`minmax` normalizer).
 
-Create a comparison table of the top 5 results from each method. Write a brief analysis: which method gave the best results for your query and why?
-
-> **Hint:** For "underdog overcomes impossible odds", BM25 might find movies with those exact words, kNN might find thematically similar movies (Rocky, Rudy, etc.), and hybrid should combine both. If kNN finds results that BM25 misses (because different words are used), that demonstrates the value of semantic search.
+**Question:** BM25 finds nothing for `"mobsters"` — does hybrid still work? Which retriever carries the result?
 
 ---
 
@@ -452,165 +229,55 @@ Create a comparison table of the top 5 results from each method. Write a brief a
 
 # Part D: Advanced Techniques (4 tasks, ~20 min)
 
-> These are bonus tasks for students who finish early or want to explore further.
+> Bonus tasks for students who finish early or want to explore further.
 
 ---
 
+## Task 15: Build Your Own Vector Index (Intermediate)
 
-## Task 15: Quantized Index — Create Mapping (Intermediate)
+1. Create `my-hybrid` with `title` (text), `searchable_text` (text), `year` (integer), `genres` (keyword) and `overview_embedding` (384 dims, cosine, `index_options` type `int4_hnsw`)
+2. Fill it with `_reindex` from `movies`, embedding on the way in with the `movies-embeddings-e5` pipeline
+3. Search it for `"escaping from prison"` with E5 kNN — same top 3 as `movies-embeddings`?
 
-Create a quantized version of the embeddings index:
-
-```json
-PUT /movies-quantized
-{
-  "mappings": {
-    "properties": {
-      "title": { "type": "text" },
-      "overview": { "type": "text" },
-      "overview_embedding": {
-        "type": "dense_vector",
-        "dims": 384,
-        "index": true,
-        "similarity": "cosine",
-        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
-      },
-      "genres": { "type": "keyword" },
-      "year": { "type": "integer" }
-    }
-  }
-}
-```
+> **Hint:** `"dest": { "index": "my-hybrid", "pipeline": "movies-embeddings-e5" }`. The pipeline reads `searchable_text`.
 
 ---
 
-## Task 15: Quantized Index — Reindex & Compare (Intermediate)
+## Task 16: Defaults and Rescoring (Intermediate)
 
-Reindex from `movies-embeddings` into `movies-quantized`. Run the same kNN query on both indices and compare:
+1. Create `my-defaults` with a 384-dim `dense_vector` **without** `index_options`, and read the effective mapping with `include_defaults=true`. Which type did your track choose?
+2. Re-run Task 15's kNN query on `my-hybrid` with `"rescore_vector": { "oversample": 3.0 }`. Does the order change?
 
-1. Are the results identical?
-2. Compare index sizes: `GET /_cat/indices/movies-embeddings,movies-quantized?v`
-
-> **Hint:** Use `POST /_reindex` to copy data. With only 100 documents, size and accuracy differences will be minimal. In production with millions of vectors, int8_hnsw saves ~75% memory with typically <5% accuracy loss.
+**Question:** Why might an upgrade from 8.19 to 9.x change kNN results if you don't set `index_options`?
 
 ---
 
+## Task 17: Where Does the Space Go? (Intermediate)
 
-## Task 16: Approximate vs Exact kNN — Approximate (Intermediate)
+1. Compare `movies-embeddings` and `my-hybrid` with `GET _cat/indices/movies-embeddings,my-hybrid?v&h=index,docs.count,store.size`
+2. Run `POST /movies-embeddings/_disk_usage?run_expensive_tasks=true` — which fields take the most space?
+3. Estimate the vector RAM for **10 million** movies at `int8_hnsw` and at `bbq_hnsw`
 
-Run the same similarity search two ways:
-
-**Approximate (HNSW):**
-```json
-GET /movies-embeddings/_search
-{
-  "knn": {
-    "field": "overview_embedding",
-    "query_vector": [/* movie 1 embedding */],
-    "k": 10,
-    "num_candidates": 100
-  }
-}
-```
+**Question:** Why does `_cat/indices` count more documents than `_count`?
 
 ---
 
+## Task 18: Chunking Long Texts (Bonus)
 
-## Task 16: Approximate vs Exact kNN — Exact (Intermediate)
+1. Create `my-chunks` with a `semantic_text` field `body` (ELSER endpoint) and `chunking_settings`: `sentence` strategy, `max_chunk_size: 20`, `sentence_overlap: 0`
+2. Index one document whose `body` has three unrelated paragraphs (a heist in Las Vegas, an art theft in Paris, a beekeeper in the countryside)
+3. Search for `"bee keeping"` with semantic highlighting (2 fragments)
 
-**Exact (script_score):**
-```json
-GET /movies-embeddings/_search
-{
-  "query": {
-    "script_score": {
-      "query": { "match_all": {} },
-      "script": {
-        "source": "cosineSimilarity(params.qv, 'overview_embedding') + 1.0",
-        "params": {
-          "qv": [/* same embedding */]
-        }
-      }
-    }
-  },
-  "size": 10
-}
-```
-
----
-
-## Task 16: Approximate vs Exact kNN (continued)
-
-Compare results and `took` time. Are the top 10 identical?
-
-> **Hint:** With 100 documents, approximate kNN should return the exact same results as brute-force (the HNSW graph is small enough to explore thoroughly). The difference becomes significant at scale (millions of documents) where approximate kNN is orders of magnitude faster but may miss some true neighbors.
-
----
-
-
-## Task 17: Profile kNN Performance (Intermediate)
-
-Add `"profile": true` to your kNN query to see execution details:
-
-```json
-GET /movies-embeddings/_search
-{
-  "profile": true,
-  "knn": {
-    "field": "overview_embedding",
-    "query_vector": [/* embedding */],
-    "k": 10,
-    "num_candidates": 100
-  }
-}
-```
-
----
-
-## Task 17: Profile kNN Performance (continued)
-
-Examine the profile output:
-1. How long did the kNN search take?
-2. What percentage of time was spent on the vector search vs other operations?
-
-> **Hint:** The profile output shows detailed timing for each shard and query phase. Look for the `knn` section showing vector search time. With a small dataset, most time is overhead rather than actual vector comparison.
-
----
-
-## Task 18: Chunking Schema Design (Bonus)
-
-Design (don't implement) an index mapping for a document search system where:
-- Documents can be up to 50,000 words
-- Each document belongs to a department and has a security level
-- Users should be able to search semantically and filter by department/security
-- Results should return the document (not individual chunks)
-
-Write out:
-1. The index mapping (with fields for document metadata + chunk data)
-2. A sample kNN query with filtering and `collapse` for deduplication
-3. How many chunks a 50,000-word document would produce (with 500-word chunks and 50-word overlap)
-
----
-
-## Task 18: Chunking Schema Design (continued)
-
-> **Hint:** Mapping needs: `doc_id` (keyword), `doc_title` (text), `department` (keyword), `security_level` (keyword), `chunk_id` (integer), `chunk_text` (text), `chunk_embedding` (dense_vector). Use `collapse: {"field": "doc_id"}` in the search to get unique documents. A 50,000-word doc with 500-word chunks and 50-word overlap: ceil(50000 / 450) = ~112 chunks.
+**Question:** Which chunk is highlighted first? What would happen to a 50,000-word document without chunking?
 
 ---
 
 ## Cleanup
 
 ```json
-DELETE /vector-demo
-DELETE /movies-semantic
-DELETE /movies-quantized
-DELETE /movies-hybrid
-
-# Keep movies-embeddings if you want to continue experimenting
+DELETE /vector-demo,my-semantic,my-hybrid,my-defaults,my-chunks,toy-vectors,semantic-demo,chunk-demo,q-default?ignore_unavailable=true
 ```
 
-To stop the elk-ml stack:
+> Keep `movies` and `movies-embeddings` to keep experimenting.
 
-```bash
-docker compose -f docker/elk-ml/docker-compose.yml --env-file .env down -v
-```
+To stop the stack (keeping its data): `docker compose -f docker/elk-ml/docker-compose.yml --env-file .env down`

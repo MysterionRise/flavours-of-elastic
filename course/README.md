@@ -6,10 +6,10 @@
 
 | Day | Topic | Duration | Stack |
 |-----|-------|----------|-------|
-| 1 | Elasticsearch Fundamentals | 2h | `elk-single` |
-| 2 | Query DSL & ES\|QL | 2h | `elk-single` |
-| 3 | Indexing, Text Analysis & Aggregations | 3h | `elk-single` or `elastic` |
-| 4 | Vector Search, Semantic Search & Hybrid Search | 3h | `elk-ml` |
+| 1 | Elasticsearch Fundamentals | 2h | `elk-single` / `elk-9` |
+| 2 | Query DSL & ES\|QL | 2h | `elk-single` / `elk-9` |
+| 3 | Indexing, Text Analysis & Aggregations | 3h | `elk-single` / `elk-9` |
+| 4 | Vector Search, Semantic Search & Hybrid Search | 3h | `elk-ml` / `elk-ml-9` |
 
 ## Downloading the PDFs
 
@@ -95,7 +95,7 @@ course/
 ## Prerequisites for Students
 
 - Docker 20.10+ with the Compose v2 plugin (`docker compose`)
-- 4GB RAM minimum (8GB+ for Day 4)
+- 4GB RAM minimum (~10GB Docker memory for Day 4)
 - Clone this repository: `git clone https://github.com/MysterionRise/flavours-of-elastic.git`
 - Create your env file: `cp .env.example .env`
 - Verify: `docker compose version`
@@ -104,6 +104,11 @@ course/
 
 - Content is ~2.5h buffer over session time for flexibility
 - Exercises are tiered: Basic / Intermediate / Bonus
-- Each exercise has hints (expandable) but no full solutions
-- Day 4 requires `elk-ml` stack started ~15 min before class (ELSER download)
-- Kibana sample datasets (ecommerce, flights) used in Day 2-3 exercises
+- Exercise slides carry hints; full answers are in `course/solutions/dayN-solutions.md` (instructor key, run in
+  CI on both tracks, so its numbers match the data)
+- Day 4 needs `elk-ml` / `elk-ml-9` and `movies-embeddings` loaded before class: the first
+  `python data/load_data.py --dataset movies --size small --embeddings e5 --with-elser` downloads and deploys E5 and
+  ELSER (~0.9 GB, ~5 minutes); `--warm-only` just deploys the models
+- The ML stacks run a 30-day trial licence (needed for E5, ELSER and the `rrf` retriever); `make reset-elk-ml`
+  starts a fresh trial and deletes the data
+- The Kibana eCommerce sample dataset is used in the Day 1-3 exercises

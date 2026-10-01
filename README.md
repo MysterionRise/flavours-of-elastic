@@ -125,10 +125,10 @@ The course materials remain in `course/` and are secondary evidence for teaching
 
 | Day | Topic | Duration | Stack |
 |-----|-------|----------|-------|
-| 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` |
-| 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` |
-| 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` or `elastic` |
-| 4 | Vector search, ELSER, `semantic_text`, hybrid RRF | 3h | `elk-ml` |
+| 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` / `elk-9` |
+| 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` / `elk-9` |
+| 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` / `elk-9` |
+| 4 | Vector search, ELSER, `semantic_text`, hybrid RRF | 3h | `elk-ml` / `elk-ml-9` |
 
 Slide and exercise PDFs: download them from the [latest release](https://github.com/MysterionRise/flavours-of-elastic/releases/latest) or build them with `make slides`. See [course/README.md](course/README.md).
 
