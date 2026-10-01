@@ -113,6 +113,10 @@ python -m scripts.check_compose
 pip install -r requirements-dev.txt
 pre-commit install
 
+# Or with uv: the locked environment (uv.lock), editable install with console scripts
+# foe-load / foe-evaluate / foe-rag / foe-validate; extras: --extra demo, --extra maintainer
+uv sync --locked
+
 # Run all checks manually (same as the CI lint job)
 pre-commit run --all-files
 ```
@@ -215,7 +219,7 @@ scripts.check_doc_versions [--fix]` (also a pre-commit hook) fails when a minor 
 GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every pull request and manually
 (optionally for a single stack):
 - **lint** - `pre-commit run --all-files` (ruff, yamllint, actionlint, workflow schema, file hygiene)
-- **unit** - `python -m unittest discover -s tests` on Python 3.11 and 3.14
+- **unit** - `uv sync --locked` (fails when uv.lock is stale) + `python -m unittest discover -s tests` on Python 3.11 and 3.14
 - **secrets** - gitleaks over the commits a push/PR introduces (full history on manual runs)
 - **compose-config** - `python -m scripts.check_compose`
 - **plan** + **stacks** - matrix from `python validate.py --list --json`; each cell runs `python validate.py --stack X`
