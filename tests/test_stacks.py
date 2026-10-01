@@ -85,7 +85,8 @@ class RegistryTests(unittest.TestCase):
         }
         self.assertEqual(days["elk-single"], (1, 2, 3))
         self.assertEqual(days["elk-9"], (1, 2, 3))
-        self.assertIn(4, days["elk-ml"])
+        self.assertEqual(days["elk-ml"], (4,))
+        self.assertEqual(days["elk-ml-9"], (4,))  # dual track: 8.19 + 9.x
 
     def test_describe_never_contains_password_values(self):
         env = {

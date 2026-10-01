@@ -85,7 +85,8 @@ streamlit run apps/search_demo/Home.py
 | Elastic Single | 8.19.x | Default reviewer path, HTTP, auth, low memory |
 | Elastic Stack | 8.19.x | Production-like 2-node cluster with TLS |
 | Elastic ML | 8.19.x | ELSER, `semantic_text`, ML exercises |
-| Elastic 9 | 9.5.x | Next-gen single-node feature testing |
+| Elastic 9 | 9.5.x | 9.x track of Elastic Single |
+| Elastic ML 9 | 9.5.x | 9.x track of Elastic ML (Day 4) |
 | OpenSearch | 2.19.x | Open-source comparison stack |
 | OpenSearch 3 | 3.9.x | Next-gen OpenSearch 2-node stack |
 | Elastic OSS | 7.10.2 | Legacy Apache-2.0 release (frozen) |
@@ -138,6 +139,7 @@ docker compose -f docker/elk-single/docker-compose.yml --env-file .env up
 docker compose -f docker/elk/docker-compose.yml --env-file .env up
 docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
 docker compose -f docker/elk-9/docker-compose.yml --env-file .env up
+docker compose -f docker/elk-ml-9/docker-compose.yml --env-file .env up
 docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
 docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env up
 docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
@@ -148,7 +150,7 @@ docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
 - Docker 20.10+ with the Compose v2 plugin (`docker compose`, 2.20+)
 - Python 3.11+
 - ~4GB of Docker memory for Elastic Single / Elastic 9
-- ~10GB of Docker memory for Elastic ML (two 4GB ML nodes + Kibana)
+- ~10GB of Docker memory for Elastic ML / Elastic ML 9 (two 4GB ML nodes + Kibana)
 
 The multi-node stacks enforce Elasticsearch's bootstrap checks and need
 `vm.max_map_count` of at least 262144 (Linux host, or the Docker VM on macOS/Windows):

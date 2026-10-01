@@ -11,10 +11,11 @@ Flavours of Elastic is an educational repository for a **4-day Elasticsearch cou
 1. **Elastic Single** (8.19.x) - Beginner-friendly single-node, HTTP, auth, 4GB RAM
 2. **Elastic Stack** (8.19.x) - Production-like 2-node cluster, HTTPS + auth
 3. **Elastic ML** (8.19.x) - ML-enabled for ELSER/vector search, ~10GB Docker memory
-4. **Elastic 9** (9.5.x) - Next-gen single-node, HTTP, auth, 4GB RAM
-5. **OpenSearch** (2.19.x) - Open-source alternative with Dashboards, HTTPS + auth
-6. **OpenSearch 3** (3.9.x) - Next-gen 2-node cluster, HTTPS + auth
-7. **Elasticsearch OSS** (7.10.2) - Legacy Apache-2.0 release, HTTP, no auth (frozen)
+4. **Elastic 9** (9.5.x) - Next-gen single-node, HTTP, auth, 4GB RAM (9.x track of Elastic Single)
+5. **Elastic ML 9** (9.5.x) - 9.x track of Elastic ML: 2-node TLS cluster, trial license, ~10GB Docker memory
+6. **OpenSearch** (2.19.x) - Open-source alternative with Dashboards, HTTPS + auth
+7. **OpenSearch 3** (3.9.x) - Next-gen 2-node cluster, HTTPS + auth
+8. **Elasticsearch OSS** (7.10.2) - Legacy Apache-2.0 release, HTTP, no auth (frozen)
 
 ## Common Commands
 
@@ -32,6 +33,9 @@ docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
 
 # Elastic 9 (next-gen, 4GB RAM)
 docker compose -f docker/elk-9/docker-compose.yml --env-file .env up
+
+# Elastic ML 9 (Day 4 on the 9.x track, ~10GB Docker memory)
+docker compose -f docker/elk-ml-9/docker-compose.yml --env-file .env up
 
 # OpenSearch (auth: admin/MyStrongPassword123!)
 docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
@@ -109,6 +113,7 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `docker/elk/` - Elastic Stack with TLS cert generation and 2-node cluster
 - `docker/elk-ml/` - ML-enabled 2-node cluster for ELSER
 - `docker/elk-9/` - Elasticsearch 9 single-node (HTTP, auth)
+- `docker/elk-ml-9/` - ML-enabled 2-node cluster on Elasticsearch 9 (same as elk-ml, 9.x track)
 - `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards
 - `docker/opensearch-3/` - OpenSearch 3 two-node cluster with Dashboards
 - `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy
@@ -143,6 +148,7 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 | Elastic Stack | HTTPS | elastic/elastic | 1GB x2 | 2GB x2 + 2GB | 2 | `LICENSE` (basic) |
 | Elastic ML | HTTPS | elastic/elastic | 1GB x2 | 4GB x2 + 2GB (ML: 2GB/node) | 2 | `ELK_ML_LICENSE` (trial): ELSER, RRF |
 | Elastic 9 | HTTP | elastic/elastic | 1GB | 2GB + 2GB | 1 | `LICENSE` (basic) |
+| Elastic ML 9 | HTTPS | elastic/elastic | 1GB x2 | 4GB x2 + 2GB (ML: 2GB/node) | 2 | `ELK_ML_LICENSE` (trial): ELSER, RRF |
 | OpenSearch | HTTPS | admin/MyStrongPassword123! | 1GB x2 | 2GB x2 + 2GB | 2 | n/a |
 | OpenSearch 3 | HTTPS | admin/MyStrongPassword123! | 1GB x2 | 2GB x2 + 2GB | 2 | n/a |
 | OSS | HTTP | none | 512MB x2 | 1GB x2 + 1.5GB | 2 | n/a |
@@ -162,7 +168,7 @@ enforces these rules in CI.
   `ELASTIC_VERIFY_SSL`, `KIBANA_URL` and `FOE_*` variables set.
 - `validate.py` - thin CLI over the registry. Checks per stack (selected by capabilities): identity (version and
   distribution match `.env`), cluster (health + node count), license, CRUD round trip, vectors (dense_vector /
-  knn_vector), ML (roles + ML memory on elk-ml), RRF retriever (trial), UI (Kibana / Dashboards available).
+  knn_vector), ML (roles + ML memory on elk-ml / elk-ml-9), RRF retriever (trial), UI (Kibana / Dashboards available).
 - `scripts/check_compose.py` - policy checks on the compose files (localhost ports, limits, healthchecks,
   no passwords in rendered commands).
 
@@ -181,7 +187,10 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every
 - **secrets** - gitleaks over the commits a push/PR introduces (full history on manual runs)
 - **compose-config** - `python -m scripts.check_compose`
 - **plan** + **stacks** - matrix from `python validate.py --list --json`; each cell runs `python validate.py --stack X`
-- **data-smoke** - loads the movies data into elk-single and runs the bm25/dense evaluation
+  plus `scripts/smoke_data.py` (movies load + evaluation with every mode the stack supports)
+- **course** - snippet runner per course day and track (Days 1-3: elk-single + elk-9; Day 4: elk-ml + elk-ml-9);
+  activates once `tests/course/run.py` exists
+- nightly schedule: full matrix + full-history secret scan
 - **ci-ok** - single aggregate status for branch protection
 
 ### Data Pipeline
@@ -223,6 +232,6 @@ marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides
 ## System Requirements
 
 - Docker 20.10+ with the Compose v2 plugin (2.20+)
-- Docker memory: ~4GB (elk-single/elk-9), ~6GB (elk/opensearch), ~10GB (elk-ml)
+- Docker memory: ~4GB (elk-single/elk-9), ~6GB (elk/opensearch), ~10GB (elk-ml/elk-ml-9)
 - `vm.max_map_count >= 262144` for the multi-node stacks (Linux host or the Docker VM): `sudo sysctl -w vm.max_map_count=262144`
 - Stacks bind to 127.0.0.1 and share ports 9200/5601 — one at a time, or override `ES_PORT`/`KIBANA_PORT`
