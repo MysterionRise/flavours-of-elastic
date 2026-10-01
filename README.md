@@ -22,19 +22,30 @@ lexical and embedding indices, runs the evaluation and opens a Streamlit UI for 
 - hybrid RRF search — on a trial licence (the ML stacks) Elasticsearch's `rrf` retriever fuses the
   rankings; on a basic licence and on OpenSearch the client fuses them itself, with the same formula
 
+For semantic search with in-cluster models (multilingual E5 vectors and ELSER), use an ML stack:
+
+```bash
+make up-elk-ml && make load-small load-ml && make evaluate STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf,elser,hybrid_all
+```
+
 Run the evaluation again at any time (against the running `STACK`):
 
 ```bash
 make evaluate
 ```
 
-The evaluator reports `NDCG@10`, `MRR@10`, `Recall@10`, p50 latency, and p95 latency over the hand-labeled query set in `evaluation/movie_queries.yml`.
+The evaluator reports `NDCG@10`, `MRR@10`, `Recall@10`, p50 latency, and p95 latency over the 40 hand-labeled
+queries in `evaluation/movie_queries.yml` (English paraphrases, French and Kazakh); `--fail-under
+evaluation/floors.yml` turns the per-mode floors into a gate. Results per stack are in
+[`docs/benchmark-report.md`](docs/benchmark-report.md).
 
 ## What This Proves
 
-- Search architecture: BM25, dense retrieval, hybrid RRF, and optional ELSER paths.
-- AI evaluation discipline: labeled queries plus relevance and latency metrics.
-- Reproducibility: checked-in CSV data, deterministic local embeddings, Docker Compose stacks, and Make targets.
+- Search architecture: BM25, dense retrieval (offline hash vectors or in-cluster E5), ELSER, and hybrid RRF,
+  licence-aware (server-side retriever or client-side fusion), plus RAG with cited answers.
+- AI evaluation discipline: labeled queries, relevance and latency metrics, and quality floors in CI.
+- Reproducibility: checked-in CSV data, Docker Compose stacks for Elasticsearch 8.19/9.5 and OpenSearch 2/3, a
+  stack registry, Make targets, and a course whose every snippet runs in CI on both Elasticsearch tracks.
 - Operations thinking: env hygiene, validation scripts, CI, benchmark notes, and production-readiness docs.
 - Communication: complete course slides and exercises for a 4-day Elasticsearch curriculum.
 
@@ -51,7 +62,8 @@ make lint                   # every pre-commit hook, same as CI
 
 make up-elk-single          # start a stack and wait until healthy (any docker/<stack>)
 make load-small             # load the lexical movies index into the running STACK
-make load-embeddings        # load the 384-dim embedding index
+make load-embeddings        # load the 384-dim embedding index (offline hash vectors)
+make load-ml                # ML stacks: E5 vectors + ELSER, computed in the cluster
 make evaluate               # BM25 + dense + hybrid (EVAL_MODES=... to change)
 make down-elk-single        # stop, keeping the data
 make reset-elk-single       # stop and DELETE the data
@@ -65,6 +77,7 @@ Direct commands:
 python data/load_data.py --dataset movies --size small
 python data/load_data.py --dataset movies --size full
 python data/load_data.py --dataset movies --embeddings hash
+python data/load_data.py --dataset movies --embeddings e5 --with-elser   # elk-ml / elk-ml-9
 python search/evaluate.py --mode bm25,dense,hybrid_rrf --queries evaluation/movie_queries.yml
 streamlit run apps/search_demo/Home.py
 ```
@@ -91,7 +104,7 @@ streamlit run apps/search_demo/Home.py
 
 ## Data
 
-The checked-in source of truth is `data/movies_enriched.csv` (5,100 movies; `--size small` loads the first 100). It includes MovieLens-derived ratings (`vote_average` 1-10, `vote_count`). Data terms: [data/LICENSE-DATA.md](data/LICENSE-DATA.md).
+The checked-in source of truth is `data/movies_enriched.csv` (5,100 MovieLens movies up to 2002; `--size small` loads a curated 200-movie sample). It includes MovieLens-derived ratings (`vote_average` 1-10, `vote_count`). Data terms: [data/LICENSE-DATA.md](data/LICENSE-DATA.md).
 
 `data/load_data.py` normalizes rows into:
 

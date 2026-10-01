@@ -1,0 +1,2320 @@
+{
+  "bm25": {
+    "summary": {
+      "queries": 40,
+      "k": 10,
+      "ndcg": 0.9296291580529601,
+      "mrr": 0.9239583333333334,
+      "recall": 0.9666666666666666,
+      "p50_latency_ms": 3.563250007573515,
+      "p95_latency_ms": 5.316875001881272
+    },
+    "rows": [
+      {
+        "query_id": "toy_friendship",
+        "query": "talking toys friendship space ranger cowboy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 9.24133398802951,
+        "engine_took_ms": 6,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1,
+          60,
+          3019,
+          4962,
+          4950
+        ]
+      },
+      {
+        "query_id": "jungle_board_game",
+        "query": "magical board game jungle animals children",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 5.316875001881272,
+        "engine_took_ms": 3,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          2,
+          2600,
+          29,
+          1156,
+          4454
+        ]
+      },
+      {
+        "query_id": "fishing_rivals_romance",
+        "query": "old rivals fishing romantic comedy",
+        "mode": "bm25",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 4.77112500811927,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          2569,
+          3,
+          3565,
+          2046,
+          1926
+        ]
+      },
+      {
+        "query_id": "women_friendship_relationships",
+        "query": "women friendship heartbreak relationships phoenix",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 5.137542000738904,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          4,
+          2774,
+          927,
+          1177,
+          2417
+        ]
+      },
+      {
+        "query_id": "police_bank_robbers",
+        "query": "police chase professional bank robbers crime thriller",
+        "mode": "bm25",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 6.510208972031251,
+        "engine_took_ms": 3,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          608,
+          6,
+          2115,
+          858,
+          50
+        ]
+      },
+      {
+        "query_id": "bond_spy",
+        "query": "secret agent spy action goldeneye",
+        "mode": "bm25",
+        "ndcg": 0.5,
+        "mrr": 0.3333333333333333,
+        "recall": 1.0,
+        "latency_ms": 5.009165994124487,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          2211,
+          930,
+          10,
+          3635,
+          4386
+        ]
+      },
+      {
+        "query_id": "vampire_parody",
+        "query": "vampire horror comedy parody",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.035249992739409,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          12,
+          1348,
+          1327,
+          2644,
+          2569
+        ]
+      },
+      {
+        "query_id": "alaska_dog",
+        "query": "animated dog alaska medicine children adventure",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.7271250039339066,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          13,
+          1024,
+          3309,
+          4386,
+          4459
+        ]
+      },
+      {
+        "query_id": "president_romance",
+        "query": "american president white house romance comedy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.0126249950844795,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          11,
+          1648,
+          1327,
+          14,
+          1341
+        ]
+      },
+      {
+        "query_id": "casino_mafia",
+        "query": "casino mafia las vegas crime drama",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.8127500156406313,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          16,
+          858,
+          2187,
+          14,
+          1950
+        ]
+      },
+      {
+        "query_id": "austen_sisters",
+        "query": "jane austen sisters inheritance romance",
+        "mode": "bm25",
+        "ndcg": 0.31546487678572877,
+        "mrr": 0.125,
+        "recall": 1.0,
+        "latency_ms": 3.823375009233132,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          4300,
+          4357,
+          3599,
+          1177,
+          1926
+        ]
+      },
+      {
+        "query_id": "pet_detective",
+        "query": "pet detective animal comedy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.584624985000119,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          19,
+          3294,
+          2569,
+          1024,
+          4255
+        ]
+      },
+      {
+        "query_id": "serial_killer",
+        "query": "serial killer seven deadly sins mystery thriller",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.614124976797029,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          47,
+          4409,
+          958,
+          50,
+          3726
+        ]
+      },
+      {
+        "query_id": "con_man_mystery",
+        "query": "criminal lineup mystery unreliable suspect",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.3489160016179085,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          50,
+          962,
+          1950,
+          3726,
+          3267
+        ]
+      },
+      {
+        "query_id": "time_travel_virus",
+        "query": "time travel virus apocalypse monkeys sci fi",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.619083018042147,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          32,
+          4343,
+          3962,
+          2530,
+          2533
+        ]
+      },
+      {
+        "query_id": "farm_pig",
+        "query": "pig farm family children drama",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4197499917354435,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          34,
+          1156,
+          3404,
+          29,
+          260
+        ]
+      },
+      {
+        "query_id": "martial_arts_tournament",
+        "query": "martial arts fantasy fighting tournament",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.444750007474795,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          44,
+          4950,
+          3805,
+          3267,
+          1954
+        ]
+      },
+      {
+        "query_id": "death_row_nun",
+        "query": "death row nun crime drama redemption",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4899580059573054,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          36,
+          3147,
+          318,
+          4469,
+          858
+        ]
+      },
+      {
+        "query_id": "magical_cupboard",
+        "query": "child magical cupboard adventure fantasy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.3830419997684658,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          60,
+          3310,
+          2400,
+          1156,
+          2
+        ]
+      },
+      {
+        "query_id": "shakespeare_jealousy",
+        "query": "shakespeare othello jealousy tragedy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.563250007573515,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          26,
+          50,
+          2939,
+          4168,
+          3404
+        ]
+      },
+      {
+        "query_id": "pirate_adventure",
+        "query": "pirate island action adventure romance",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.9518749981652945,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          15,
+          3599,
+          4754,
+          3492,
+          3635
+        ]
+      },
+      {
+        "query_id": "political_biopic",
+        "query": "nixon president political biography drama",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.5757079895120114,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          14,
+          11,
+          1267,
+          2187,
+          2417
+        ]
+      },
+      {
+        "query_id": "futuristic_city",
+        "query": "dark fantasy city lost children science fiction",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4830830118153244,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          29,
+          1748,
+          2046,
+          4243,
+          1156
+        ]
+      },
+      {
+        "query_id": "football_children",
+        "query": "children soccer team family comedy",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 2.9777079762425274,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          54,
+          29,
+          1156,
+          2098,
+          2569
+        ]
+      },
+      {
+        "query_id": "wrongly_convicted_banker",
+        "query": "innocent banker serves a life sentence and befriends a fellow inmate",
+        "mode": "bm25",
+        "ndcg": 0.9828422279067397,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.3232079877052456,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          318,
+          3309,
+          3198,
+          36,
+          1156
+        ]
+      },
+      {
+        "query_id": "crime_dynasty",
+        "query": "aging patriarch of an organized crime dynasty and his sons",
+        "mode": "bm25",
+        "ndcg": 0.7871546029909718,
+        "mrr": 1.0,
+        "recall": 0.5,
+        "latency_ms": 3.302124998299405,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          858,
+          2098,
+          3492,
+          1305,
+          608
+        ]
+      },
+      {
+        "query_id": "pow_camp_breakout",
+        "query": "allied soldiers break out of a german prison camp",
+        "mode": "bm25",
+        "ndcg": 0.9173194127129571,
+        "mrr": 1.0,
+        "recall": 0.5,
+        "latency_ms": 3.0438749818131328,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1262,
+          1222,
+          3359,
+          4900,
+          4298
+        ]
+      },
+      {
+        "query_id": "simulated_reality",
+        "query": "discovering that the world is a computer simulation",
+        "mode": "bm25",
+        "ndcg": 0.7895959410076381,
+        "mrr": 1.0,
+        "recall": 0.6666666666666666,
+        "latency_ms": 3.0752079910598695,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          2672,
+          2571,
+          2662,
+          4168,
+          952
+        ]
+      },
+      {
+        "query_id": "alien_radio_signal",
+        "query": "scientist picks up a radio message from extraterrestrials",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4879579907283187,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1584,
+          4343,
+          3962,
+          2948,
+          29
+        ]
+      },
+      {
+        "query_id": "moon_mission_survival",
+        "query": "astronauts fight to survive after an explosion on the way to the moon",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.823708015261218,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          150,
+          2529,
+          3986,
+          4950,
+          4856
+        ]
+      },
+      {
+        "query_id": "archaeologist_vs_nazis",
+        "query": "archaeologist races the nazis for a sacred relic",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.743750014109537,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1198,
+          1291,
+          4278,
+          930,
+          19
+        ]
+      },
+      {
+        "query_id": "farm_boy_rebels",
+        "query": "farm boy joins rebels against an evil galactic empire",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.0504159803967923,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          260,
+          2571,
+          44,
+          919,
+          858
+        ]
+      },
+      {
+        "query_id": "underdog_boxer",
+        "query": "small-time boxer gets a shot at the heavyweight champion",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 2.9279160080477595,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1954,
+          4168,
+          524,
+          962,
+          1
+        ]
+      },
+      {
+        "query_id": "amnesia_revenge",
+        "query": "man who cannot form new memories hunts his wife's killer",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.8867499970365316,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          4226,
+          47,
+          1748,
+          4409,
+          4164
+        ]
+      },
+      {
+        "query_id": "asteroid_drillers",
+        "query": "oil drillers sent into space to destroy an asteroid",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.5122499975841492,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1917,
+          4856,
+          924,
+          4754,
+          2377
+        ]
+      },
+      {
+        "query_id": "bullied_teen_martial_arts",
+        "query": "bullied teenager learns karate from a wise handyman",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.3372080069966614,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          2420,
+          4450,
+          3308,
+          1029,
+          2948
+        ]
+      },
+      {
+        "query_id": "fr_wrongly_convicted",
+        "query": "banquier accus\u00e9 \u00e0 tort du meurtre de sa femme en prison",
+        "mode": "bm25",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 3.2218749984167516,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          681,
+          318,
+          3492,
+          962,
+          1153
+        ]
+      },
+      {
+        "query_id": "fr_crime_family",
+        "query": "saga de la famille criminelle Corleone",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.1371249933727086,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          858,
+          1221,
+          681,
+          16,
+          6
+        ]
+      },
+      {
+        "query_id": "kk_galaxy_jedi",
+        "query": "\u0433\u0430\u043b\u0430\u043a\u0442\u0438\u043a\u0430\u043d\u044b \u0414\u0436\u0435\u0434\u0438 \u0438\u043c\u043f\u0435\u0440\u0438\u044f",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 2.7199579926673323,
+        "engine_took_ms": 0,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          260
+        ]
+      },
+      {
+        "query_id": "kk_cowboy_toy",
+        "query": "\u043a\u043e\u0432\u0431\u043e\u0439 \u049b\u0443\u044b\u0440\u0448\u0430\u049b \u043e\u0439\u044b\u043d\u0448\u044b\u049b",
+        "mode": "bm25",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4104159858543426,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": null,
+        "top_results": [
+          1,
+          60,
+          741,
+          4548,
+          1267
+        ]
+      }
+    ]
+  },
+  "dense": {
+    "summary": {
+      "queries": 40,
+      "k": 10,
+      "ndcg": 0.6853418941913041,
+      "mrr": 0.6497916666666667,
+      "recall": 0.8166666666666667,
+      "p50_latency_ms": 3.532834001816809,
+      "p95_latency_ms": 5.7355830213055015,
+      "embedding": "hash"
+    },
+    "rows": [
+      {
+        "query_id": "toy_friendship",
+        "query": "talking toys friendship space ranger cowboy",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 24.82370799407363,
+        "engine_took_ms": 20,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          1,
+          3657,
+          2672,
+          608,
+          3223
+        ]
+      },
+      {
+        "query_id": "jungle_board_game",
+        "query": "magical board game jungle animals children",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 5.249000008916482,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          2,
+          3139,
+          3360,
+          709,
+          3850
+        ]
+      },
+      {
+        "query_id": "fishing_rivals_romance",
+        "query": "old rivals fishing romantic comedy",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.034583020256832,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          3,
+          4,
+          1244,
+          608,
+          4161
+        ]
+      },
+      {
+        "query_id": "women_friendship_relationships",
+        "query": "women friendship heartbreak relationships phoenix",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.555834002327174,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          4,
+          927,
+          1177,
+          1156,
+          608
+        ]
+      },
+      {
+        "query_id": "police_bank_robbers",
+        "query": "police chase professional bank robbers crime thriller",
+        "mode": "dense",
+        "ndcg": 0.2890648263178879,
+        "mrr": 0.1,
+        "recall": 1.0,
+        "latency_ms": 3.3062080037780106,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          608,
+          10,
+          3267,
+          3147,
+          2600
+        ]
+      },
+      {
+        "query_id": "bond_spy",
+        "query": "secret agent spy action goldeneye",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.415417013457045,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          10,
+          3635,
+          2211,
+          3633,
+          3267
+        ]
+      },
+      {
+        "query_id": "vampire_parody",
+        "query": "vampire horror comedy parody",
+        "mode": "dense",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 3.691582998726517,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          608,
+          12,
+          5110,
+          4284,
+          4343
+        ]
+      },
+      {
+        "query_id": "alaska_dog",
+        "query": "animated dog alaska medicine children adventure",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.7734590005129576,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          13,
+          3139,
+          2600,
+          4409,
+          3976
+        ]
+      },
+      {
+        "query_id": "president_romance",
+        "query": "american president white house romance comedy",
+        "mode": "dense",
+        "ndcg": 0.38685280723454163,
+        "mrr": 0.2,
+        "recall": 1.0,
+        "latency_ms": 4.142707999562845,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          4149,
+          608,
+          4247,
+          19,
+          11
+        ]
+      },
+      {
+        "query_id": "casino_mafia",
+        "query": "casino mafia las vegas crime drama",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.479750012047589,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          16,
+          858,
+          608,
+          2672,
+          1152
+        ]
+      },
+      {
+        "query_id": "austen_sisters",
+        "query": "jane austen sisters inheritance romance",
+        "mode": "dense",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 3.192250005668029,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          3492,
+          3931,
+          608,
+          1177,
+          1244
+        ]
+      },
+      {
+        "query_id": "pet_detective",
+        "query": "pet detective animal comedy",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.712584002641961,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          19,
+          608,
+          12,
+          3132,
+          3629
+        ]
+      },
+      {
+        "query_id": "serial_killer",
+        "query": "serial killer seven deadly sins mystery thriller",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.164666995871812,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          47,
+          4409,
+          2672,
+          3659,
+          3547
+        ]
+      },
+      {
+        "query_id": "con_man_mystery",
+        "query": "criminal lineup mystery unreliable suspect",
+        "mode": "dense",
+        "ndcg": 0.43067655807339306,
+        "mrr": 0.25,
+        "recall": 1.0,
+        "latency_ms": 3.2846250105649233,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          608,
+          1029,
+          931,
+          50,
+          4856
+        ]
+      },
+      {
+        "query_id": "time_travel_virus",
+        "query": "time travel virus apocalypse monkeys sci fi",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.2223750022239983,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          32,
+          2189,
+          1748,
+          3986,
+          3659
+        ]
+      },
+      {
+        "query_id": "farm_pig",
+        "query": "pig farm family children drama",
+        "mode": "dense",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 3.4293750068172812,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          2417,
+          524,
+          1156,
+          3310,
+          1648
+        ]
+      },
+      {
+        "query_id": "martial_arts_tournament",
+        "query": "martial arts fantasy fighting tournament",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.8912500021979213,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          44,
+          3657,
+          4950,
+          1066,
+          242
+        ]
+      },
+      {
+        "query_id": "death_row_nun",
+        "query": "death row nun crime drama redemption",
+        "mode": "dense",
+        "ndcg": 0.3562071871080222,
+        "mrr": 0.16666666666666666,
+        "recall": 1.0,
+        "latency_ms": 4.062916996190324,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          3147,
+          608,
+          3404,
+          3657,
+          318
+        ]
+      },
+      {
+        "query_id": "magical_cupboard",
+        "query": "child magical cupboard adventure fantasy",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.398667002329603,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          60,
+          1291,
+          3310,
+          2600,
+          1262
+        ]
+      },
+      {
+        "query_id": "shakespeare_jealousy",
+        "query": "shakespeare othello jealousy tragedy",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.0623339989688247,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          26,
+          608,
+          2672,
+          3629,
+          927
+        ]
+      },
+      {
+        "query_id": "pirate_adventure",
+        "query": "pirate island action adventure romance",
+        "mode": "dense",
+        "ndcg": 0.43067655807339306,
+        "mrr": 0.25,
+        "recall": 1.0,
+        "latency_ms": 3.690499986987561,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          3492,
+          1177,
+          1291,
+          15,
+          1917
+        ]
+      },
+      {
+        "query_id": "political_biopic",
+        "query": "nixon president political biography drama",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.2272499811369926,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          14,
+          11,
+          608,
+          524,
+          5009
+        ]
+      },
+      {
+        "query_id": "futuristic_city",
+        "query": "dark fantasy city lost children science fiction",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.532834001816809,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          29,
+          1748,
+          608,
+          4409,
+          4243
+        ]
+      },
+      {
+        "query_id": "football_children",
+        "query": "children soccer team family comedy",
+        "mode": "dense",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 3.5252920060884207,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          524,
+          54,
+          3310,
+          2098,
+          4709
+        ]
+      },
+      {
+        "query_id": "wrongly_convicted_banker",
+        "query": "innocent banker serves a life sentence and befriends a fellow inmate",
+        "mode": "dense",
+        "ndcg": 0.5787641110093001,
+        "mrr": 0.5,
+        "recall": 0.5,
+        "latency_ms": 3.426625014981255,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          34,
+          318,
+          1584,
+          2420,
+          1177
+        ]
+      },
+      {
+        "query_id": "crime_dynasty",
+        "query": "aging patriarch of an organized crime dynasty and his sons",
+        "mode": "dense",
+        "ndcg": 0.7871546029909718,
+        "mrr": 1.0,
+        "recall": 0.5,
+        "latency_ms": 3.471250005532056,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          858,
+          318,
+          16,
+          524,
+          3198
+        ]
+      },
+      {
+        "query_id": "pow_camp_breakout",
+        "query": "allied soldiers break out of a german prison camp",
+        "mode": "dense",
+        "ndcg": 0.3548675899387485,
+        "mrr": 0.2,
+        "recall": 0.5,
+        "latency_ms": 4.25799997174181,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          1222,
+          137,
+          608,
+          4450,
+          1262
+        ]
+      },
+      {
+        "query_id": "simulated_reality",
+        "query": "discovering that the world is a computer simulation",
+        "mode": "dense",
+        "ndcg": 0.24736696994850418,
+        "mrr": 0.5,
+        "recall": 0.6666666666666666,
+        "latency_ms": 3.8666250184178352,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          5137,
+          2672,
+          4454,
+          2600,
+          608
+        ]
+      },
+      {
+        "query_id": "alien_radio_signal",
+        "query": "scientist picks up a radio message from extraterrestrials",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.2838329789228737,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          1584,
+          2600,
+          2948,
+          137,
+          608
+        ]
+      },
+      {
+        "query_id": "moon_mission_survival",
+        "query": "astronauts fight to survive after an explosion on the way to the moon",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.4460839815437794,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          150,
+          1291,
+          2635,
+          137,
+          2662
+        ]
+      },
+      {
+        "query_id": "archaeologist_vs_nazis",
+        "query": "archaeologist races the nazis for a sacred relic",
+        "mode": "dense",
+        "ndcg": 0.24831962984386616,
+        "mrr": 0.125,
+        "recall": 0.5,
+        "latency_ms": 3.2925409905146807,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          3,
+          3310,
+          1748,
+          3726,
+          137
+        ]
+      },
+      {
+        "query_id": "farm_boy_rebels",
+        "query": "farm boy joins rebels against an evil galactic empire",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.3073750091716647,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          260,
+          709,
+          608,
+          1033,
+          1244
+        ]
+      },
+      {
+        "query_id": "underdog_boxer",
+        "query": "small-time boxer gets a shot at the heavyweight champion",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 3.286166989710182,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          1954,
+          3267,
+          2600,
+          10,
+          3139
+        ]
+      },
+      {
+        "query_id": "amnesia_revenge",
+        "query": "man who cannot form new memories hunts his wife's killer",
+        "mode": "dense",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 3.78324999473989,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          608,
+          4226,
+          4191,
+          3139,
+          29
+        ]
+      },
+      {
+        "query_id": "asteroid_drillers",
+        "query": "oil drillers sent into space to destroy an asteroid",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.2486249876674265,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          1917,
+          5137,
+          137,
+          3310,
+          3659
+        ]
+      },
+      {
+        "query_id": "bullied_teen_martial_arts",
+        "query": "bullied teenager learns karate from a wise handyman",
+        "mode": "dense",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 4.918582999380305,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          2420,
+          3308,
+          5000,
+          260,
+          60
+        ]
+      },
+      {
+        "query_id": "fr_wrongly_convicted",
+        "query": "banquier accus\u00e9 \u00e0 tort du meurtre de sa femme en prison",
+        "mode": "dense",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 8.105291984975338,
+        "engine_took_ms": 4,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          4469,
+          137,
+          1221,
+          681,
+          3657
+        ]
+      },
+      {
+        "query_id": "fr_crime_family",
+        "query": "saga de la famille criminelle Corleone",
+        "mode": "dense",
+        "ndcg": 0.4109356663991626,
+        "mrr": 0.2,
+        "recall": 1.0,
+        "latency_ms": 5.7355830213055015,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          5000,
+          11,
+          1078,
+          2672,
+          858
+        ]
+      },
+      {
+        "query_id": "kk_galaxy_jedi",
+        "query": "\u0433\u0430\u043b\u0430\u043a\u0442\u0438\u043a\u0430\u043d\u044b \u0414\u0436\u0435\u0434\u0438 \u0438\u043c\u043f\u0435\u0440\u0438\u044f",
+        "mode": "dense",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 4.522457980783656,
+        "engine_took_ms": 1,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          12,
+          3132,
+          608,
+          19,
+          1348
+        ]
+      },
+      {
+        "query_id": "kk_cowboy_toy",
+        "query": "\u043a\u043e\u0432\u0431\u043e\u0439 \u049b\u0443\u044b\u0440\u0448\u0430\u049b \u043e\u0439\u044b\u043d\u0448\u044b\u049b",
+        "mode": "dense",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 5.119374982314184,
+        "engine_took_ms": 2,
+        "fusion": null,
+        "embedding": "hash",
+        "top_results": [
+          608,
+          137,
+          3659,
+          1029,
+          3657
+        ]
+      }
+    ]
+  },
+  "hybrid_rrf": {
+    "summary": {
+      "queries": 40,
+      "k": 10,
+      "ndcg": 0.8824093463871193,
+      "mrr": 0.8833333333333334,
+      "recall": 0.9125,
+      "p50_latency_ms": 13.356749986996874,
+      "p95_latency_ms": 21.868125011678785,
+      "fusion": "client",
+      "embedding": "hash"
+    },
+    "rows": [
+      {
+        "query_id": "toy_friendship",
+        "query": "talking toys friendship space ranger cowboy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 14.332542021293193,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1,
+          60,
+          3507,
+          4149,
+          1177
+        ]
+      },
+      {
+        "query_id": "jungle_board_game",
+        "query": "magical board game jungle animals children",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.22379201115109,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          2,
+          3139,
+          2600,
+          1156,
+          3850
+        ]
+      },
+      {
+        "query_id": "fishing_rivals_romance",
+        "query": "old rivals fishing romantic comedy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 10.921667009824887,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          3,
+          2569,
+          1244,
+          3565,
+          1926
+        ]
+      },
+      {
+        "query_id": "women_friendship_relationships",
+        "query": "women friendship heartbreak relationships phoenix",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 12.780791992554441,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          4,
+          927,
+          1177,
+          4191,
+          3507
+        ]
+      },
+      {
+        "query_id": "police_bank_robbers",
+        "query": "police chase professional bank robbers crime thriller",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 13.510167016647756,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          608,
+          6,
+          3726,
+          3267,
+          681
+        ]
+      },
+      {
+        "query_id": "bond_spy",
+        "query": "secret agent spy action goldeneye",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.71116700465791,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          10,
+          2211,
+          3635,
+          3633,
+          4386
+        ]
+      },
+      {
+        "query_id": "vampire_parody",
+        "query": "vampire horror comedy parody",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.012415991397575,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          12,
+          5110,
+          1327,
+          19,
+          927
+        ]
+      },
+      {
+        "query_id": "alaska_dog",
+        "query": "animated dog alaska medicine children adventure",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 16.153874981682748,
+        "engine_took_ms": 7,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          13,
+          1024,
+          709,
+          2115,
+          3139
+        ]
+      },
+      {
+        "query_id": "president_romance",
+        "query": "american president white house romance comedy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.830917014274746,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          11,
+          19,
+          3609,
+          3599,
+          4409
+        ]
+      },
+      {
+        "query_id": "casino_mafia",
+        "query": "casino mafia las vegas crime drama",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.356749986996874,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          16,
+          858,
+          1950,
+          608,
+          4450
+        ]
+      },
+      {
+        "query_id": "austen_sisters",
+        "query": "jane austen sisters inheritance romance",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 15.166541998041794,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1177,
+          3492,
+          1926,
+          1066,
+          4161
+        ]
+      },
+      {
+        "query_id": "pet_detective",
+        "query": "pet detective animal comedy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 16.058709006756544,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          19,
+          2569,
+          927,
+          12,
+          6
+        ]
+      },
+      {
+        "query_id": "serial_killer",
+        "query": "serial killer seven deadly sins mystery thriller",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 22.490333998575807,
+        "engine_took_ms": 9,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          47,
+          4409,
+          50,
+          4226,
+          3139
+        ]
+      },
+      {
+        "query_id": "con_man_mystery",
+        "query": "criminal lineup mystery unreliable suspect",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 23.92266600509174,
+        "engine_took_ms": 8,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          50,
+          4950,
+          962,
+          4768,
+          1950
+        ]
+      },
+      {
+        "query_id": "time_travel_virus",
+        "query": "time travel virus apocalypse monkeys sci fi",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 20.502750005107373,
+        "engine_took_ms": 8,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          32,
+          2189,
+          4343,
+          3986,
+          2533
+        ]
+      },
+      {
+        "query_id": "farm_pig",
+        "query": "pig farm family children drama",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.5,
+        "mrr": 0.3333333333333333,
+        "recall": 1.0,
+        "latency_ms": 18.354208004893735,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1156,
+          3404,
+          34,
+          14,
+          1341
+        ]
+      },
+      {
+        "query_id": "martial_arts_tournament",
+        "query": "martial arts fantasy fighting tournament",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 21.868125011678785,
+        "engine_took_ms": 10,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          44,
+          4950,
+          2400,
+          29,
+          3267
+        ]
+      },
+      {
+        "query_id": "death_row_nun",
+        "query": "death row nun crime drama redemption",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 14.946166018489748,
+        "engine_took_ms": 7,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          3147,
+          36,
+          318,
+          3404,
+          2358
+        ]
+      },
+      {
+        "query_id": "magical_cupboard",
+        "query": "child magical cupboard adventure fantasy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.050458015641198,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          60,
+          3310,
+          1156,
+          2,
+          260
+        ]
+      },
+      {
+        "query_id": "shakespeare_jealousy",
+        "query": "shakespeare othello jealousy tragedy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.151084006996825,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          26,
+          2939,
+          927,
+          3404,
+          958
+        ]
+      },
+      {
+        "query_id": "pirate_adventure",
+        "query": "pirate island action adventure romance",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 17.48154198867269,
+        "engine_took_ms": 8,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          15,
+          3492,
+          1177,
+          1198,
+          4161
+        ]
+      },
+      {
+        "query_id": "political_biopic",
+        "query": "nixon president political biography drama",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 14.103832974797115,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          14,
+          11,
+          5009,
+          2417,
+          1267
+        ]
+      },
+      {
+        "query_id": "futuristic_city",
+        "query": "dark fantasy city lost children science fiction",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 12.955874990439042,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          29,
+          1748,
+          2046,
+          4243,
+          4409
+        ]
+      },
+      {
+        "query_id": "football_children",
+        "query": "children soccer team family comedy",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 14.060832996619865,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          54,
+          2098,
+          1156,
+          3310,
+          1341
+        ]
+      },
+      {
+        "query_id": "wrongly_convicted_banker",
+        "query": "innocent banker serves a life sentence and befriends a fellow inmate",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.9173194127129571,
+        "mrr": 1.0,
+        "recall": 0.5,
+        "latency_ms": 13.674791000084952,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          318,
+          3309,
+          3547,
+          137,
+          1222
+        ]
+      },
+      {
+        "query_id": "crime_dynasty",
+        "query": "aging patriarch of an organized crime dynasty and his sons",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.7871546029909718,
+        "mrr": 1.0,
+        "recall": 0.5,
+        "latency_ms": 12.392832984915003,
+        "engine_took_ms": 5,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          858,
+          16,
+          608,
+          1305,
+          318
+        ]
+      },
+      {
+        "query_id": "pow_camp_breakout",
+        "query": "allied soldiers break out of a german prison camp",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.5787641110093001,
+        "mrr": 0.5,
+        "recall": 0.5,
+        "latency_ms": 15.579625003738329,
+        "engine_took_ms": 7,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1222,
+          1262,
+          1068,
+          4450,
+          4900
+        ]
+      },
+      {
+        "query_id": "simulated_reality",
+        "query": "discovering that the world is a computer simulation",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.6203464680571711,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.453583021648228,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          2672,
+          5137,
+          4454,
+          952,
+          1262
+        ]
+      },
+      {
+        "query_id": "alien_radio_signal",
+        "query": "scientist picks up a radio message from extraterrestrials",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 14.70875000813976,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1584,
+          2948,
+          10,
+          2377,
+          4149
+        ]
+      },
+      {
+        "query_id": "moon_mission_survival",
+        "query": "astronauts fight to survive after an explosion on the way to the moon",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.74283298314549,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          150,
+          2368,
+          2662,
+          1954,
+          2635
+        ]
+      },
+      {
+        "query_id": "archaeologist_vs_nazis",
+        "query": "archaeologist races the nazis for a sacred relic",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.990790982963517,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1198,
+          1291,
+          1748,
+          946,
+          3139
+        ]
+      },
+      {
+        "query_id": "farm_boy_rebels",
+        "query": "farm boy joins rebels against an evil galactic empire",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.58900000154972,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          260,
+          709,
+          3648,
+          3599,
+          608
+        ]
+      },
+      {
+        "query_id": "underdog_boxer",
+        "query": "small-time boxer gets a shot at the heavyweight champion",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 12.606542004505172,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1954,
+          3267,
+          3962,
+          3657,
+          3931
+        ]
+      },
+      {
+        "query_id": "amnesia_revenge",
+        "query": "man who cannot form new memories hunts his wife's killer",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.0824579896871,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          4226,
+          1748,
+          608,
+          29,
+          4164
+        ]
+      },
+      {
+        "query_id": "asteroid_drillers",
+        "query": "oil drillers sent into space to destroy an asteroid",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 10.489333973964676,
+        "engine_took_ms": 3,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1917,
+          2377,
+          1348,
+          3659,
+          32
+        ]
+      },
+      {
+        "query_id": "bullied_teen_martial_arts",
+        "query": "bullied teenager learns karate from a wise handyman",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.362207995261997,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          2420,
+          3308,
+          2948,
+          260,
+          60
+        ]
+      },
+      {
+        "query_id": "fr_wrongly_convicted",
+        "query": "banquier accus\u00e9 \u00e0 tort du meurtre de sa femme en prison",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.0,
+        "mrr": 0.0,
+        "recall": 0.0,
+        "latency_ms": 11.013750015990809,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          681,
+          1153,
+          930,
+          4469,
+          3198
+        ]
+      },
+      {
+        "query_id": "fr_crime_family",
+        "query": "saga de la famille criminelle Corleone",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 11.856416997034103,
+        "engine_took_ms": 4,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          858,
+          1221,
+          681,
+          16,
+          930
+        ]
+      },
+      {
+        "query_id": "kk_galaxy_jedi",
+        "query": "\u0433\u0430\u043b\u0430\u043a\u0442\u0438\u043a\u0430\u043d\u044b \u0414\u0436\u0435\u0434\u0438 \u0438\u043c\u043f\u0435\u0440\u0438\u044f",
+        "mode": "hybrid_rrf",
+        "ndcg": 0.6309297535714575,
+        "mrr": 0.5,
+        "recall": 1.0,
+        "latency_ms": 7.733707985607907,
+        "engine_took_ms": 2,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          12,
+          260,
+          3132,
+          608,
+          19
+        ]
+      },
+      {
+        "query_id": "kk_cowboy_toy",
+        "query": "\u043a\u043e\u0432\u0431\u043e\u0439 \u049b\u0443\u044b\u0440\u0448\u0430\u049b \u043e\u0439\u044b\u043d\u0448\u044b\u049b",
+        "mode": "hybrid_rrf",
+        "ndcg": 1.0,
+        "mrr": 1.0,
+        "recall": 1.0,
+        "latency_ms": 13.382625009398907,
+        "engine_took_ms": 6,
+        "fusion": "client",
+        "embedding": "hash",
+        "top_results": [
+          1,
+          608,
+          137,
+          60,
+          3659
+        ]
+      }
+    ]
+  }
+}

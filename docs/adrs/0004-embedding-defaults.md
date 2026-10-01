@@ -1,7 +1,8 @@
 # ADR 0004: Deterministic Local Embeddings Plus Optional Model Embeddings
 
-Status: superseded in part (2026-10): model-backed embeddings now come from the in-cluster E5 endpoint
-(`--embeddings e5`); the client-side sentence-transformers path was removed.
+Status: superseded in part by ADR 0005 (2026-10): model-backed embeddings now come from the in-cluster E5
+endpoint (`--embeddings e5`); the client-side sentence-transformers path was removed.
+Date: 2026-02
 
 ## Decision
 

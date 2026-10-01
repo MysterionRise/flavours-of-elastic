@@ -1,24 +1,46 @@
 # Architecture
 
-Flavours of Elastic is now structured as a reproducible local search product demo plus a course lab.
+Flavours of Elastic is a reproducible local search playground plus a 4-day course lab, verified by CI on
+Elasticsearch 8.19 and 9.5 (see ADR 0008).
 
-## Reviewer Path
+## Search Path
 
 ```mermaid
 flowchart LR
-  CSV["movies_enriched.csv"] --> Loader["data/load_data.py"]
-  Loader --> ES["Elasticsearch index: movies"]
-  Loader --> ESV["Elasticsearch index: movies-embeddings"]
-  Query["Reviewer query"] --> App["Streamlit demo"]
-  App --> BM25["BM25 multi_match"]
-  App --> Dense["kNN over overview_embedding"]
-  App --> RRF["Hybrid RRF"]
-  BM25 --> ES
-  Dense --> ESV
-  RRF --> ESV
-  Eval["search/evaluate.py"] --> ES
-  Eval --> ESV
+  CSV["data/movies_enriched.csv"] --> Loader["search/loader.py<br/>(data/load_data.py)"]
+  Loader --> M["index: movies<br/>(BM25 fields)"]
+  Loader --> ME["index: movies-embeddings<br/>(+ overview_embedding, + overview_semantic)"]
+  Loader -. "--embeddings e5" .-> Pipe["ingest pipeline<br/>movies-embeddings-e5"]
+  Pipe --> E5["E5 endpoint (ML node)"]
+  ME -. "semantic_text" .-> ELSER["ELSER endpoint (ML node)"]
+  Client["search/client.py"] --> M
+  Client --> ME
+  App["Streamlit demo"] --> Client
+  Eval["search/evaluate.py<br/>+ evaluation/floors.yml"] --> Client
+  RAG["python -m search.rag"] --> Client
+  RAG --> LLM["OpenRouter LLM"]
 ```
+
+`search/config.py` decides which cluster to use (`--stack`, `--url`, the environment from `scripts.with_stack`,
+or auto-detection), and `search/capabilities.py` reads what it can do (distribution, licence, ML nodes). The
+client picks queries from that: kNN or OpenSearch `knn`, the `rrf` retriever or client-side fusion, a local
+query vector or `query_vector_builder`.
+
+## Stacks, CI and the Course
+
+```mermaid
+flowchart LR
+  Reg["scripts/stacks.py<br/>(registry)"] --> Val["validate.py"]
+  Reg --> WS["scripts.with_stack"]
+  Reg --> Plan["CI plan job<br/>(matrix)"]
+  Plan --> Stacks["stacks: validate + smoke_data<br/>(load + evaluate with floors)"]
+  Plan --> Course["course: tests/course/run.py<br/>Days 1-3 x {8.19, 9.5}, Day 4 x {8.19, 9.5}"]
+  Man["tests/course/manifest.yml"] --> Course
+  Decks["course/*.md + solutions"] --> Course
+```
+
+Every stack runs in an isolated compose project (`foe-<purpose>-<stack>`), so tooling never touches a student's
+own stack or data.
 
 ## Data Flow
 
@@ -41,7 +63,9 @@ flowchart LR
 
 ## Tradeoffs
 
-- Local deterministic embeddings prioritize reproducibility over semantic quality.
-- Model-backed embeddings improve quality but require ML dependencies and model downloads.
-- Elastic Single is the default reviewer target because it gives the lowest-friction demo path.
-- Elastic ML remains available for ELSER and semantic_text, but is treated as a heavier advanced path.
+- Hash embeddings work offline on any stack but are lexical; in-cluster E5 is semantic and multilingual but needs
+  an ML stack (trial licence, ~2 GB of ML memory per model) and a first-run model download.
+- Client-side fusion keeps hybrid search available on a basic licence and OpenSearch; the `rrf` retriever is
+  simpler and saves a round trip where licensed.
+- Elastic Single is the default reviewer target because it gives the lowest-friction demo path; the ML stacks are
+  the semantic-search path (Day 4, `make load-ml`).

@@ -136,37 +136,42 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 
 ### Directory Structure
 
-- `docker/elk-single/` - Single-node for beginners (HTTP, auth)
-- `docker/elk/` - Elastic Stack with TLS cert generation and 2-node cluster
-- `docker/elk-ml/` - ML-enabled 2-node cluster for ELSER
-- `docker/elk-9/` - Elasticsearch 9 single-node (HTTP, auth)
-- `docker/elk-ml-9/` - ML-enabled 2-node cluster on Elasticsearch 9 (same as elk-ml, 9.x track)
-- `docker/opensearch/` - OpenSearch 2-node cluster with Dashboards
-- `docker/opensearch-3/` - OpenSearch 3 two-node cluster with Dashboards
-- `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy
-- `data/` - Sample datasets, data loader, and enrichment pipeline scripts
-- `data/load_data.py` - Entry point of the data loader (`search/loader.py`) used by the course
-- `data/generate_descriptions.py` - Regenerate the multilingual descriptions via OpenRouter (maintainers; writes `data/build/`)
-- `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions and MovieLens ratings
-  (`vote_average` 1-10, `vote_count`); `--size small` loads the curated 200-movie sample
-- `data/add_ratings.py` - maintainer tool that computes the rating columns from MovieLens ml-32m
-- `data/build_sample.py` + `data/sample.yml` - deterministic curated `--size small` sample (200 movies) written to
-  `data/movies_small_ids.txt`; always contains the films listed in `course/movies.yml`
-- `search/movies.py` - title normalisation ("Godfather, The" -> "The Godfather", alternate titles -> `title_aka`)
-- `course/movies.yml` - the films the course may name (+ stand-ins for post-2002 films, which are not in the data)
-- `data/LICENSE-DATA.md` - MovieLens terms (attribution, non-commercial) and synthetic-text disclosure
-- `course/` - Marp Markdown slides and exercises for the 4-day course
-- `course/README.md` - Course build instructions for Marp CLI
-- `course/theme/epam.css` - Custom Marp theme (black bg #000000 + cyan accent #00F6FF)
-- `course/day1-fundamentals/` - Day 1 slides (~53) and exercises (6 tasks, 14 subtasks)
-- `course/day2-query-dsl/` - Day 2 slides (~54) and exercises (13 tasks)
-- `course/day3-indexing-analysis/` - Day 3 slides (~59) and exercises (19 tasks across 4 parts)
-- `course/day4-semantic-search/` - Day 4 slides (~52) and exercises (18 tasks across 4 parts)
-- `search/rag/` - RAG demo: `python -m search.rag --stage bm25|knn|hybrid|elser|hybrid_all [--retrieve-only]`;
-  OpenRouter LLM (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`), answers cite movie ids and are checked against the hits
-- `validate.py` - Stack validation script with OOP design
-- `.marprc.yml` - Marp CLI configuration (theme and font settings)
-- `.env.example` - Environment variable template with documentation
+**Stacks and tooling**
+- `docker/<stack>/docker-compose.yml` - one directory per stack: `elk-single`, `elk-9` (single node, HTTP),
+  `elk` (2 nodes, TLS), `elk-ml`, `elk-ml-9` (2 ML nodes, TLS, trial), `opensearch`, `opensearch-3`, `elk-oss`
+- `scripts/stacks.py` - stack registry; `scripts/with_stack.py` - run a command against a stack;
+  `scripts/smoke_data.py` - load + evaluate with quality floors (CI); `scripts/check_compose.py`,
+  `scripts/check_doc_versions.py` - policy checks
+- `validate.py` - stack validation CLI over the registry
+- `.env.example` - versions (Renovate-annotated) and local passwords; `Makefile` - all common tasks
+
+**Search platform (`search/`)**
+- `connection.py` (HTTP client, retries, readable `EsError`), `config.py` (which cluster), `capabilities.py`
+  (distribution, licence, ML nodes), `mappings.py` (index bodies, `_meta`), `loader.py` (the data loader)
+- `queries.py` (request builders), `embedders.py` (query embedder from `_meta`), `embeddings.py` (offline hash
+  vectors), `inference.py` (E5/ELSER warm-up, ingest pipeline), `client.py` (search modes, fusion),
+  `evaluate.py` (NDCG/MRR/recall, floors), `movies.py` (title normalisation)
+- `search/rag/` - `python -m search.rag --stage bm25|knn|hybrid|elser|hybrid_all [--retrieve-only]`; OpenRouter
+  LLM (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`); answers cite movie ids and are checked against the hits
+- `apps/search_demo/Home.py` - Streamlit UI comparing the modes (`make demo`)
+- `evaluation/movie_queries.yml` (40 graded queries, en/fr/kk) and `evaluation/floors.yml` (per-mode minimums)
+
+**Data (`data/`)**
+- `load_data.py` - entry point of the loader used by the course; `movies_enriched.csv` - 5,100 movies with
+  multilingual descriptions and MovieLens ratings; `movies_small_ids.txt` - the curated 200-movie sample
+- `build_sample.py` + `sample.yml` (the sample), `add_ratings.py` (ratings from ml-32m),
+  `generate_descriptions.py` (LLM descriptions, maintainers) - see `data/README.md`
+- `LICENSE-DATA.md` - MovieLens terms (attribution, non-commercial) and synthetic-text disclosure
+
+**Course (`course/`)**
+- `day1-fundamentals/` … `day4-semantic-search/` - Marp slides + exercises; `solutions/` - instructor answer keys
+- `movies.yml` - the films the course may name (+ stand-ins for post-2002 films); `theme/epam.css` - Marp theme;
+  `README.md` - build and delivery notes; `.marprc.yml` - Marp configuration
+
+**Tests and docs**
+- `tests/` - unit tests (no Docker); `tests/course/` - the course snippet runner (`manifest.yml`, `baseline.yml`)
+- `docs/architecture.md`, `docs/benchmark-report.md` (+ `docs/benchmarks/*.json`), `docs/production-readiness.md`,
+  `docs/adrs/` (decisions 0001-0008)
 
 ### Stack Differences
 
@@ -224,8 +229,8 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every
 - **compose-config** - `python -m scripts.check_compose`
 - **plan** + **stacks** - matrix from `python validate.py --list --json`; each cell runs `python validate.py --stack X`
   plus `scripts/smoke_data.py` (movies load + evaluation with every mode the stack supports)
-- **course** - snippet runner per course day and track (Days 1-3: elk-single + elk-9; Day 4: elk-ml + elk-ml-9);
-  activates once `tests/course/run.py` exists
+- **course** - snippet runner per course day and track (Days 1-3: elk-single + elk-9; Day 4: elk-ml + elk-ml-9),
+  cells generated from `tests/course/manifest.yml` and the registry's `course_days`
 - nightly schedule: full matrix + full-history secret scan
 - **ci-ok** - single aggregate status for branch protection
 
@@ -248,7 +253,7 @@ MovieLens ml-32m ─┬─ generate_descriptions.py (LLM, maintainers) ─► ab
 | 1 | Fundamentals, core concepts, CRUD | 2h | `elk-single` / `elk-9` | ~53 | 6 tasks (14 subtasks) |
 | 2 | Query DSL, full-text/term/bool, ES\|QL | 2h | `elk-single` / `elk-9` | ~54 | 13 tasks |
 | 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` / `elk-9` | ~59 | 19 tasks (4 parts) |
-| 4 | Vector search, E5, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` / `elk-ml-9` | ~52 | 18 tasks (4 parts) |
+| 4 | Vector search, E5, ELSER, semantic_text, hybrid RRF | 3h | `elk-ml` / `elk-ml-9` | ~58 | 18 tasks (4 parts) |
 
 ### Testing the Course Snippets
 
