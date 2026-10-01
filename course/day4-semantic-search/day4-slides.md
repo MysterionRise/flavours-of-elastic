@@ -303,7 +303,7 @@ The Great Escape, The Defiant Ones, The Shawshank Redemption — none of them sa
 
 # kNN with Filtering (Pre-filtering)
 
-```json contains=924,260
+```json contains=924
 GET /movies-embeddings/_search
 {
   "knn": {

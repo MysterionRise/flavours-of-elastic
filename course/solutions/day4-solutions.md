@@ -69,7 +69,7 @@ POST _inference/text_embedding/.multilingual-e5-small-elasticsearch
 { "input": ["a heist that goes wrong", "un braquage qui tourne mal"] }
 ```
 
-```json contains=6,50
+```json contains=6
 GET /movies-embeddings/_search
 {
   "knn": {
@@ -81,9 +81,12 @@ GET /movies-embeddings/_search
 }
 ```
 
-384 numbers per text; a list input returns one embedding per text. The kNN search returns Heat, Clockwise, The
-Usual Suspects, Secret Agent and S.F.W. A `match` on `overview` finds Heat and Rififi through the word "heist" —
-but not The Usual Suspects, whose overview never says it.
+384 numbers per text; a list input returns one embedding per text. The kNN search returns Heat and Clockwise first,
+then crime and caper films such as The Usual Suspects, Rififi and Secret Agent. A `match` on `overview` finds only
+Heat and Rififi, through the word "heist".
+
+E5 runs as a different model build on x86 and Arm, so near-ties (scores within ~0.005) can swap places between
+machines; the checks in this key assert only the robust results.
 
 ---
 
@@ -106,7 +109,7 @@ GET /movies-embeddings/_search
 
 ## Task 3 — Filtered kNN (continued)
 
-```json contains=1917,2571 min=5
+```json contains=1917,4343 min=5
 GET /movies-embeddings/_search
 {
   "knn": {
@@ -122,9 +125,9 @@ GET /movies-embeddings/_search
 }
 ```
 
-Unfiltered, the top 5 mixes decades. Before 1980: 2001: A Space Odyssey, Voyage to the Bottom of the Sea, Star Wars,
-Planet of the Apes, Around the World in 80 Days. Sci-Fi from 1990: Armageddon, Evolution, Dark City, Twelve Monkeys,
-The Matrix. You still get 5 hits each time: the filter is applied **during** the search, so kNN looks for the 5
+Unfiltered, the top 5 mixes decades. Before 1980: 2001: A Space Odyssey, Voyage to the Bottom of the Sea, then films
+such as Planet of the Apes, Star Wars and Around the World in 80 Days. Sci-Fi from 1990: Armageddon, Evolution, Dark City, then films
+such as Twelve Monkeys or The Matrix. You still get 5 hits each time: the filter is applied **during** the search, so kNN looks for the 5
 nearest movies **among** the matching ones.
 
 ---
@@ -141,7 +144,7 @@ GET /movies-embeddings/_search
 }
 ```
 
-```json contains=1
+```json contains=60
 GET /movies-embeddings/_search
 {
   "knn": { "field": "overview_embedding", "k": 3, "num_candidates": 50,
@@ -160,7 +163,8 @@ GET /movies-embeddings/_search
 { "query": { "match": { "overview": "famille mafieuse sicilienne" } }, "_source": ["title"] }
 ```
 
-French → The Godfather, The Godfather: Part II; Kazakh → The Indian in the Cupboard, Jumanji, Toy Story. The French
+French → The Godfather, The Godfather: Part II; Kazakh → The Indian in the Cupboard and Jumanji (toys and a game that
+come alive), with Toy Story right behind. The French
 `match` on `overview` finds nothing: the english analyzer turns the query into French terms that no English
 overview contains. E5 maps every language into one vector space, so "famille mafieuse" lands next to "crime family".
 
