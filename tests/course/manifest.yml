@@ -26,11 +26,11 @@ days:
       - {load: small}
       - {kibana_sample: ecommerce}
   4:
-    # Day 4 is rewritten for in-cluster E5 / ELSER in a later change; until then
-    # its snippets (hand-pasted vectors, x86-only ELSER model ids) are not run.
-    enabled: false
+    # The slides' "Load Today's Data" block loads movies-embeddings with in-cluster
+    # E5 + ELSER (the ML stacks download and deploy both models on first use).
     files:
       - course/day4-semantic-search/day4-slides.md
       - course/day4-semantic-search/day4-exercises.md
+      - course/solutions/day4-solutions.md
     setup:
       - {load: small}
