@@ -1,0 +1,3 @@
+# Contributor tooling. Hook versions are pinned in .pre-commit-config.yaml.
+-r requirements.txt
+pre-commit==4.6.2

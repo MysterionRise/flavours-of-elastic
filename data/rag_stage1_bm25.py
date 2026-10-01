@@ -87,9 +87,7 @@ def ask_llm(question, context):
         "to answer questions. If the context doesn't contain relevant information, "
         "say so. Be concise and helpful. Mention specific movie titles when relevant."
     )
-    user_prompt = (
-        f"Context (retrieved movies):\n{context}\n\n" f"User question: {question}"
-    )
+    user_prompt = f"Context (retrieved movies):\n{context}\n\nUser question: {question}"
 
     resp = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
