@@ -8,11 +8,11 @@ paginate: true
 
 # Day 3 Exercises: Indexing, Text Analysis & Aggregations
 
-**Stack:** `elk-single` or `elastic` | **Duration:** ~85 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
+**Stack:** `elk-single` (8.19) or `elk-9` (9.5) | **Duration:** ~85 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
 
 ## Prerequisites
 
-- Movies dataset loaded (small: 100 docs)
+- Movies dataset loaded (`python data/load_data.py --dataset movies --size small` — Task 1 loads the full set)
 - Kibana sample data loaded (eCommerce orders)
 
 ---
@@ -26,7 +26,7 @@ paginate: true
 
 ## Task 1: Load Full Dataset (Basic)
 
-Load the full movies dataset (5000 documents):
+Load the full movies dataset (5,100 movies):
 
 ```bash
 python data/load_data.py --dataset movies --size full
@@ -61,37 +61,29 @@ GET movies/_search
 
 ## Task 2: Bulk Operations (Basic)
 
-Use the Bulk API to perform these operations in a **single request**:
+Use the Bulk API to perform these operations in a **single request**, on the scratch index `my-movies`:
 
-1. Index a new movie (ID: 9001) -- title: "Bulk Test Movie", genres: ["Action"], vote_average: 7.5
-2. Index another movie (ID: 9002) -- title: "Bulk Test Movie 2", genres: ["Drama"], vote_average: 8.0
-3. Delete movie ID 9001
+1. Index a movie with ID `demo-9001` — title: "Bulk Test Movie", genres: ["Action"], vote_average: 7.5
+2. Index a movie with ID `demo-9002` — title: "Bulk Test Movie 2", genres: ["Drama"], vote_average: 8.0
+3. Delete `demo-9001`
 
-Verify that 9001 is gone and 9002 exists.
+Verify that `demo-9001` is gone and `demo-9002` exists.
 
 ---
 
 ## Task 2: Bulk Operations (continued)
 
-> **Hint:** Use `POST /_bulk` with action lines:
-> ```json
-> POST /_bulk
-> {"index": {"_index": "movies", "_id": "9001"}}
-> {"title": "Bulk Test Movie", ...}
-> {"index": {"_index": "movies", "_id": "9002"}}
-> {"title": "Bulk Test Movie 2", ...}
-> {"delete": {"_index": "movies", "_id": "9001"}}
-> ```
+> **Hint:** `POST /_bulk` takes one action line per operation — `{"index": {"_index": "my-movies", "_id": "demo-9001"}}` — followed by the document on the next line. A `delete` action has no document line. Check `GET /my-movies/_doc/demo-9001` afterwards.
 
 ---
 
 ## Task 3: Script Update (Intermediate)
 
-Write a script update that adds 0.5 to the `vote_average` of movie ID 318 (The Shawshank Redemption), but only if the current value is below 9.0.
+Write a script update that adds 0.5 to the `vote_average` of `demo-9002` (from Task 2), but only if the current value is below 9.0.
 
-Then verify the new value.
+Run it until the value stops changing. What does the response say on the last run?
 
-> **Hint:** Use `POST /movies/_update/318` with a `script` that uses a conditional: `if (ctx._source.vote_average < 9.0) { ctx._source.vote_average += params.boost }`. Pass `boost` as a param.
+> **Hint:** Use `POST /my-movies/_update/demo-9002` with a `script` and pass `boost` (and the limit) as `params`. Inside the script, `ctx._source` is the document; setting `ctx.op = 'noop'` tells Elasticsearch to skip the write.
 
 ---
 
@@ -100,8 +92,9 @@ Then verify the new value.
 1. Create a new index called `top-movies` by reindexing only movies with `vote_average >= 8.0` from the `movies` index
 2. Create an alias called `best-films` pointing to `top-movies`
 3. Verify you can search via the alias: `GET /best-films/_count`
+4. Compare the `genres` mapping of `movies` and `top-movies` — why do they differ?
 
-> **Hint:** Use `POST /_reindex` with a `source.query` containing a `range` filter. Then use `POST /_aliases` with an `add` action. The reindexed documents will keep the same mappings.
+> **Hint:** Use `POST /_reindex` with a `source.query` containing a `range` filter, then `POST /_aliases` with an `add` action. `_reindex` copies documents, not mappings: `GET /top-movies/_mapping/field/genres`.
 
 ---
 
@@ -112,9 +105,9 @@ Create an index template that:
 2. Sets 1 shard, 0 replicas
 3. Defines explicit mappings for: title (text/english), genres (keyword), vote_average (float), release_date (date)
 
-Test it by creating `movies-test` and indexing a document -- verify the mapping was applied automatically.
+Test it by creating `movies-test` and indexing a document — verify the mapping was applied automatically.
 
-> **Hint:** Use `PUT /_index_template/movies-template` with `index_patterns: ["movies-*"]`. After creating the template, `PUT /movies-test/_doc/1 { "title": "Test" }` then `GET /movies-test/_mapping` to verify.
+> **Hint:** Use `PUT /_index_template/movies-template` with `index_patterns: ["movies-*"]`. Then `PUT /movies-test/_doc/1` with a small document and `GET /movies-test/_mapping`. The template also applies to the `movies-*` indices you create in the next tasks.
 
 ---
 
@@ -135,16 +128,15 @@ Use the `_analyze` API to analyze the text `"The runners were running quickly in
 
 **Questions:**
 1. Which analyzer produces the fewest tokens? Why?
-2. Which analyzer preserves the original case?
-3. How does the english analyzer handle "runners" vs "running"?
+2. Which analyzers preserve the original case?
+3. How does the english analyzer handle "runners", "running" and "quickly"?
 
 ---
 
 ## Task 6: Compare Analyzers (continued)
 
 > **Hint:** Use `GET /_analyze` with `"analyzer": "standard"` (and each other analyzer) on the text.
-> The english analyzer applies stemming: "runners" becomes "runner" and "running" becomes "run".
-> The keyword analyzer keeps the entire string as one token.
+> Watch what happens to "The", "were", "2024!" and the `-ing` / `-ly` endings.
 
 ---
 
@@ -174,13 +166,13 @@ Index a test movie and verify the mapping with `GET /movies-explicit/_mapping`.
 
 ## Task 8: Custom Analyzer (Intermediate)
 
-Create an index with a custom analyzer called `movie_analyzer` that:
+Create an index called `movies-analyzer` with a custom analyzer called `movie_analyzer` that:
 
 1. Strips HTML tags (char_filter: `html_strip`)
 2. Uses the `standard` tokenizer
 3. Applies: `lowercase`, `english_stop` (stop words), and `english_stemmer` (stemming)
 
-Test it with: `"<p>The Amazing Spider-Man was RUNNING through NYC!</p>"`
+Test it with: `"<p>The Amazing Spider-Man was RUNNING through NYC!</p>"`. What happens to "Spider-Man" and "Amazing"?
 
 > **Hint:** Define custom token filters: `"english_stop": {"type": "stop", "stopwords": "_english_"}` and `"english_stemmer": {"type": "stemmer", "language": "english"}`. Reference them in your analyzer's filter array.
 
@@ -188,7 +180,7 @@ Test it with: `"<p>The Amazing Spider-Man was RUNNING through NYC!</p>"`
 
 ## Task 9: Autocomplete with Edge N-gram (Intermediate)
 
-Build an autocomplete index for movie titles:
+Build an autocomplete index called `autocomplete-index` for movie titles:
 
 1. Create a custom analyzer with `edge_ngram` filter (min: 2, max: 10)
 2. Map `title` field with this analyzer for **indexing** and `standard` for **searching**
@@ -197,8 +189,8 @@ Build an autocomplete index for movie titles:
 
 ## Task 9: Autocomplete (continued)
 
-3. Index 5 movies (Inception, Interstellar, Indiana Jones, Iron Man, Into the Wild)
-4. Search for `"int"` -- it should match Interstellar and Into the Wild
+3. Index 5 movies: *Indiana Jones and the Last Crusade*, *Independence Day*, *The Iron Giant*, *Interview with the Vampire*, *A.I. Artificial Intelligence*
+4. Search for `"int"` — it should match exactly two of them. Which ones, and why?
 
 > **Hint:** Set `"analyzer": "autocomplete_analyzer"` and `"search_analyzer": "standard"` on the title field. The `search_analyzer` prevents the search query from being edge-n-grammed (which would produce too many matches).
 
@@ -206,15 +198,15 @@ Build an autocomplete index for movie titles:
 
 ## Task 10: Synonym Analyzer (Bonus)
 
-Create an analyzer with synonyms for movie genres:
+Create an index called `movies-synonyms` with synonyms for movie words:
 
-- `"film,movie,picture,flick"`
-- `"scary,horror,frightening,spooky"`
-- `"funny,comedy,humorous,hilarious"`
+- `"film, movie, picture, flick"`
+- `"scary, horror, frightening, spooky"`
+- `"funny, comedy, humorous, hilarious"`
 
-Create an index using this analyzer for an `overview` field. Index a doc with overview "A scary flick about ghosts" and search for "horror movie" -- does it match?
+Use them for an `overview` field. Index a doc with overview "A scary flick about ghosts" and search for "horror movie" — does it match?
 
-> **Hint:** Define a `synonym` token filter with `"synonyms"` array. Place the synonym filter AFTER lowercase in the filter chain. The bidirectional synonym mapping means "horror" and "scary" are interchangeable.
+> **Hint:** Define a `synonym_graph` token filter with a `"synonyms"` array and use it in a **search** analyzer, after `lowercase`. Index the field with `standard`, so indexed words and synonyms are spelled the same way (the english analyzer would index "scary" as "scari").
 
 ---
 
@@ -222,7 +214,7 @@ Create an index using this analyzer for an `overview` field. Index a doc with ov
 
 # Part C: Aggregations (6 tasks, ~25 min)
 
-Use the `movies` index (5000 docs) for tasks 11-15, and `kibana_sample_data_ecommerce` for task 16.
+Use the `movies` index (5,100 movies) for tasks 11-15, and `kibana_sample_data_ecommerce` for task 16.
 
 ---
 
@@ -232,6 +224,8 @@ Get comprehensive statistics for `vote_average` across all movies:
 - Count, min, max, average, sum
 - Also get the approximate number of **unique genres** (cardinality)
 
+Why is the stats `count` lower than the number of movies?
+
 > **Hint:** Use `stats` aggregation for vote_average and `cardinality` aggregation for genres. Set `size: 0` to skip hits.
 
 ---
@@ -240,9 +234,9 @@ Get comprehensive statistics for `vote_average` across all movies:
 
 Get the top 15 genres by document count. For each genre, also show the average vote_average.
 
-Which genre has the highest average rating?
+Which genre has the highest average rating? Does the answer change with `size: 20`?
 
-> **Hint:** Use a `terms` aggregation on `genres` with `size: 15`, and nest an `avg` aggregation inside it.
+> **Hint:** Use a `terms` aggregation on `genres` with `size: 15`, and nest an `avg` aggregation inside it. To sort genres by their rating, use `"order": { "avg_rating": "desc" }` on the `terms` aggregation.
 
 ---
 
@@ -252,7 +246,7 @@ Create a date_histogram aggregation that shows:
 - Number of movies per **year**
 - Average rating per year
 
-Only include years with at least 10 movies (`min_doc_count: 10`).
+Only include years with at least 10 movies (`min_doc_count: 10`). How many years are left?
 
 > **Hint:** Use `date_histogram` with `calendar_interval: "year"` on `release_date`, nest an `avg` agg on `vote_average`, and add `"min_doc_count": 10`.
 
@@ -261,14 +255,14 @@ Only include years with at least 10 movies (`min_doc_count: 10`).
 ## Task 14: Range Buckets (Intermediate)
 
 Create rating buckets for movies:
-- "Poor" (0-5.0)
+- "Poor" (below 5.0)
 - "Average" (5.0-6.5)
 - "Good" (6.5-8.0)
-- "Excellent" (8.0-10.0)
+- "Excellent" (8.0 and above)
 
 For each bucket, show the count and the top 3 genres (nested terms aggregation).
 
-> **Hint:** Use a `range` aggregation on `vote_average` with named ranges (use the `key` parameter). Nest a `terms` agg on `genres` with `size: 3` inside each range bucket.
+> **Hint:** Use a `range` aggregation on `vote_average` with named ranges (use the `key` parameter). `from` is inclusive, `to` exclusive. Nest a `terms` agg on `genres` with `size: 3` inside each range bucket.
 
 ---
 
@@ -279,6 +273,8 @@ Find the **year** with the highest average movie rating:
 1. Create a `date_histogram` by year
 2. Nest an `avg` aggregation for vote_average
 3. Use `max_bucket` pipeline aggregation to find the year with the highest avg
+
+How many movies does the winning year have? Make the answer more meaningful with `min_doc_count: 10`.
 
 > **Hint:** The pipeline agg goes at the same level as the date_histogram (sibling), not nested inside it. Use `"buckets_path": "by_year>avg_rating"` to reference the nested avg inside the date histogram.
 
@@ -293,7 +289,7 @@ Using the `kibana_sample_data_ecommerce` index:
 2. For each day, also show: order count, average order value, and top 3 product categories
 3. Which day generates the most revenue?
 
-> **Hint:** Use `terms` aggregation on `day_of_week_i`, nest `sum`, `avg` aggs on `taxful_total_price`, and a `terms` agg on `category.keyword`. The `day_of_week_i` field is an integer (0=Monday).
+> **Hint:** Use a `terms` aggregation on `day_of_week_i`, nest `sum` and `avg` aggs on `taxful_total_price`, and a `terms` agg on `category.keyword`. Sort the days with `"order": { "revenue": "desc" }`. The `day_of_week_i` field is an integer (0=Monday).
 
 ---
 
@@ -317,7 +313,7 @@ Create an index called `movies-nested` with a `cast` field as **nested** type:
 }
 ```
 
-Index 2-3 movies with cast information.
+Index 2-3 movies with cast information — include another Morgan Freeman film, such as *Seven*.
 
 ---
 
@@ -367,15 +363,16 @@ Create a parent-child model for a blog:
 
 ## Cleanup
 
+Delete today's exercise indices and the demo indices from the slides — `ignore_unavailable` skips the ones you didn't create:
+
 ```json
-DELETE /top-movies
-DELETE /movies-explicit
-DELETE /movies-test
-DELETE /movies-synonyms
-DELETE /autocomplete-index
-DELETE /movies-nested
-DELETE /blog
-DELETE /blog-pc
+DELETE /my-movies,top-movies,movies-test,movies-explicit,movies-analyzer,autocomplete-index,movies-synonyms,movies-nested,blog?ignore_unavailable=true
+
+DELETE /settings-demo,movies-v2,good-movies,movies-2024,analyzer-demo,synonym-demo,autocomplete-demo,dynamic-demo,explicit-demo,blog-flat,blog-nested,blog-join?ignore_unavailable=true
+
+DELETE /_index_template/movies-template
+
+DELETE /_synonyms/movie-synonyms
 ```
 
-> Keep the `movies` index -- you'll need it for reference. Start `elk-ml` tonight for Day 4!
+> Delete the template: it would also shape Day 4's `movies-*` indices. Keep the `movies` index, and switch to the ML stack for Day 4 (last slides of today's deck).

@@ -294,7 +294,7 @@ GET /movies/_search
 |--|---------|--------|
 | **Analyzes** query? | Yes | No |
 | **Use for** | `text` fields | `keyword`, `integer`, `date` fields |
-| **Example** | "The Godfather" → searches for `the`, `godfather` | "Drama" → searches for exact `Drama` |
+| **Example** | "The Godfather" → searches for `godfath` (english analyzer) | "Drama" → searches for exact `Drama` |
 
 ```json
 // CORRECT: term on keyword field

@@ -21,6 +21,7 @@ days:
     files:
       - course/day3-indexing-analysis/day3-slides.md
       - course/day3-indexing-analysis/day3-exercises.md
+      - course/solutions/day3-solutions.md
     setup:
       - {load: small}
       - {kibana_sample: ecommerce}
