@@ -1,0 +1,49 @@
+---
+# Films the course slides and exercises may name. Every id listed here is always
+# part of `--size small` (see data/build_sample.py and data/sample.yml), so
+# examples that mention them work on both dataset sizes.
+#
+# The dataset is MovieLens ml-32m up to 2002: nothing newer exists. Use the
+# stand-ins below instead of the films in `not_in_dataset`. Hand-typed demo
+# documents use string ids (demo-1, demo-2, ...) so they never overwrite a movie.
+movies:
+  - {id: 1, title: Toy Story}
+  - {id: 2, title: Jumanji}
+  - {id: 6, title: Heat}
+  - {id: 16, title: Casino}
+  - {id: 32, title: Twelve Monkeys}
+  - {id: 36, title: Dead Man Walking}
+  - {id: 47, title: Seven}
+  - {id: 50, title: The Usual Suspects}
+  - {id: 150, title: Apollo 13, stand_in_for: Interstellar}
+  - {id: 260, title: "Star Wars: Episode IV - A New Hope"}
+  - {id: 318, title: The Shawshank Redemption}
+  - {id: 524, title: Rudy}
+  - {id: 592, title: Batman, stand_in_for: The Dark Knight}
+  - {id: 858, title: The Godfather}
+  - {id: 924, title: "2001: A Space Odyssey"}
+  - {id: 1198, title: Raiders of the Lost Ark}
+  - {id: 1221, title: "The Godfather: Part II"}
+  - {id: 1262, title: The Great Escape}
+  - {id: 1291, title: Indiana Jones and the Last Crusade}
+  - {id: 1584, title: Contact}
+  - {id: 1748, title: Dark City, stand_in_for: Inception}
+  - {id: 1917, title: Armageddon}
+  - {id: 1954, title: Rocky}
+  - {id: 2420, title: The Karate Kid}
+  - {id: 2571, title: The Matrix}
+  - {id: 2600, title: eXistenZ}
+  - {id: 2672, title: The Thirteenth Floor}
+  - {id: 3147, title: The Green Mile}
+  - {id: 3198, title: Papillon}
+  - {id: 3360, title: Hoosiers}
+  - {id: 4226, title: Memento}
+
+not_in_dataset:
+  - Inception
+  - Interstellar
+  - The Dark Knight
+  - Spider-Man
+  - Iron Man
+  - Avatar
+  - Into the Wild

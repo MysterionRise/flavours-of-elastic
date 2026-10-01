@@ -132,6 +132,10 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions and MovieLens ratings
   (`vote_average` 1-10, `vote_count`); `--size small` loads its first 100 rows
 - `data/add_ratings.py` - maintainer tool that computes the rating columns from MovieLens ml-32m
+- `data/build_sample.py` + `data/sample.yml` - deterministic curated `--size small` sample (200 movies) written to
+  `data/movies_small_ids.txt`; always contains the films listed in `course/movies.yml`
+- `search/movies.py` - title normalisation ("Godfather, The" -> "The Godfather", alternate titles -> `title_aka`)
+- `course/movies.yml` - the films the course may name (+ stand-ins for post-2002 films, which are not in the data)
 - `data/LICENSE-DATA.md` - MovieLens terms (attribution, non-commercial) and synthetic-text disclosure
 - `course/` - Marp Markdown slides and exercises for the 4-day course
 - `course/README.md` - Course build instructions for Marp CLI

@@ -36,6 +36,7 @@ from search.embeddings import (  # noqa: E402
     deterministic_text_embedding,
     embedding_text,
 )
+from search.movies import normalize_title  # noqa: E402
 
 YEAR_RE = re.compile(r"\((\d{4})\)\s*$")
 
@@ -49,7 +50,12 @@ MOVIES_MAPPING = {
             "analyzer": "english",
             "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
         },
-        "title_raw": {"type": "keyword", "ignore_above": 256},
+        "title_aka": {
+            "type": "text",
+            "analyzer": "english",
+            "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
+        },
+        "title_raw": {"type": "keyword", "ignore_above": 512},
         "year": {"type": "integer"},
         "release_date": {"type": "date"},
         "genres": {"type": "keyword"},
@@ -88,8 +94,11 @@ MOVIES_MAPPING_WITH_EMBEDDINGS = {
 DATASETS = {
     "movies": {
         "small": {
+            # Curated 200-movie sample (data/build_sample.py): every film the course
+            # names, all decades 1910s-2000s and all genres.
             "path": SCRIPT_DIR / "movies_enriched.csv",
-            "limit": 100,
+            "limit": None,
+            "ids": SCRIPT_DIR / "movies_small_ids.txt",
         },
         "full": {
             "path": SCRIPT_DIR / "movies_enriched.csv",
@@ -132,12 +141,14 @@ def normalize_movie(row: Dict[str, str], with_embeddings: bool = False) -> Dict:
     movie_id = int(row["movieId"])
     genres = split_genres(row.get("genres", ""))
     title_raw = row.get("title", "")
-    title = strip_year(title_raw)
+    # "Godfather, The (1972)" -> "The Godfather"; alternate titles go to title_aka.
+    title, title_aka = normalize_title(title_raw)
     overview = row.get("abstract_en") or row.get("description_en") or title
     year = parse_year(title_raw)
     searchable_text = embedding_text(
         [
             title,
+            " ".join(title_aka),
             " ".join(genres),
             row.get("abstract_en", ""),
             row.get("description_en", ""),
@@ -148,6 +159,7 @@ def normalize_movie(row: Dict[str, str], with_embeddings: bool = False) -> Dict:
         "id": movie_id,
         "movieId": row["movieId"],
         "title": title,
+        "title_aka": title_aka,
         "title_raw": title_raw,
         "year": year,
         "release_date": f"{year}-01-01" if year else None,
@@ -172,12 +184,26 @@ def normalize_movie(row: Dict[str, str], with_embeddings: bool = False) -> Dict:
     return doc
 
 
-def read_movies(path: Path, limit: Optional[int], with_embeddings: bool) -> List[Dict]:
-    """Read and normalize checked-in CSV movie data."""
+def read_ids(path: Path) -> set:
+    """Read a movieId list (one per line, `#` comments allowed)."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return {line.strip() for line in lines if line.strip() and not line.startswith("#")}
+
+
+def read_movies(
+    path: Path,
+    limit: Optional[int],
+    with_embeddings: bool,
+    ids: Optional[Path] = None,
+) -> List[Dict]:
+    """Read and normalize checked-in CSV movie data (optionally only the given ids)."""
+    wanted = read_ids(ids) if ids else None
     documents = []
     with path.open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
+            if wanted is not None and row["movieId"] not in wanted:
+                continue
             documents.append(normalize_movie(row, with_embeddings=with_embeddings))
             if limit and len(documents) >= limit:
                 break
@@ -336,7 +362,10 @@ class DataLoader:
 
         print(f"\nLoading data from: {size_config['path']}")
         documents = read_movies(
-            size_config["path"], size_config["limit"], with_embeddings=with_embeddings
+            size_config["path"],
+            size_config["limit"],
+            with_embeddings=with_embeddings,
+            ids=size_config.get("ids"),
         )
         print(f"Loaded {len(documents)} normalized documents from file")
 
