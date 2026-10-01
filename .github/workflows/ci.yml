@@ -5,6 +5,8 @@ on:
   push:
     branches: [main, master]
   pull_request:  # all PRs, including ones stacked on other branches
+  schedule:
+    - cron: '17 3 * * *'  # nightly: catches upstream image changes; full-history secret scan
   workflow_dispatch:
     inputs:
       stack:
@@ -129,6 +131,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       stacks: ${{ steps.matrix.outputs.stacks }}
+      course: ${{ steps.matrix.outputs.course }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -151,8 +154,27 @@ jobs:
           print(json.dumps([s["name"] for s in stacks if s["ci"] and only in ("", s["name"])]))
           PY
           )
-          echo "stacks=$stacks" >> "$GITHUB_OUTPUT"
+          course=$(python - <<'PY'
+          import json, os, pathlib
+          only = os.environ.get("ONLY", "")
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "stacks.json")) as handle:
+              stacks = json.load(handle)
+          cells = [
+              {"stack": s["name"], "day": day}
+              for s in stacks
+              if s["ci"] and only in ("", s["name"])
+              for day in s["course_days"]
+          ]
+          # The course snippet runner lands in a later change; until then there is nothing to run.
+          print(json.dumps(cells if pathlib.Path("tests/course/run.py").exists() else []))
+          PY
+          )
+          {
+            echo "stacks=$stacks"
+            echo "course=$course"
+          } >> "$GITHUB_OUTPUT"
           echo "Stacks: $stacks"
+          echo "Course cells: $course"
 
   stacks:
     name: Stack / ${{ matrix.stack }}
@@ -184,6 +206,11 @@ jobs:
           python validate.py --stack "${{ matrix.stack }}" --env-file .env.example
           --logs-dir "$RUNNER_TEMP/logs"
 
+      - name: Data and search smoke test
+        run: >-
+          python -m scripts.with_stack "${{ matrix.stack }}" --env-file .env.example
+          --logs-dir "$RUNNER_TEMP/logs" -- python -m scripts.smoke_data
+
       - name: Upload container logs
         if: failure()
         uses: actions/upload-artifact@v7.0.1
@@ -192,11 +219,16 @@ jobs:
           path: ${{ runner.temp }}/logs
           retention-days: 7
 
-  data-smoke:
-    name: Data & Search Smoke (elk-single)
-    needs: [lint, unit, compose-config]
+  course:
+    name: Course Day ${{ matrix.day }} / ${{ matrix.stack }}
+    needs: [plan, lint, unit, compose-config]
+    if: needs.plan.outputs.course != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.course) }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -205,28 +237,32 @@ jobs:
         with:
           python-version: '3.14'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: requirements*.txt
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Load movies and run the evaluation smoke test
+      - name: Set vm.max_map_count
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Run the course snippets
         run: >-
-          python -m scripts.with_stack elk-single --env-file .env.example --logs-dir "$RUNNER_TEMP/logs"
-          -- python -m scripts.smoke_data
+          python -m scripts.with_stack "${{ matrix.stack }}" --env-file .env.example
+          --logs-dir "$RUNNER_TEMP/logs" --
+          python -m tests.course.run --day "${{ matrix.day }}" --stack "${{ matrix.stack }}"
 
       - name: Upload container logs
         if: failure()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: logs-data-smoke
+          name: logs-course-day${{ matrix.day }}-${{ matrix.stack }}
           path: ${{ runner.temp }}/logs
           retention-days: 7
 
   ci-ok:
     name: CI OK
     if: always()
-    needs: [lint, unit, secrets, compose-config, plan, stacks, data-smoke]
+    needs: [lint, unit, secrets, compose-config, plan, stacks, course]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
