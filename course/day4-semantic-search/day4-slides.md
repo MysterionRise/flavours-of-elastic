@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 4 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.19.11 | dense_vector · ELSER · semantic_text · RRF
+Elasticsearch 8.19 | dense_vector · ELSER · semantic_text · RRF
 
 ---
 
@@ -892,4 +892,4 @@ Exact is **O(n)** — only viable for small datasets (<10K docs) or evaluation.
 
 ## Congratulations on completing the course!
 
-4-Day Elasticsearch Course | Elasticsearch 8.19.11
+4-Day Elasticsearch Course | Elasticsearch 8.19

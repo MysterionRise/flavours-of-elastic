@@ -82,13 +82,13 @@ streamlit run apps/search_demo/Home.py
 
 | Stack | Version | Use Case |
 |-------|---------|----------|
-| Elastic Single | 8.19.11 | Default reviewer path, HTTP, auth, low memory |
-| Elastic Stack | 8.19.11 | Production-like 2-node cluster with TLS |
-| Elastic ML | 8.19.11 | ELSER, `semantic_text`, ML exercises |
-| Elastic 9 | 9.3.0 | Next-gen single-node feature testing |
-| OpenSearch | 2.19.4 | Open-source comparison stack |
-| OpenSearch 3 | 3.5.0 | Next-gen OpenSearch 2-node stack |
-| Elastic OSS | 7.10.2 | Legacy open-source version |
+| Elastic Single | 8.19.x | Default reviewer path, HTTP, auth, low memory |
+| Elastic Stack | 8.19.x | Production-like 2-node cluster with TLS |
+| Elastic ML | 8.19.x | ELSER, `semantic_text`, ML exercises |
+| Elastic 9 | 9.5.x | Next-gen single-node feature testing |
+| OpenSearch | 2.19.x | Open-source comparison stack |
+| OpenSearch 3 | 3.9.x | Next-gen OpenSearch 2-node stack |
+| Elastic OSS | 7.10.2 | Legacy Apache-2.0 release (frozen) |
 
 ## Data
 

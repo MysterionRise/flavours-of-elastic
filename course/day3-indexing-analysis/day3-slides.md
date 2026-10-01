@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 3 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.18 | Bulk API · Analyzers · Mappings · Aggregations · Nested/Join
+Elasticsearch 8.19 | Bulk API · Analyzers · Mappings · Aggregations · Nested/Join
 
 ---
 

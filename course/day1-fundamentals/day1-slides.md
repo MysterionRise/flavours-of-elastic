@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 1 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.18 | Kibana | Docker
+Elasticsearch 8.19 | Kibana | Docker
 
 ---
 
