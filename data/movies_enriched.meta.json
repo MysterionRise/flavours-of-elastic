@@ -1,0 +1,13 @@
+{
+  "ratings": {
+    "source": "https://files.grouplens.org/datasets/movielens/ml-32m.zip",
+    "ratings_csv_sha256": "91159850e41ee59c86231165a688709647e2726cab2e7ba9faf04001bd5261ee",
+    "movies_csv_sha256": "b37ca1abc7798de741138ed252b62f69f7e37c84b8a8fab1b82d409b4c6c5cc2",
+    "ratings_scanned": 32000204,
+    "vote_average": "mean MovieLens rating x 2 (scale 1-10), round half-up to 0.1",
+    "min_votes": 10,
+    "generated_by": "data/add_ratings.py"
+  },
+  "rows": 5100,
+  "csv_sha256": "5540b485049d7b1d7341257d273fc21978d1815da9d698e6b69ece75e0ca43bf"
+}

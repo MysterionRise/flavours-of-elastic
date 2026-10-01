@@ -129,8 +129,10 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `data/generate_descriptions.py` - Generate multilingual descriptions via OpenRouter LLM API
 - `data/generate_embeddings.py` - Generate 768-dim embeddings via EmbeddingGemma-300M
 - `data/index.py` - Index enriched movies with embeddings into Elasticsearch
-- `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions (18MB)
-- `data/movies_enriched_1000.csv` - 1000-movie subset (3.5MB)
+- `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions and MovieLens ratings
+  (`vote_average` 1-10, `vote_count`); `--size small` loads its first 100 rows
+- `data/add_ratings.py` - maintainer tool that computes the rating columns from MovieLens ml-32m
+- `data/LICENSE-DATA.md` - MovieLens terms (attribution, non-commercial) and synthetic-text disclosure
 - `course/` - Marp Markdown slides and exercises for the 4-day course
 - `course/README.md` - Course build instructions for Marp CLI
 - `course/theme/epam.css` - Custom Marp theme (black bg #000000 + cyan accent #00F6FF)

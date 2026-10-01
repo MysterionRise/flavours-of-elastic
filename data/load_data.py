@@ -53,6 +53,9 @@ MOVIES_MAPPING = {
         "year": {"type": "integer"},
         "release_date": {"type": "date"},
         "genres": {"type": "keyword"},
+        # MovieLens ml-32m: mean rating x 2 (1-10); absent when there are fewer than 10 votes.
+        "vote_average": {"type": "float"},
+        "vote_count": {"type": "integer"},
         "overview": {
             "type": "text",
             "analyzer": "english",
@@ -85,7 +88,7 @@ MOVIES_MAPPING_WITH_EMBEDDINGS = {
 DATASETS = {
     "movies": {
         "small": {
-            "path": SCRIPT_DIR / "movies_enriched_1000.csv",
+            "path": SCRIPT_DIR / "movies_enriched.csv",
             "limit": 100,
         },
         "full": {
@@ -149,6 +152,7 @@ def normalize_movie(row: Dict[str, str], with_embeddings: bool = False) -> Dict:
         "year": year,
         "release_date": f"{year}-01-01" if year else None,
         "genres": genres,
+        "vote_count": int(row.get("vote_count") or 0),
         "overview": overview,
         "abstract_en": row.get("abstract_en", ""),
         "abstract_kk": row.get("abstract_kk", ""),
@@ -158,6 +162,9 @@ def normalize_movie(row: Dict[str, str], with_embeddings: bool = False) -> Dict:
         "description_fr": row.get("description_fr", ""),
         "searchable_text": searchable_text,
     }
+
+    if row.get("vote_average"):
+        doc["vote_average"] = float(row["vote_average"])
 
     if with_embeddings:
         doc["overview_embedding"] = deterministic_text_embedding(searchable_text)

@@ -90,7 +90,7 @@ streamlit run apps/search_demo/Home.py
 
 ## Data
 
-The checked-in source of truth is `data/movies_enriched.csv`, with a smaller local-review subset in `data/movies_enriched_1000.csv`.
+The checked-in source of truth is `data/movies_enriched.csv` (5,100 movies; `--size small` loads the first 100). It includes MovieLens-derived ratings (`vote_average` 1-10, `vote_count`). Data terms: [data/LICENSE-DATA.md](data/LICENSE-DATA.md).
 
 `data/load_data.py` normalizes rows into:
 

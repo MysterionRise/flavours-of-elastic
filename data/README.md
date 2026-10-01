@@ -5,7 +5,11 @@ This directory contains the checked-in movie data and scripts used by the course
 ## Source Files
 
 - `movies_enriched.csv`: full enriched movie dataset.
-- `movies_enriched_1000.csv`: smaller subset used for the default local reviewer path.
+- `movies_enriched.meta.json`: provenance of the rating columns (ml-32m checksums, rounding policy).
+- `add_ratings.py`: maintainer tool that (re)computes `vote_average` / `vote_count` from MovieLens ml-32m.
+- `LICENSE-DATA.md`: MovieLens usage terms and the synthetic-text disclosure.
+
+`--size small` loads the first 100 rows of `movies_enriched.csv`; `--size full` loads all 5,100.
 - `movies_embeddings_sample.json`: checked-in sample of the deterministic embedding document shape.
 - `movies_enriched_with_embeddings.json`: optional generated artifact, ignored by git.
 
