@@ -165,14 +165,13 @@ and wait until it is healthy with `up -d --wait`.
 ## Validation
 
 ```bash
-python validate.py --stack elk-single
-python validate.py --stack elk-ml
-python validate.py --stack elastic
-python validate.py --stack opensearch
-python validate.py --stack elk-oss
-python validate.py --stack elk-9
-python validate.py --stack opensearch-3
+python validate.py --stack elk-single          # one stack (isolated project, torn down afterwards)
+python validate.py --stack all                 # every stack, one after another
+python validate.py --stack elk-ml --port-offset 10000   # while your own stack holds 9200/5601
+python validate.py --list                      # registered stacks and versions
 ```
+
+Validation never touches the stack you started yourself or its data volumes.
 
 ## License
 

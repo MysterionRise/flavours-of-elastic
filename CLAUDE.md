@@ -59,17 +59,24 @@ python data/load_data.py --dataset movies --with-embeddings
 ### Validation & Testing
 
 ```bash
-# Validate all stacks
+# Validate one stack, several, or all (each runs in an isolated compose project
+# `foe-validate-<stack>` and is torn down afterwards; your own stack and data are untouched)
+python validate.py --stack elk-single
+python validate.py --stack elk-ml,opensearch-3
 python validate.py --stack all
 
-# Validate specific stack
-python validate.py --stack elk-single
-python validate.py --stack elk-ml
-python validate.py --stack elastic
-python validate.py --stack opensearch
-python validate.py --stack elk-oss
-python validate.py --stack elk-9
-python validate.py --stack opensearch-3
+# Your stack holds 9200/5601? Validate an isolated copy on other ports
+python validate.py --stack elk-single --port-offset 10000
+
+# The stack registry (what CI builds its matrix from)
+python validate.py --list [--json]
+
+# Run any command against a stack (started in isolation, or --attach to a running one)
+python -m scripts.with_stack elk-ml -- python search/evaluate.py --mode bm25,dense
+
+# Unit tests and the compose policy check (no containers needed for the tests)
+python -m unittest discover -s tests
+python -m scripts.check_compose
 ```
 
 ### Code Quality
@@ -145,17 +152,19 @@ All stacks bind to 127.0.0.1, fail fast when `--env-file` is missing, and become
 `KIBANA_MEM_LIMIT`, `ML_NODE_HEAP`, `ML_NODE_MEM_LIMIT`; see `.env.example`). `scripts/check_compose.py`
 enforces these rules in CI.
 
-### Validation Script Design
+### Stack Registry and Validation
 
-`validate.py` uses inheritance:
-- `StackValidator` - Base class with common operations (start, wait, health check, test ops)
-- `ElasticSingleValidator` - HTTP, auth, single node
-- `ElasticValidator` - HTTPS, basic auth, 2-node
-- `ElasticMLValidator` - HTTPS, auth, ML checks, vector operations
-- `Elastic9Validator` - HTTP, auth, single node (ES 9)
-- `OpenSearchValidator` - HTTPS, basic auth
-- `OpenSearch3Validator` - HTTPS, basic auth (OS 3)
-- `ElasticOSSValidator` - HTTP, no auth
+- `scripts/stacks.py` - the single source of truth for every stack (compose file, URL, auth variables, version
+  variable, distribution, node count, licence, capabilities, course days). Stdlib-only at import time. Provides
+  `running_stack()` (isolated `foe-<purpose>-<stack>` project, `up -d --wait`, logs on failure, always torn
+  down), `attach()` and `Connection.export_env()`.
+- `scripts/with_stack.py` - runs a command against a stack with `ELASTICSEARCH_URL`, `ELASTIC_USER`/`PASSWORD`,
+  `ELASTIC_VERIFY_SSL`, `KIBANA_URL` and `FOE_*` variables set.
+- `validate.py` - thin CLI over the registry. Checks per stack (selected by capabilities): identity (version and
+  distribution match `.env`), cluster (health + node count), license, CRUD round trip, vectors (dense_vector /
+  knn_vector), ML (roles + ML memory on elk-ml), RRF retriever (trial), UI (Kibana / Dashboards available).
+- `scripts/check_compose.py` - policy checks on the compose files (localhost ports, limits, healthchecks,
+  no passwords in rendered commands).
 
 ### Key Configuration
 
@@ -165,17 +174,15 @@ Environment variables in `.env`:
 
 ### CI Pipeline
 
-GitHub Actions runs on push/PR to main/master:
+GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every pull request and manually
+(optionally for a single stack):
 - **lint** - `pre-commit run --all-files` (ruff, yamllint, actionlint, workflow schema, file hygiene)
 - **unit** - `python -m unittest discover -s tests` on Python 3.11 and 3.14
 - **secrets** - gitleaks over the commits a push/PR introduces (full history on manual runs)
-- **test-elk-single** - Start, health check, CRUD, UI test
-- **test-elk-oss** - Start, health check, CRUD, UI test
-- **test-opensearch** - Start, health check, CRUD, UI test
-- **test-elastic** - Start, health check, 2-node verification, CRUD, UI test
-- **test-elk-ml** - Start, health check, ML node check, vector index + kNN query test
-- **test-elk-9** - Start, health check, CRUD, UI test
-- **test-opensearch-3** - Start, health check, CRUD, UI test
+- **compose-config** - `python -m scripts.check_compose`
+- **plan** + **stacks** - matrix from `python validate.py --list --json`; each cell runs `python validate.py --stack X`
+- **data-smoke** - loads the movies data into elk-single and runs the bm25/dense evaluation
+- **ci-ok** - single aggregate status for branch protection
 
 ### Data Pipeline
 
