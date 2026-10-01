@@ -8,13 +8,13 @@ Flavours of Elastic is an educational repository for a **4-day Elasticsearch cou
 
 ### Available Stacks
 
-1. **Elastic Single** (8.19.11) - Beginner-friendly single-node, HTTP, auth, 4GB RAM
-2. **Elastic Stack** (8.19.11) - Production-like 2-node cluster, HTTPS + auth
-3. **Elastic ML** (8.19.11) - ML-enabled for ELSER/vector search, 8GB+ RAM
-4. **Elastic 9** (9.3.0) - Next-gen single-node, HTTP, auth, 4GB RAM
-5. **OpenSearch** (2.19.4) - Open-source alternative with Dashboards, HTTPS + auth
-6. **OpenSearch 3** (3.5.0) - Next-gen 2-node cluster, HTTPS + auth
-7. **Elasticsearch OSS** (7.10.2) - Legacy open-source version, HTTP, no auth (frozen)
+1. **Elastic Single** (8.19.x) - Beginner-friendly single-node, HTTP, auth, 4GB RAM
+2. **Elastic Stack** (8.19.x) - Production-like 2-node cluster, HTTPS + auth
+3. **Elastic ML** (8.19.x) - ML-enabled for ELSER/vector search, 8GB+ RAM
+4. **Elastic 9** (9.5.x) - Next-gen single-node, HTTP, auth, 4GB RAM
+5. **OpenSearch** (2.19.x) - Open-source alternative with Dashboards, HTTPS + auth
+6. **OpenSearch 3** (3.9.x) - Next-gen 2-node cluster, HTTPS + auth
+7. **Elasticsearch OSS** (7.10.2) - Legacy Apache-2.0 release, HTTP, no auth (frozen)
 
 ## Common Commands
 
@@ -155,7 +155,7 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 ### Key Configuration
 
 Environment variables in `.env`:
-- `ELK_VERSION` (8.19.11), `ELK9_VERSION` (9.3.0), `OPENSEARCH_VERSION` (2.19.4), `OPENSEARCH3_VERSION` (3.5.0), `ELK_OSS_VERSION` (7.10.2)
+- `ELK_VERSION` (8.19.x), `ELK9_VERSION` (9.5.x), `OPENSEARCH_VERSION` (2.19.x), `OPENSEARCH3_VERSION` (3.9.x), `ELK_OSS_VERSION` (7.10.2, frozen) — exact patch versions live only in `.env.example`
 - `ELASTIC_PASSWORD`, `KIBANA_PASSWORD`, `OPENSEARCH_INITIAL_ADMIN_PASSWORD`
 
 ### CI Pipeline

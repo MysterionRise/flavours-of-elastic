@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 2 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.18 | Full-text · Term-level · Bool · ES|QL
+Elasticsearch 8.19 | Full-text · Term-level · Bool · ES|QL
 
 ---
 
