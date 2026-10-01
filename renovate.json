@@ -1,0 +1,91 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":enablePreCommit",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "timezone": "Etc/UTC",
+  "schedule": ["* 0-6 * * 1"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 6,
+  "docker-compose": {
+    "enabled": false
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Stack versions in .env.example (image tags are ${VAR} references in the compose files)",
+      "managerFilePatterns": ["/(^|/)\\.env\\.example$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+packageName=(?<packageName>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n[A-Z0-9_]+=(?<currentValue>\\S+)"
+      ],
+      "versioningTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Stack images: Elasticsearch/Kibana and OpenSearch/Dashboards share one version variable each",
+      "matchManagers": ["custom.regex"],
+      "addLabels": ["stack-version"],
+      "commitMessageTopic": "{{depName}} stack"
+    },
+    {
+      "description": "The 8.x track stays on 8.19.x patches",
+      "matchDepNames": ["elasticsearch-8"],
+      "allowedVersions": "<9"
+    },
+    {
+      "description": "The OpenSearch 2 track stays on 2.x",
+      "matchDepNames": ["opensearch-2"],
+      "allowedVersions": "<3"
+    },
+    {
+      "description": "A new major needs a new stack directory: approve from the dependency dashboard",
+      "matchDepNames": ["elasticsearch-9", "opensearch-3"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Minor bumps change the course track; scripts/check_doc_versions.py fails until the docs are reviewed",
+      "matchManagers": ["custom.regex"],
+      "matchUpdateTypes": ["minor"],
+      "addLabels": ["track-bump"],
+      "automerge": false
+    },
+    {
+      "description": "Patch bumps of the stacks merge automatically once CI is green",
+      "matchManagers": ["custom.regex"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Frozen legacy Apache-2.0 stack",
+      "matchDepNames": ["elasticsearch-oss"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit hooks",
+      "minimumReleaseAge": "3 days",
+      "automerge": false
+    },
+    {
+      "matchManagers": ["pip_requirements", "pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Python dependencies"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  }
+}
