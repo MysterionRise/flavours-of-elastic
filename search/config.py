@@ -15,8 +15,8 @@ Resolution order (first match wins):
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from search.connection import Client, ConnectionFailed
 

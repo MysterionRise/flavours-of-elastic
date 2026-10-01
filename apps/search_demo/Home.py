@@ -75,7 +75,7 @@ if not query.strip():
 
 columns = st.columns(max(1, len(modes)))
 
-for column, mode in zip(columns, modes):
+for column, mode in zip(columns, modes, strict=False):
     with column:
         st.subheader(mode)
         try:

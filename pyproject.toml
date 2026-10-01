@@ -41,7 +41,19 @@ target-version = "py311"
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I"]
+# B: bugbear, UP: pyupgrade (py311), S: bandit security checks.
+select = ["E", "W", "F", "I", "B", "UP", "S"]
+ignore = [
+  "S101",  # assert: used by tests and by maintainer scripts for invariants
+  "S501",  # requests verify=False: the TLS stacks use a self-signed CA inside a Docker volume
+  "S603",  # subprocess without shell: arguments are built by our own code, never from user text
+  "S607",  # partial executable path: `docker`, `git` are resolved from PATH on purpose
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "S311"]  # fixture passwords, temp paths, random in tests
+"scripts/check_compose.py" = ["S104"]  # it looks for 0.0.0.0 port bindings in the compose files
+"scripts/stacks.py" = ["S106"]  # password_var names an environment variable, not a password
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120

@@ -16,8 +16,8 @@ import argparse
 import json
 import math
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -35,7 +35,7 @@ def dcg(relevances: Iterable[int]) -> float:
     )
 
 
-def ndcg_at_k(result_ids: List[int], relevance: Dict[int, int], k: int) -> float:
+def ndcg_at_k(result_ids: list[int], relevance: dict[int, int], k: int) -> float:
     actual = [relevance.get(doc_id, 0) for doc_id in result_ids[:k]]
     ideal = sorted(relevance.values(), reverse=True)[:k]
     ideal_score = dcg(ideal)
@@ -44,20 +44,20 @@ def ndcg_at_k(result_ids: List[int], relevance: Dict[int, int], k: int) -> float
     return dcg(actual) / ideal_score
 
 
-def reciprocal_rank(result_ids: List[int], relevant_ids: set) -> float:
+def reciprocal_rank(result_ids: list[int], relevant_ids: set) -> float:
     for rank, doc_id in enumerate(result_ids, start=1):
         if doc_id in relevant_ids:
             return 1.0 / rank
     return 0.0
 
 
-def recall_at_k(result_ids: List[int], relevant_ids: set, k: int) -> float:
+def recall_at_k(result_ids: list[int], relevant_ids: set, k: int) -> float:
     if not relevant_ids:
         return 0.0
     return len(set(result_ids[:k]) & relevant_ids) / len(relevant_ids)
 
 
-def percentile(values: List[float], pct: float) -> float:
+def percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -65,7 +65,7 @@ def percentile(values: List[float], pct: float) -> float:
     return ordered[index]
 
 
-def relevance_map(query_def: Dict) -> Dict[int, int]:
+def relevance_map(query_def: dict) -> dict[int, int]:
     if "relevance" in query_def:
         return {
             int(doc_id): int(score) for doc_id, score in query_def["relevance"].items()
@@ -84,14 +84,14 @@ def load_yaml(path: Path):
         return yaml.safe_load(handle)
 
 
-def load_queries(path: Path) -> List[Dict]:
+def load_queries(path: Path) -> list[dict]:
     return load_yaml(path)["queries"]
 
 
 def evaluate_mode(
     client: PortfolioSearchClient,
     mode: str,
-    queries: List[Dict],
+    queries: list[dict],
     k: int,
     num_candidates: int,
     rank_constant: int,
@@ -126,7 +126,7 @@ def evaluate_mode(
     return rows
 
 
-def summarize(rows: List[Dict], k: int) -> Dict:
+def summarize(rows: list[dict], k: int) -> dict:
     summary = {"queries": len(rows), "k": k}
     for metric in METRICS:
         summary[metric] = sum(row[metric] for row in rows) / len(rows)
@@ -139,12 +139,12 @@ def summarize(rows: List[Dict], k: int) -> Dict:
     return summary
 
 
-def judged_ids(queries: List[Dict]) -> List[int]:
+def judged_ids(queries: list[dict]) -> list[int]:
     return sorted({doc_id for query in queries for doc_id in relevance_map(query)})
 
 
-def evaluate(client, modes, queries, args) -> Dict:
-    output: Dict[str, Dict] = {}
+def evaluate(client, modes, queries, args) -> dict:
+    output: dict[str, dict] = {}
     judged = judged_ids(queries)
     for mode in modes:
         try:
@@ -164,7 +164,7 @@ def evaluate(client, modes, queries, args) -> Dict:
     return output
 
 
-def below_floors(output: Dict, floors: Dict) -> List[str]:
+def below_floors(output: dict, floors: dict) -> list[str]:
     """Floors are keyed by mode, or by `mode@embedding` (e.g. `dense@e5`), which wins."""
     failures, table = [], floors.get("modes") or {}
     for mode, result in output.items():
@@ -181,7 +181,7 @@ def below_floors(output: Dict, floors: Dict) -> List[str]:
     return failures
 
 
-def parse_args(argv: Optional[List[str]] = None):
+def parse_args(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Evaluate search quality per retrieval mode"
     )
@@ -204,7 +204,7 @@ def parse_args(argv: Optional[List[str]] = None):
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     queries = load_queries(Path(args.queries))
     client = PortfolioSearchClient(target=resolve(stack=args.stack))
@@ -234,7 +234,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 1 if errors or failures else 0
 
 
-def print_table(output: Dict, k: int) -> None:
+def print_table(output: dict, k: int) -> None:
     print(f"| Mode | Queries | NDCG@{k} | MRR@{k} | Recall@{k} | p50 ms | p95 ms |")
     print("|---|---:|---:|---:|---:|---:|---:|")
     for mode, result in output.items():

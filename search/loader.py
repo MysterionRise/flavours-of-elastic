@@ -24,9 +24,9 @@ import re
 import sys
 import time
 from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional
 
 from search.capabilities import Capabilities, detect
 from search.config import Target, resolve
@@ -74,7 +74,7 @@ DATASETS = {
 
 # Embedding backends: name -> (model id recorded in `_meta`, dims, function). A
 # function of None means in-cluster: an ingest pipeline embeds the documents.
-EMBEDDERS: Dict[str, tuple] = {
+EMBEDDERS: dict[str, tuple] = {
     "hash": (HASH_MODEL, DEFAULT_EMBEDDING_DIMS, deterministic_text_embedding),
     "e5": (E5, E5_DIMS, None),
 }
@@ -85,7 +85,7 @@ YEAR_RE = re.compile(r"\((\d{4})\)\s*$")
 # -- Documents -----------------------------------------------------------------
 
 
-def parse_year(title: str) -> Optional[int]:
+def parse_year(title: str) -> int | None:
     """Extract a trailing release year from titles like 'Toy Story (1995)'."""
     match = YEAR_RE.search(title or "")
     if not match:
@@ -98,7 +98,7 @@ def strip_year(title: str) -> str:
     return YEAR_RE.sub("", title or "").strip()
 
 
-def split_genres(value: str) -> List[str]:
+def split_genres(value: str) -> list[str]:
     """Normalize MovieLens genre strings into keyword arrays."""
     if not value or value == "(no genres listed)":
         return []
@@ -106,10 +106,10 @@ def split_genres(value: str) -> List[str]:
 
 
 def normalize_movie(
-    row: Dict[str, str],
+    row: dict[str, str],
     with_embeddings: bool = False,
-    embed: Optional[Callable[[str], List[float]]] = None,
-) -> Dict:
+    embed: Callable[[str], list[float]] | None = None,
+) -> dict:
     """Normalize enriched CSV rows into the document shape used by the course."""
     movie_id = int(row["movieId"])
     genres = split_genres(row.get("genres", ""))
@@ -165,11 +165,11 @@ def read_ids(path: Path) -> set:
 
 def read_movies(
     path: Path,
-    limit: Optional[int],
+    limit: int | None,
     with_embeddings: bool = False,
-    ids: Optional[Path] = None,
-    embed: Optional[Callable[[str], List[float]]] = None,
-) -> List[Dict]:
+    ids: Path | None = None,
+    embed: Callable[[str], list[float]] | None = None,
+) -> list[dict]:
     """Read and normalize checked-in CSV movie data (optionally only the given ids)."""
     wanted = read_ids(ids) if ids else None
     documents = []
@@ -184,7 +184,7 @@ def read_movies(
     return documents
 
 
-def source_checksum(*paths: Optional[Path]) -> str:
+def source_checksum(*paths: Path | None) -> str:
     digest = hashlib.sha256()
     for path in paths:
         if path:
@@ -205,10 +205,10 @@ class LoadResult:
     documents: int
     indexed: int = 0
     count: int = 0
-    errors: Dict[str, int] = field(default_factory=dict)
+    errors: dict[str, int] = field(default_factory=dict)
     skipped: bool = False
     seconds: float = 0.0
-    warmup_seconds: Dict[str, float] = field(default_factory=dict)
+    warmup_seconds: dict[str, float] = field(default_factory=dict)
 
     @property
     def complete(self) -> bool:
@@ -218,7 +218,7 @@ class LoadResult:
 def bulk_index(
     client: Client,
     index: str,
-    documents: List[Dict],
+    documents: list[dict],
     batch_size: int = 500,
     retries: int = 5,
     backoff: float = 1.0,
@@ -238,7 +238,7 @@ def bulk_index(
                 "/_bulk", ndjson="\n".join(lines) + "\n", timeout=timeout
             )
             rejected = []
-            for doc, item in zip(pending, result.get("items", [])):
+            for doc, item in zip(pending, result.get("items", []), strict=False):
                 outcome = next(iter(item.values()), {})
                 error = outcome.get("error")
                 if not error:
@@ -259,14 +259,14 @@ def bulk_index(
     return indexed, dict(errors)
 
 
-def current_meta(client: Client, index: str) -> Optional[dict]:
+def current_meta(client: Client, index: str) -> dict | None:
     if not client.exists(f"/{index}"):
         return None
     mapping = client.get(f"/{index}/_mapping")
     return next(iter(mapping.values()), {}).get("mappings", {}).get("_meta")
 
 
-def endpoints_for(embeddings: str, with_elser: bool) -> List[str]:
+def endpoints_for(embeddings: str, with_elser: bool) -> list[str]:
     """The in-cluster inference endpoints a load needs."""
     return [E5] * (embeddings == "e5") + [ELSER] * with_elser
 
@@ -289,10 +289,10 @@ def check_capabilities(caps: Capabilities, embeddings: str, with_elser: bool) ->
 
 def warm_endpoints(
     client: Client,
-    endpoints: List[str],
+    endpoints: list[str],
     timeout: float,
     progress: Callable[[str], None] = print,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     seconds = {}
     for endpoint in endpoints:
         seconds[endpoint] = round(warm(client, endpoint, timeout, progress=progress), 1)
@@ -396,7 +396,7 @@ def load(
 # -- CLI -----------------------------------------------------------------------
 
 
-def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
+def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="data/load_data.py",
         description="Load the movie dataset into Elasticsearch or OpenSearch.",
@@ -461,7 +461,7 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     return args
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(argv)
     out = sys.stderr if args.json else sys.stdout
 
@@ -534,7 +534,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
 
 def finish(
-    args: argparse.Namespace, summary: dict, error: Optional[str], code: int
+    args: argparse.Namespace, summary: dict, error: str | None, code: int
 ) -> int:
     if error:
         summary["error"] = error

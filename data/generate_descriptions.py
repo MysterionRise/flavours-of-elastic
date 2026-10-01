@@ -221,7 +221,7 @@ async def call_llm(session, semaphore, movie, model, api_key, retries=3):
                     if result:
                         return result
                     continue
-            except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+            except (TimeoutError, aiohttp.ClientError) as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(2 ** (attempt + 1))
                 else:
@@ -281,7 +281,7 @@ async def main():
         batch = remaining[i : i + args.batch_size]
         results = await process_batch(batch, args.model, api_key, args.concurrency)
 
-        for movie, result in zip(batch, results):
+        for movie, result in zip(batch, results, strict=True):
             row = dict(existing.get(movie["movieId"], {}))
             row.update(
                 movieId=movie["movieId"],

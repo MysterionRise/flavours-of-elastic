@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Dict, List, Optional
 
 from search.client import EMBEDDINGS_INDEX, PortfolioSearchClient
 from search.config import resolve
@@ -35,18 +34,16 @@ STAGES = {
 
 def retrieve(
     client: PortfolioSearchClient, stage: str, question: str, k: int
-) -> List[Dict]:
+) -> list[dict]:
     index = None  # each mode's default index
     if stage == "bm25" and client.http.exists(f"/{EMBEDDINGS_INDEX}"):
         index = EMBEDDINGS_INDEX  # the same movies as the other stages, if it is loaded
     return client.search(question, mode=STAGES[stage], index=index, k=k).hits
 
 
-def answer(
-    llm: Optional[OpenRouter], client, stage: str, question: str, k: int
-) -> Dict:
+def answer(llm: OpenRouter | None, client, stage: str, question: str, k: int) -> dict:
     hits = retrieve(client, stage, question, k)
-    result: Dict = {
+    result: dict = {
         "question": question,
         "stage": stage,
         "retrieved": [
@@ -69,14 +66,14 @@ def answer(
     return result
 
 
-def emit(result: Dict, as_json: bool) -> None:
+def emit(result: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         show(result)
 
 
-def show(result: Dict) -> None:
+def show(result: dict) -> None:
     titles = (
         ", ".join(f"{m['title']} [{m['id']}]" for m in result["retrieved"]) or "nothing"
     )
@@ -93,7 +90,7 @@ def show(result: Dict) -> None:
         print("  warning: the answer cites no retrieved movie")
 
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m search.rag",
         description="Movie question answering: retrieval from Elasticsearch + an LLM via OpenRouter",
@@ -124,7 +121,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         client = PortfolioSearchClient(target=resolve(stack=args.stack))

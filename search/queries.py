@@ -17,11 +17,11 @@ A query vector is either a list of floats (embedded by the client) or a
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Sequence, Tuple, Union
+from collections.abc import Iterable, Sequence
 
 from search.mappings import SEMANTIC_FIELD, VECTOR_FIELD
 
-QueryVector = Union[List[float], Dict]  # a vector, or a query_vector_builder
+QueryVector = list[float] | dict  # a vector, or a query_vector_builder
 
 SOURCE_FIELDS = [
     "id",
@@ -46,15 +46,15 @@ BM25_FIELDS = [
 ]
 
 
-def multi_match(query: str) -> Dict:
+def multi_match(query: str) -> dict:
     return {"multi_match": {"query": query, "fields": BM25_FIELDS}}
 
 
-def bm25(query: str, size: int) -> Dict:
+def bm25(query: str, size: int) -> dict:
     return {"size": size, "query": multi_match(query), "_source": SOURCE_FIELDS}
 
 
-def knn_clause(vector: QueryVector, k: int, num_candidates: int) -> Dict:
+def knn_clause(vector: QueryVector, k: int, num_candidates: int) -> dict:
     key = "query_vector_builder" if isinstance(vector, dict) else "query_vector"
     return {
         "field": VECTOR_FIELD,
@@ -64,7 +64,7 @@ def knn_clause(vector: QueryVector, k: int, num_candidates: int) -> Dict:
     }
 
 
-def dense(vector: QueryVector, k: int, num_candidates: int, distribution: str) -> Dict:
+def dense(vector: QueryVector, k: int, num_candidates: int, distribution: str) -> dict:
     candidates = max(num_candidates, k)
     if distribution == "opensearch":
         query = {"knn": {VECTOR_FIELD: {"vector": vector, "k": candidates}}}
@@ -80,7 +80,7 @@ def rrf(
     num_candidates: int,
     rank_constant: int,
     with_semantic: bool = False,
-) -> Dict:
+) -> dict:
     window = max(num_candidates, k)
     retrievers = [
         {"standard": {"query": multi_match(query)}},
@@ -100,15 +100,15 @@ def rrf(
 
 def rrf_all(
     query: str, vector: QueryVector, k: int, num_candidates: int, rank_constant: int
-) -> Dict:
+) -> dict:
     return rrf(query, vector, k, num_candidates, rank_constant, with_semantic=True)
 
 
-def semantic_query(query: str, field: str = SEMANTIC_FIELD) -> Dict:
+def semantic_query(query: str, field: str = SEMANTIC_FIELD) -> dict:
     return {"semantic": {"field": field, "query": query}}
 
 
-def semantic(query: str, size: int, field: str = SEMANTIC_FIELD) -> Dict:
+def semantic(query: str, size: int, field: str = SEMANTIC_FIELD) -> dict:
     return {
         "size": size,
         "query": semantic_query(query, field),
@@ -118,9 +118,9 @@ def semantic(query: str, size: int, field: str = SEMANTIC_FIELD) -> Dict:
 
 def rrf_fuse(
     rankings: Iterable[Sequence[str]], rank_constant: int, size: int
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Reciprocal Rank Fusion: score(d) = sum over rankings of 1 / (rank_constant + rank)."""
-    scores: Dict[str, float] = {}
+    scores: dict[str, float] = {}
     for ranking in rankings:
         for rank, doc_id in enumerate(ranking, start=1):
             scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (rank_constant + rank)

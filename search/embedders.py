@@ -11,8 +11,8 @@ the query carries a `query_vector_builder` instead of a vector.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union
 
 from search.connection import Client
 from search.embeddings import (
@@ -34,9 +34,9 @@ class Embedder:
     backend: str
     model: str
     dims: int
-    embed: Optional[Callable[[str], List[float]]]  # None: embedded in the cluster
+    embed: Callable[[str], list[float]] | None  # None: embedded in the cluster
 
-    def query_vector(self, text: str) -> Union[List[float], Dict]:
+    def query_vector(self, text: str) -> list[float] | dict:
         """A vector, or a `query_vector_builder` that lets the cluster embed the text."""
         if self.embed is None:
             return {"text_embedding": {"model_id": self.model, "model_text": text}}

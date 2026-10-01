@@ -9,7 +9,7 @@ request until the endpoint answers, before any bulk load or query needs it.
 from __future__ import annotations
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from search.connection import Client, EsError
 
