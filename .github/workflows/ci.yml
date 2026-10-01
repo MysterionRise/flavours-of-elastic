@@ -6,6 +6,11 @@ on:
     branches: [main, master]
   pull_request:  # all PRs, including ones stacked on other branches
   workflow_dispatch:
+    inputs:
+      stack:
+        description: Only validate this stack (blank = all)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -118,644 +123,132 @@ jobs:
           docker compose version
           python -m scripts.check_compose --env-file .env.example
 
-  test-elk-single:
-    name: Test Elastic Single Stack
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
+    timeout-minutes: 5
+    outputs:
+      stacks: ${{ steps.matrix.outputs.stacks }}
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14'
 
-      - name: Start Elastic Single cluster
+      - name: Build the stack matrix from the registry
+        id: matrix
+        env:
+          ONLY: ${{ github.event.inputs.stack }}
         run: |
-          docker compose -f docker/elk-single/docker-compose.yml --env-file .env.example up -d
+          python validate.py --list --json --env-file .env.example > "$RUNNER_TEMP/stacks.json"
+          stacks=$(python - <<'PY'
+          import json, os
+          only = os.environ.get("ONLY", "")
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "stacks.json")) as handle:
+              stacks = json.load(handle)
+          print(json.dumps([s["name"] for s in stacks if s["ci"] and only in ("", s["name"])]))
+          PY
+          )
+          echo "stacks=$stacks" >> "$GITHUB_OUTPUT"
+          echo "Stacks: $stacks"
 
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for Elasticsearch to be ready..."
-          for i in {1..60}; do
-            if curl -s -u elastic:elastic http://localhost:9200 | grep -q "cluster_name"; then
-              echo "Elasticsearch is ready!"
-              break
-            fi
-            echo "Attempt $i/60: Waiting..."
-            sleep 5
-          done
+  stacks:
+    name: Stack / ${{ matrix.stack }}
+    needs: [plan, lint, unit, compose-config]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJSON(needs.plan.outputs.stacks) }}
+    steps:
+      - uses: actions/checkout@v7.0.1
 
-      - name: Check cluster health
-        run: |
-          curl -f -u elastic:elastic http://localhost:9200/_cluster/health?pretty
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: Create test index
-        run: |
-          curl -f -X PUT "http://localhost:9200/test-index" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -f -X POST "http://localhost:9200/test-index/_doc/1" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -f -u elastic:elastic "http://localhost:9200/test-index/_search?q=CI"
-
-      - name: Install Python requirements
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Load checked-in movie data
-        run: |
-          python data/load_data.py --dataset movies --size small \
-            --url http://localhost:9200 \
-            --user elastic \
-            --password elastic
-
-      - name: Verify movie data count
-        run: |
-          curl -f -u elastic:elastic "http://localhost:9200/movies/_count"
-
-      - name: Load deterministic embedding data
-        run: |
-          python data/load_data.py --dataset movies --size small --with-embeddings \
-            --url http://localhost:9200 \
-            --user elastic \
-            --password elastic
-
-      - name: Run evaluation smoke test
-        run: |
-          python search/evaluate.py --mode bm25,dense --queries evaluation/movie_queries.yml
-
-      - name: Check Kibana
-        run: |
-          echo "Waiting for Kibana..."
-          for i in {1..30}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Kibana is responding!"
-              break
-            fi
-            echo "Attempt $i/30: Waiting..."
-            sleep 5
-          done
-
-      - name: Show container logs on failure
-        if: failure()
-        run: |
-          docker compose -f docker/elk-single/docker-compose.yml --env-file .env.example logs
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/elk-single/docker-compose.yml --env-file .env.example down -v
-
-  test-elk-oss:
-    name: Test Elastic OSS Stack
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
-    steps:
-      - uses: actions/checkout@v7.0.1
-
       - name: Set vm.max_map_count
         run: sudo sysctl -w vm.max_map_count=262144
 
-      - name: Start Elastic OSS cluster
-        run: |
-          docker compose -f docker/elk-oss/docker-compose.yml --env-file .env.example up -d
+      - name: Validate stack
+        run: >-
+          python validate.py --stack "${{ matrix.stack }}" --env-file .env.example
+          --logs-dir "$RUNNER_TEMP/logs"
 
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for Elasticsearch to be ready..."
-          for i in {1..60}; do
-            if curl -s http://localhost:9200 | grep -q "cluster_name"; then
-              echo "Elasticsearch is ready!"
-              break
-            fi
-            echo "Attempt $i/60: Waiting..."
-            sleep 5
-          done
-
-      - name: Check cluster health
-        run: |
-          curl -f http://localhost:9200/_cluster/health?pretty
-
-      - name: Create test index
-        run: |
-          curl -f -X PUT "http://localhost:9200/test-index" -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -f -X POST "http://localhost:9200/test-index/_doc/1" \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -f "http://localhost:9200/test-index/_search?q=CI"
-
-      - name: Check Kibana
-        run: |
-          echo "Waiting for Kibana..."
-          for i in {1..30}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Kibana is responding!"
-              break
-            fi
-            echo "Attempt $i/30: Waiting..."
-            sleep 5
-          done
-
-      - name: Show container logs on failure
+      - name: Upload container logs
         if: failure()
-        run: |
-          docker compose -f docker/elk-oss/docker-compose.yml --env-file .env.example logs
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: logs-${{ matrix.stack }}
+          path: ${{ runner.temp }}/logs
+          retention-days: 7
 
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/elk-oss/docker-compose.yml --env-file .env.example down -v
-
-  test-opensearch:
-    name: Test OpenSearch Stack
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  data-smoke:
+    name: Data & Search Smoke (elk-single)
     needs: [lint, unit, compose-config]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: Start OpenSearch cluster
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load movies and run the evaluation smoke test
         run: |
-          docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example up -d
+          python -m scripts.with_stack elk-single --env-file .env.example --logs-dir "$RUNNER_TEMP/logs" -- \
+            bash -euo pipefail -c '
+              connect=(--url "$ELASTICSEARCH_URL" --user "$ELASTIC_USER" --password "$ELASTIC_PASSWORD")
+              python data/load_data.py --dataset movies --size small "${connect[@]}"
+              python -c "import os, requests
+          url = os.environ[\"ELASTICSEARCH_URL\"] + \"/movies/_count\"
+          auth = (os.environ[\"ELASTIC_USER\"], os.environ[\"ELASTIC_PASSWORD\"])
+          count = requests.get(url, auth=auth, timeout=30).json()[\"count\"]
+          assert count > 0, count
+          print(\"movies indexed:\", count)"
+              python data/load_data.py --dataset movies --size small --with-embeddings "${connect[@]}"
+              python search/evaluate.py --mode bm25,dense --queries evaluation/movie_queries.yml
+            '
 
-      - name: Check container status
-        run: |
-          echo "Checking container status..."
-          docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example ps
-          echo "Waiting for containers to initialize..."
-          sleep 30
-
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for OpenSearch to be ready..."
-          for i in {1..90}; do
-            if curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
-              echo "OpenSearch is ready!"
-              break
-            fi
-            echo "Attempt $i/90: Waiting..."
-            if [ $((i % 10)) -eq 0 ]; then
-              echo "Container status at attempt $i:"
-              docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example ps
-            fi
-            sleep 10
-          done
-
-          # Verify cluster is responding
-          if ! curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
-            echo "ERROR: OpenSearch cluster failed to start within timeout"
-            echo "Container status:"
-            docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example ps
-            echo "Container logs:"
-            docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example logs --tail=50
-            exit 1
-          fi
-
-      - name: Check cluster health
-        run: |
-          curl -k -f -u admin:MyStrongPassword123\! https://localhost:9200/_cluster/health?pretty
-
-      - name: Create test index
-        run: |
-          curl -k -f -X PUT "https://localhost:9200/test-index" \
-            -u admin:MyStrongPassword123\! \
-            -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
-            -u admin:MyStrongPassword123\! \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -k -f -u admin:MyStrongPassword123\! "https://localhost:9200/test-index/_search?q=CI"
-
-      - name: Check OpenSearch Dashboards
-        run: |
-          echo "Waiting for Dashboards..."
-          for i in {1..30}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Dashboards is responding!"
-              break
-            fi
-            echo "Attempt $i/30: Waiting..."
-            sleep 5
-          done
-
-      - name: Show container logs on failure
+      - name: Upload container logs
         if: failure()
-        run: |
-          docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example logs
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: logs-data-smoke
+          path: ${{ runner.temp }}/logs
+          retention-days: 7
 
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/opensearch/docker-compose.yml --env-file .env.example down -v
-
-  test-elastic:
-    name: Test Elastic Stack
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [lint, unit, secrets, compose-config, plan, stacks, data-smoke]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v7.0.1
-
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
-
-      - name: Start Elastic Stack
+      - name: All required jobs passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          docker compose -f docker/elk/docker-compose.yml --env-file .env.example up -d
-
-      - name: Check container status
-        run: |
-          echo "Checking container status..."
-          docker compose -f docker/elk/docker-compose.yml --env-file .env.example ps
-          echo "Waiting for initial setup..."
-          sleep 45
-
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for Elasticsearch to be ready..."
-          for i in {1..90}; do
-            if curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
-              echo "Elasticsearch is ready!"
-              break
-            fi
-            echo "Attempt $i/90: Waiting..."
-            if [ $((i % 10)) -eq 0 ]; then
-              echo "Container status at attempt $i:"
-              docker compose -f docker/elk/docker-compose.yml --env-file .env.example ps
-            fi
-            sleep 10
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::a required job finished with: $result"; exit 1 ;;
+            esac
           done
-
-          # Verify cluster is responding
-          if ! curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
-            echo "ERROR: Elastic Stack failed to start within timeout"
-            echo "Container status:"
-            docker compose -f docker/elk/docker-compose.yml --env-file .env.example ps
-            echo "Setup container logs:"
-            docker compose -f docker/elk/docker-compose.yml --env-file .env.example logs setup
-            echo "ES01 logs:"
-            docker compose -f docker/elk/docker-compose.yml --env-file .env.example logs es01 --tail=50
-            exit 1
-          fi
-
-      - name: Check cluster health
-        run: |
-          curl -k -f -u elastic:elastic https://localhost:9200/_cluster/health?pretty
-
-      - name: Verify both nodes are in cluster
-        run: |
-          curl -k -f -u elastic:elastic https://localhost:9200/_cat/nodes?v
-
-      - name: Create test index
-        run: |
-          curl -k -f -X PUT "https://localhost:9200/test-index" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -k -f -u elastic:elastic "https://localhost:9200/test-index/_search?q=CI"
-
-      - name: Check Kibana
-        run: |
-          echo "Waiting for Kibana..."
-          for i in {1..40}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Kibana is responding!"
-              break
-            fi
-            echo "Attempt $i/40: Waiting..."
-            sleep 10
-          done
-
-      - name: Show container logs on failure
-        if: failure()
-        run: |
-          docker compose -f docker/elk/docker-compose.yml --env-file .env.example logs
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/elk/docker-compose.yml --env-file .env.example down -v
-
-  test-elk-ml:
-    name: Test Elastic ML Stack
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
-
-      - name: Start Elastic ML Stack
-        run: |
-          docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example up -d
-
-      - name: Check container status
-        run: |
-          echo "Checking container status..."
-          docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example ps
-          echo "Waiting for initial setup..."
-          sleep 60
-
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for Elasticsearch to be ready..."
-          for i in {1..90}; do
-            if curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
-              echo "Elasticsearch is ready!"
-              break
-            fi
-            echo "Attempt $i/90: Waiting..."
-            if [ $((i % 10)) -eq 0 ]; then
-              echo "Container status at attempt $i:"
-              docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example ps
-            fi
-            sleep 10
-          done
-
-          # Verify cluster is responding
-          if ! curl -k -s -u elastic:elastic https://localhost:9200 | grep -q "cluster_name"; then
-            echo "ERROR: Elastic ML Stack failed to start within timeout"
-            echo "Container status:"
-            docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example ps
-            echo "Setup container logs:"
-            docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example logs setup
-            echo "ES01 logs:"
-            docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example logs es01 --tail=50
-            exit 1
-          fi
-
-      - name: Check cluster health
-        run: |
-          curl -k -f -u elastic:elastic https://localhost:9200/_cluster/health?pretty
-
-      - name: Verify ML nodes are available
-        run: |
-          echo "Checking for ML-enabled nodes..."
-          curl -k -f -u elastic:elastic https://localhost:9200/_cat/nodes?v
-          if curl -k -s -u elastic:elastic https://localhost:9200/_nodes | grep -q '"ml"'; then
-            echo "ML nodes found!"
-          else
-            echo "Warning: ML role not detected"
-          fi
-
-      - name: Test vector index creation
-        run: |
-          curl -k -f -X PUT "https://localhost:9200/test-vector-index" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "mappings": {
-                "properties": {
-                  "title": {"type": "text"},
-                  "embedding": {
-                    "type": "dense_vector",
-                    "dims": 3,
-                    "index": true,
-                    "similarity": "cosine"
-                  }
-                }
-              }
-            }'
-
-      - name: Add vector documents
-        run: |
-          curl -k -f -X POST "https://localhost:9200/test-vector-index/_bulk" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/x-ndjson' \
-            -d '{"index": {"_id": "1"}}
-          {"title": "Document A", "embedding": [0.5, 0.5, 0.5]}
-          {"index": {"_id": "2"}}
-          {"title": "Document B", "embedding": [0.1, 0.9, 0.1]}
-          '
-
-      - name: Test kNN query
-        run: |
-          sleep 2
-          curl -k -f -X POST "https://localhost:9200/test-vector-index/_search" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "knn": {
-                "field": "embedding",
-                "query_vector": [0.5, 0.5, 0.5],
-                "k": 2,
-                "num_candidates": 10
-              }
-            }'
-
-      - name: Check Kibana
-        run: |
-          echo "Waiting for Kibana..."
-          for i in {1..40}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Kibana is responding!"
-              break
-            fi
-            echo "Attempt $i/40: Waiting..."
-            sleep 10
-          done
-
-      - name: Show container logs on failure
-        if: failure()
-        run: |
-          docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example logs
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/elk-ml/docker-compose.yml --env-file .env.example down -v
-
-  test-elk-9:
-    name: Test Elasticsearch 9 Stack
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
-
-      - name: Start Elasticsearch 9 cluster
-        run: |
-          docker compose -f docker/elk-9/docker-compose.yml --env-file .env.example up -d
-
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for Elasticsearch 9 to be ready..."
-          for i in {1..60}; do
-            if curl -s -u elastic:elastic http://localhost:9200 | grep -q "cluster_name"; then
-              echo "Elasticsearch 9 is ready!"
-              break
-            fi
-            echo "Attempt $i/60: Waiting..."
-            sleep 5
-          done
-
-      - name: Check cluster health
-        run: |
-          curl -f -u elastic:elastic http://localhost:9200/_cluster/health?pretty
-
-      - name: Create test index
-        run: |
-          curl -f -X PUT "http://localhost:9200/test-index" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -f -X POST "http://localhost:9200/test-index/_doc/1" \
-            -u elastic:elastic \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -f -u elastic:elastic "http://localhost:9200/test-index/_search?q=CI"
-
-      - name: Check Kibana
-        run: |
-          echo "Waiting for Kibana..."
-          for i in {1..30}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Kibana is responding!"
-              break
-            fi
-            echo "Attempt $i/30: Waiting..."
-            sleep 5
-          done
-
-      - name: Show container logs on failure
-        if: failure()
-        run: |
-          docker compose -f docker/elk-9/docker-compose.yml --env-file .env.example logs
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/elk-9/docker-compose.yml --env-file .env.example down -v
-
-  test-opensearch-3:
-    name: Test OpenSearch 3 Stack
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, unit, compose-config]
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - name: Set vm.max_map_count
-        run: sudo sysctl -w vm.max_map_count=262144
-
-      - name: Start OpenSearch 3 cluster
-        run: |
-          docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example up -d
-
-      - name: Check container status
-        run: |
-          echo "Checking container status..."
-          docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example ps
-          echo "Waiting for containers to initialize..."
-          sleep 30
-
-      - name: Wait for cluster to be ready
-        run: |
-          echo "Waiting for OpenSearch 3 to be ready..."
-          for i in {1..90}; do
-            if curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
-              echo "OpenSearch 3 is ready!"
-              break
-            fi
-            echo "Attempt $i/90: Waiting..."
-            if [ $((i % 10)) -eq 0 ]; then
-              echo "Container status at attempt $i:"
-              docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example ps
-            fi
-            sleep 10
-          done
-
-          # Verify cluster is responding
-          if ! curl -k -s -u admin:MyStrongPassword123\! https://localhost:9200 | grep -q "cluster_name"; then
-            echo "ERROR: OpenSearch 3 cluster failed to start within timeout"
-            echo "Container status:"
-            docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example ps
-            echo "Container logs:"
-            docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example logs --tail=50
-            exit 1
-          fi
-
-      - name: Check cluster health
-        run: |
-          curl -k -f -u admin:MyStrongPassword123\! https://localhost:9200/_cluster/health?pretty
-
-      - name: Create test index
-        run: |
-          curl -k -f -X PUT "https://localhost:9200/test-index" \
-            -u admin:MyStrongPassword123\! \
-            -H 'Content-Type: application/json'
-
-      - name: Add test document
-        run: |
-          curl -k -f -X POST "https://localhost:9200/test-index/_doc/1" \
-            -u admin:MyStrongPassword123\! \
-            -H 'Content-Type: application/json' \
-            -d '{"title": "CI Test", "timestamp": "2025-01-01"}'
-
-      - name: Search documents
-        run: |
-          curl -k -f -u admin:MyStrongPassword123\! "https://localhost:9200/test-index/_search?q=CI"
-
-      - name: Check OpenSearch Dashboards
-        run: |
-          echo "Waiting for Dashboards..."
-          for i in {1..30}; do
-            if curl -s -I http://localhost:5601 | grep -q "HTTP"; then
-              echo "Dashboards is responding!"
-              break
-            fi
-            echo "Attempt $i/30: Waiting..."
-            sleep 5
-          done
-
-      - name: Show container logs on failure
-        if: failure()
-        run: |
-          docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example logs
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env.example down -v
+          echo "All required jobs passed: $RESULTS"

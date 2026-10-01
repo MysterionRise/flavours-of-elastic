@@ -1,630 +1,486 @@
 #!/usr/bin/env python3
-"""
-Validation script for flavours-of-elastic repository.
+"""Validate the flavours-of-elastic docker compose stacks.
 
-This script validates that all three stacks (Elastic, OpenSearch, ELK-OSS) can:
-1. Start successfully
-2. Respond to health checks
-3. Create indices
-4. Index and search documents
-5. Serve UI (Kibana/Dashboards)
+Each stack is started in its own compose project (`foe-validate-<stack>`), so a
+student's stack started from the same compose file and its data volumes are
+never touched. The stack is torn down afterwards (also on failure or Ctrl-C).
+
+Checks: version and distribution match the env file, cluster health and node
+count, license, index/search round trip, vector search, ML (ML stack), the RRF
+retriever (trial license) and the UI (Kibana / OpenSearch Dashboards).
+
+    python validate.py --stack elk-single
+    python validate.py --stack all
+    python validate.py --list --json        # the registry, as used by CI
 """
+
+from __future__ import annotations
 
 import argparse
+import json
 import os
-import subprocess
 import sys
 import time
+import uuid
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Callable
 
-try:
+from scripts.stacks import (
+    STACKS,
+    Connection,
+    StackError,
+    default_env_file,
+    get_stack,
+    load_env,
+    running_stack,
+)
+
+GIB = 1024**3
+
+
+@dataclass
+class Result:
+    name: str
+    ok: bool
+    detail: str = ""
+
+
+class CheckFailed(Exception):
+    pass
+
+
+def _json(response) -> dict:
+    try:
+        return response.json()
+    except ValueError:
+        return {}
+
+
+def _expect(response, *ok_codes: int) -> dict:
+    if response.status_code not in ok_codes:
+        reason = _json(response).get("error", response.text[:200])
+        raise CheckFailed(
+            f"{response.request.method} {response.request.path_url} -> {response.status_code}: {reason}"
+        )
+    return _json(response)
+
+
+def check_identity(conn: Connection, http) -> str:
+    info = _expect(http.get(conn.url, timeout=10), 200)
+    version = info.get("version", {})
+    if version.get("number") != conn.version:
+        raise CheckFailed(
+            f"version {version.get('number')}, expected {conn.version} ({conn.stack.version_var})"
+        )
+    distribution = conn.stack.distribution
+    if distribution == "opensearch" and version.get("distribution") != "opensearch":
+        raise CheckFailed(f"expected an OpenSearch distribution, got {version}")
+    if distribution == "elasticsearch" and (
+        version.get("build_flavor") != "default" or "distribution" in version
+    ):
+        raise CheckFailed(
+            f"expected the default Elasticsearch distribution, got {version}"
+        )
+    if distribution == "elasticsearch-oss" and version.get("build_flavor") != "oss":
+        raise CheckFailed(
+            f"expected the OSS build flavor, got {version.get('build_flavor')}"
+        )
+    return f"{distribution} {version['number']}"
+
+
+def check_cluster(conn: Connection, http) -> str:
+    nodes = conn.stack.nodes
+    url = f"{conn.url}/_cluster/health?wait_for_status=yellow&wait_for_nodes={nodes}&timeout=120s"
+    health = _expect(http.get(url, timeout=130), 200)
+    if health.get("timed_out") or health.get("status") == "red":
+        raise CheckFailed(
+            f"status {health.get('status')}, {health.get('number_of_nodes')}/{nodes} nodes"
+        )
+    if health.get("number_of_nodes") != nodes:
+        raise CheckFailed(f"{health.get('number_of_nodes')} nodes, expected {nodes}")
+    return f"{health['status']}, {nodes} node(s)"
+
+
+def check_licence(conn: Connection, http) -> str:
+    licence = _expect(http.get(f"{conn.url}/_license", timeout=10), 200).get(
+        "license", {}
+    )
+    if licence.get("type") != conn.licence or licence.get("status") != "active":
+        hint = (
+            " (a trial lasts 30 days; `down -v` starts a fresh cluster)"
+            if conn.licence == "trial"
+            else ""
+        )
+        raise CheckFailed(
+            f"license {licence.get('type')}/{licence.get('status')}, expected {conn.licence}/active{hint}"
+        )
+    return f"{licence['type']} active"
+
+
+def _scratch_index(http, conn: Connection, body: dict) -> str:
+    index = f"foe-validate-{uuid.uuid4().hex[:8]}"
+    _expect(http.put(f"{conn.url}/{index}", json=body, timeout=30), 200)
+    return index
+
+
+def check_crud(conn: Connection, http) -> str:
+    index = _scratch_index(http, conn, {"settings": {"number_of_replicas": 0}})
+    try:
+        doc = {"title": "Validation Test"}
+        _expect(
+            http.put(
+                f"{conn.url}/{index}/_doc/1?refresh=wait_for", json=doc, timeout=30
+            ),
+            200,
+            201,
+        )
+        hits = _expect(
+            http.get(f"{conn.url}/{index}/_search?q=title:validation", timeout=30), 200
+        )["hits"]["hits"]
+        if [hit["_id"] for hit in hits] != ["1"]:
+            raise CheckFailed(
+                f"search returned {[hit['_id'] for hit in hits]}, expected ['1']"
+            )
+    finally:
+        http.delete(f"{conn.url}/{index}", timeout=30)
+    return "index, search, delete"
+
+
+def check_vectors(conn: Connection, http) -> str:
+    docs = {"a": [1.0, 0.0, 0.0], "b": [0.0, 1.0, 0.0], "c": [0.7, 0.7, 0.0]}
+    if conn.stack.distribution == "opensearch":
+        body = {
+            "settings": {"index.knn": True, "number_of_replicas": 0},
+            "mappings": {
+                "properties": {
+                    "v": {"type": "knn_vector", "dimension": 3, "space_type": "l2"}
+                }
+            },
+        }
+        query = {
+            "size": 1,
+            "query": {"knn": {"v": {"vector": [0.9, 0.1, 0.0], "k": 1}}},
+        }
+    else:
+        body = {
+            "settings": {"number_of_replicas": 0},
+            "mappings": {
+                "properties": {
+                    "v": {"type": "dense_vector", "dims": 3, "similarity": "l2_norm"}
+                }
+            },
+        }
+        query = {
+            "knn": {
+                "field": "v",
+                "query_vector": [0.9, 0.1, 0.0],
+                "k": 1,
+                "num_candidates": 10,
+            }
+        }
+    index = _scratch_index(http, conn, body)
+    try:
+        bulk = "".join(
+            f'{{"index":{{"_id":"{doc_id}"}}}}\n{json.dumps({"v": vec})}\n'
+            for doc_id, vec in docs.items()
+        )
+        response = http.post(
+            f"{conn.url}/{index}/_bulk?refresh=wait_for",
+            data=bulk,
+            headers={"Content-Type": "application/x-ndjson"},
+            timeout=30,
+        )
+        if _expect(response, 200).get("errors"):
+            raise CheckFailed("bulk indexing reported errors")
+        hits = _expect(
+            http.post(f"{conn.url}/{index}/_search", json=query, timeout=30), 200
+        )["hits"]["hits"]
+        if not hits or hits[0]["_id"] != "a":
+            raise CheckFailed(
+                f"nearest neighbour was {[hit['_id'] for hit in hits]}, expected ['a']"
+            )
+    finally:
+        http.delete(f"{conn.url}/{index}", timeout=30)
+    return "kNN nearest neighbour correct"
+
+
+def check_ml(conn: Connection, http) -> str:
+    _expect(http.get(f"{conn.url}/_ml/info", timeout=30), 200)
+    nodes = _expect(
+        http.get(
+            f"{conn.url}/_nodes?filter_path=nodes.*.name,nodes.*.roles", timeout=30
+        ),
+        200,
+    )
+    missing = [
+        node["name"]
+        for node in nodes.get("nodes", {}).values()
+        if not {"ml", "transform"} <= set(node.get("roles", []))
+    ]
+    if missing:
+        raise CheckFailed(f"nodes without ml/transform roles: {missing}")
+    summary = "ml + transform roles"
+    if conn.stack.min_ml_memory_gib:
+        stats = _expect(http.get(f"{conn.url}/_ml/memory/_stats", timeout=30), 200)[
+            "nodes"
+        ].values()
+        per_node = {n["name"]: n["mem"]["ml"]["max_in_bytes"] / GIB for n in stats}
+        too_low = {
+            name: round(gib, 2)
+            for name, gib in per_node.items()
+            if gib < conn.stack.min_ml_memory_gib
+        }
+        if too_low:
+            raise CheckFailed(
+                f"ML memory per node (GiB) {too_low} is below {conn.stack.min_ml_memory_gib}: raise ML_NODE_MEM_LIMIT"
+            )
+        summary += f", ML memory {min(per_node.values()):.2f} GiB/node"
+    return summary
+
+
+def check_rrf(conn: Connection, http) -> str:
+    body = {
+        "settings": {"number_of_replicas": 0},
+        "mappings": {
+            "properties": {
+                "t": {"type": "text"},
+                "v": {"type": "dense_vector", "dims": 2},
+            }
+        },
+    }
+    index = _scratch_index(http, conn, body)
+    try:
+        doc = {"t": "hello world", "v": [1.0, 0.0]}
+        _expect(
+            http.put(
+                f"{conn.url}/{index}/_doc/1?refresh=wait_for", json=doc, timeout=30
+            ),
+            200,
+            201,
+        )
+        retriever = {
+            "rrf": {
+                "retrievers": [
+                    {"standard": {"query": {"match": {"t": "hello"}}}},
+                    {
+                        "knn": {
+                            "field": "v",
+                            "query_vector": [1.0, 0.0],
+                            "k": 1,
+                            "num_candidates": 5,
+                        }
+                    },
+                ]
+            }
+        }
+        hits = _expect(
+            http.post(
+                f"{conn.url}/{index}/_search", json={"retriever": retriever}, timeout=30
+            ),
+            200,
+        )
+        if not hits["hits"]["hits"]:
+            raise CheckFailed("RRF retriever returned no hits")
+    finally:
+        http.delete(f"{conn.url}/{index}", timeout=30)
+    return "rrf retriever works"
+
+
+def check_ui(conn: Connection, http, timeout: int = 240) -> str:
+    """Kibana: overall level `available`; Dashboards / Kibana OSS: overall state `green`."""
     import requests
-    from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-except ImportError:
-    print("Error: requests library not found. Install with: pip install requests")
-    sys.exit(1)
-
-REPO_ROOT = Path(__file__).resolve().parent
-
-
-def default_env_file() -> Path:
-    """Use .env when present, otherwise the committed .env.example defaults."""
-    env_file = REPO_ROOT / ".env"
-    return env_file if env_file.exists() else REPO_ROOT / ".env.example"
-
-
-def elastic_auth():
-    """Return Elastic basic auth from env with local-dev defaults."""
-    return (
-        os.getenv("ELASTIC_USER", "elastic"),
-        os.getenv("ELASTIC_PASSWORD", "elastic"),
-    )
-
-
-def opensearch_auth():
-    """Return OpenSearch basic auth from env with local-dev defaults."""
-    return (
-        "admin",
-        os.getenv("OPENSEARCH_INITIAL_ADMIN_PASSWORD", "MyStrongPassword123!"),
-    )
-
-
-class StackValidator:
-    """Base class for stack validation."""
-
-    def __init__(self, name: str, compose_file: str):
-        self.name = name
-        self.compose_file = str(REPO_ROOT / compose_file)
-        # Validation runs in its own compose project so that `down -v` can never
-        # delete the volumes of a stack a student started from the same file.
-        self.project = f"foe-validate-{Path(compose_file).parent.name}"
-        self.env_file = str(default_env_file())
-        self.base_url = None
-        self.auth = None
-        self.verify_ssl = True
-        self.cleanup = True
-        self.ui_name = name
-
-    def compose_cmd(self, *args: str) -> list:
-        """Build a docker compose command scoped to the validation project."""
-        return [
-            "docker",
-            "compose",
-            "-p",
-            self.project,
-            "-f",
-            self.compose_file,
-            "--env-file",
-            self.env_file,
-            *args,
-        ]
-
-    def run_command(self, cmd: list, check: bool = True) -> Tuple[int, str]:
-        """Run a shell command and return exit code and output."""
+    deadline = time.monotonic() + timeout
+    last = "no response"
+    while time.monotonic() < deadline:
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, check=check, timeout=300
+            response = http.get(f"{conn.ui_url}/api/status", timeout=10)
+            overall = _json(response).get("status", {}).get("overall", {})
+            level = overall.get("level") or overall.get("state") or ""
+            if response.status_code == 200 and level in ("available", "green"):
+                return f"{conn.stack.ui_kind} {level}"
+            last = f"HTTP {response.status_code} {level}".strip()
+        except requests.RequestException as exc:
+            last = type(exc).__name__
+        time.sleep(5)
+    raise CheckFailed(f"{conn.stack.ui_kind} not available after {timeout}s: {last}")
+
+
+Check = Callable[[Connection, object], str]
+
+
+def plan_checks(conn: Connection, skip_ui: bool = False) -> list[tuple[str, Check]]:
+    checks: list[tuple[str, Check]] = [
+        ("identity", check_identity),
+        ("cluster", check_cluster),
+    ]
+    if conn.stack.licence_var:
+        checks.append(("license", check_licence))
+    checks.append(("crud", check_crud))
+    if conn.capabilities & {"dense_vector", "os_knn"}:
+        checks.append(("vectors", check_vectors))
+    if "ml" in conn.capabilities:
+        checks.append(("ml", check_ml))
+    if "rrf" in conn.capabilities:
+        checks.append(("rrf", check_rrf))
+    if not skip_ui:
+        checks.append(("ui", check_ui))
+    return checks
+
+
+def validate_stack(name: str, args) -> list[Result]:
+    stack = get_stack(name)
+    print(f"\n{'=' * 60}\n{stack.title} ({stack.name})\n{'=' * 60}", flush=True)
+    results: list[Result] = []
+    try:
+        with running_stack(
+            stack.name,
+            keep=args.keep,
+            keep_volumes=args.no_cleanup,
+            env_file=args.env_file,
+            port_offset=args.port_offset,
+            timeout=args.timeout,
+            logs_dir=args.logs_dir,
+        ) as conn:
+            http = conn.session()
+            for check_name, check in plan_checks(conn, args.skip_ui):
+                try:
+                    detail = check(conn, http)
+                    results.append(Result(check_name, True, detail))
+                    print(f"  PASS {check_name:9s} {detail}", flush=True)
+                except Exception as exc:  # noqa: BLE001 - every failure is reported, not raised
+                    results.append(Result(check_name, False, str(exc)))
+                    print(f"  FAIL {check_name:9s} {exc}", flush=True)
+            if not all(result.ok for result in results):
+                raise CheckFailed(
+                    "one or more checks failed"
+                )  # dumps container logs before teardown
+    except CheckFailed:
+        pass
+    except StackError as exc:
+        results.append(Result("startup", False, str(exc)))
+        print(f"  FAIL startup    {exc}", flush=True)
+    return results
+
+
+def write_step_summary(report: dict[str, list[Result]]) -> None:
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    lines = ["| Stack | Check | Result | Detail |", "|---|---|---|---|"]
+    for stack, results in report.items():
+        for result in results:
+            detail = result.detail.replace("|", "\\|").replace("\n", " ")[:300]
+            lines.append(
+                f"| {stack} | {result.name} | {'✅' if result.ok else '❌'} | {detail} |"
             )
-            return result.returncode, result.stdout + result.stderr
-        except subprocess.CalledProcessError as e:
-            return e.returncode, e.stdout + e.stderr
-        except subprocess.TimeoutExpired:
-            return -1, "Command timed out"
-        except FileNotFoundError:
-            return (
-                127,
-                f"Command not found: {cmd[0]} (is Docker installed and on PATH?)",
-            )
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
 
-    def start_stack(self) -> bool:
-        """Start the docker-compose stack."""
-        print(f"\n{'=' * 60}")
-        print(f"Starting {self.name}...")
-        print(f"{'=' * 60}")
 
-        exit_code, output = self.run_command(self.compose_cmd("up", "-d"))
-
-        if exit_code != 0:
-            print(f"❌ Failed to start {self.name}")
-            print(output)
-            return False
-
-        print(f"✅ {self.name} containers started")
-        return True
-
-    def stop_stack(self, cleanup: bool = True) -> None:
-        """Stop the docker-compose stack."""
-        print(f"\nStopping {self.name}...")
-        args = ["down", "--remove-orphans"]
-        if cleanup:
-            args.append("-v")
-        exit_code, output = self.run_command(self.compose_cmd(*args), check=False)
-        if exit_code != 0:
-            print(f"⚠️  Failed to stop {self.name} cleanly:\n{output}")
-            return
-        print(f"✅ {self.name} stopped")
-
-    def wait_for_service(self, url: str, timeout: int = 180, interval: int = 5) -> bool:
-        """Wait for a service to respond."""
-        print(f"Waiting for service at {url}...")
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                response = requests.get(
-                    url, auth=self.auth, verify=self.verify_ssl, timeout=5
-                )
-                if response.status_code in [200, 401]:
-                    print("✅ Service is responding")
-                    return True
-            except requests.exceptions.RequestException:
-                pass
-
-            time.sleep(interval)
-            elapsed = int(time.time() - start_time)
-            print(f"   Still waiting... ({elapsed}s/{timeout}s)")
-
-        print(f"❌ Service did not respond within {timeout}s")
-        return False
-
-    def check_health(self) -> bool:
-        """Check cluster health."""
-        print(f"\nChecking {self.name} cluster health...")
-        url = f"{self.base_url}/_cluster/health"
-
-        try:
-            response = requests.get(
-                url, auth=self.auth, verify=self.verify_ssl, timeout=10
-            )
-            if response.status_code == 200:
-                health = response.json()
-                status = health.get("status", "unknown")
-                print(f"✅ Cluster health: {status}")
-                print(f"   Cluster name: {health.get('cluster_name')}")
-                print(f"   Number of nodes: {health.get('number_of_nodes')}")
-                return True
-            else:
-                print(f"❌ Health check failed: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"❌ Health check error: {e}")
-            return False
-
-    def test_index_operations(self) -> bool:
-        """Test index creation, document insertion, and search."""
-        print(f"\nTesting index operations on {self.name}...")
-        index_name = "test-validation-index"
-
-        # Create index
-        try:
-            url = f"{self.base_url}/{index_name}"
-            response = requests.put(
-                url, auth=self.auth, verify=self.verify_ssl, timeout=10
-            )
-            if response.status_code not in [200, 201]:
-                print(f"❌ Failed to create index: {response.status_code}")
-                return False
-            print(f"✅ Created index '{index_name}'")
-        except Exception as e:
-            print(f"❌ Index creation error: {e}")
-            return False
-
-        # Add document
-        try:
-            url = f"{self.base_url}/{index_name}/_doc/1"
-            doc = {
-                "title": "Validation Test",
-                "description": "Testing flavours-of-elastic",
-                "timestamp": "2025-01-15",
-            }
-            response = requests.post(
-                url,
-                json=doc,
-                auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=10,
-                headers={"Content-Type": "application/json"},
-            )
-            if response.status_code not in [200, 201]:
-                print(f"❌ Failed to add document: {response.status_code}")
-                return False
-            print("✅ Added document to index")
-        except Exception as e:
-            print(f"❌ Document insertion error: {e}")
-            return False
-
-        # Wait for indexing
-        time.sleep(2)
-
-        # Search
-        try:
-            url = f"{self.base_url}/{index_name}/_search?q=Validation"
-            response = requests.get(
-                url, auth=self.auth, verify=self.verify_ssl, timeout=10
-            )
-            if response.status_code != 200:
-                print(f"❌ Search failed: {response.status_code}")
-                return False
-
-            results = response.json()
-            hits = results.get("hits", {}).get("total", {})
-            # Handle both old and new format
-            total = hits.get("value", hits) if isinstance(hits, dict) else hits
-
-            if total > 0:
-                print(f"✅ Search successful: found {total} documents")
-                return True
-            else:
-                print("❌ Search returned no results")
-                return False
-        except Exception as e:
-            print(f"❌ Search error: {e}")
-            return False
-
-    def check_ui(self, ui_url: str, ui_name: str) -> bool:
-        """Check if UI is responding."""
-        print(f"\nChecking {ui_name}...")
-        try:
-            response = requests.get(ui_url, timeout=10, allow_redirects=True)
-            if response.status_code in [200, 302]:
-                print(f"✅ {ui_name} is responding")
-                return True
-            else:
-                print(f"⚠️  {ui_name} returned status {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"⚠️  {ui_name} check error: {e}")
-            return False
-
-    def validate(self) -> bool:
-        """Run full validation."""
-        success = True
-
-        try:
-            if not self.start_stack():
-                success = False
-                return success
-
-            # Wait for main service
-            if not self.wait_for_service(self.base_url):
-                success = False
-                return success
-
-            # Check health
-            if not self.check_health():
-                success = False
-                return success
-
-            # Test operations
-            if not self.test_index_operations():
-                success = False
-                return success
-
-            # Check UI (optional, don't fail validation if it's not ready)
-            self.check_ui("http://localhost:5601", self.ui_name)
-
-            if success:
-                print(f"\n{'=' * 60}")
-                print(f"✅ {self.name} validation PASSED")
-                print(f"{'=' * 60}")
-
-        finally:
-            self.stop_stack(cleanup=self.cleanup)
-
-        return success
-
-
-class ElasticOSSValidator(StackValidator):
-    """Validator for Elastic OSS stack."""
-
-    def __init__(self):
-        super().__init__("Elastic OSS", "docker/elk-oss/docker-compose.yml")
-        self.base_url = "http://localhost:9200"
-        self.auth = None  # No auth for OSS
-        self.verify_ssl = False
-        self.ui_name = "Kibana OSS"
-
-
-class OpenSearchValidator(StackValidator):
-    """Validator for OpenSearch stack."""
-
-    def __init__(self):
-        super().__init__("OpenSearch", "docker/opensearch/docker-compose.yml")
-        self.base_url = "https://localhost:9200"
-        self.auth = opensearch_auth()
-        self.verify_ssl = False
-        self.ui_name = "OpenSearch Dashboards"
-
-
-class ElasticValidator(StackValidator):
-    """Validator for Elastic Stack."""
-
-    def __init__(self):
-        super().__init__("Elastic Stack", "docker/elk/docker-compose.yml")
-        self.base_url = "https://localhost:9200"
-        self.auth = elastic_auth()
-        self.verify_ssl = False
-        self.ui_name = "Kibana"
-
-
-class ElasticSingleValidator(StackValidator):
-    """Validator for Elastic Single-Node Stack (beginners)."""
-
-    def __init__(self):
-        super().__init__("Elastic Single", "docker/elk-single/docker-compose.yml")
-        self.base_url = "http://localhost:9200"
-        self.auth = elastic_auth()
-        self.verify_ssl = True
-        self.ui_name = "Kibana"
-
-
-class Elastic9Validator(StackValidator):
-    """Validator for Elasticsearch 9 single-node stack."""
-
-    def __init__(self):
-        super().__init__("Elastic 9", "docker/elk-9/docker-compose.yml")
-        self.base_url = "http://localhost:9200"
-        self.auth = elastic_auth()
-        self.verify_ssl = True
-        self.ui_name = "Kibana 9"
-
-
-class OpenSearch3Validator(StackValidator):
-    """Validator for OpenSearch 3 stack."""
-
-    def __init__(self):
-        super().__init__("OpenSearch 3", "docker/opensearch-3/docker-compose.yml")
-        self.base_url = "https://localhost:9200"
-        self.auth = opensearch_auth()
-        self.verify_ssl = False
-        self.ui_name = "OpenSearch 3 Dashboards"
-
-
-class ElasticMLValidator(StackValidator):
-    """Validator for Elastic ML Stack (for ELSER and ML features)."""
-
-    def __init__(self):
-        super().__init__("Elastic ML", "docker/elk-ml/docker-compose.yml")
-        self.base_url = "https://localhost:9200"
-        self.auth = elastic_auth()
-        self.verify_ssl = False
-        self.ui_name = "Kibana"
-
-    def check_ml_enabled(self) -> bool:
-        """Check if ML is enabled and nodes have ML role."""
-        print(f"\nChecking ML capabilities on {self.name}...")
-        url = f"{self.base_url}/_nodes"
-
-        try:
-            response = requests.get(
-                url, auth=self.auth, verify=self.verify_ssl, timeout=10
-            )
-            if response.status_code == 200:
-                nodes = response.json().get("nodes", {})
-                ml_nodes = 0
-                for node_id, node_info in nodes.items():
-                    roles = node_info.get("roles", [])
-                    if "ml" in roles:
-                        ml_nodes += 1
-                        print(f"   Node {node_info.get('name')}: ML enabled")
-
-                if ml_nodes > 0:
-                    print(f"✅ Found {ml_nodes} ML-enabled nodes")
-                    return True
-                else:
-                    print("❌ No ML-enabled nodes found")
-                    return False
-            else:
-                print(f"❌ Failed to check nodes: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"❌ ML check error: {e}")
-            return False
-
-    def test_vector_operations(self) -> bool:
-        """Test dense_vector field and kNN query."""
-        print(f"\nTesting vector operations on {self.name}...")
-        index_name = "test-vector-index"
-
-        # Create index with dense_vector
-        try:
-            url = f"{self.base_url}/{index_name}"
-            mapping = {
-                "mappings": {
-                    "properties": {
-                        "title": {"type": "text"},
-                        "embedding": {
-                            "type": "dense_vector",
-                            "dims": 3,
-                            "index": True,
-                            "similarity": "cosine",
-                        },
-                    }
-                }
-            }
-            response = requests.put(
-                url,
-                json=mapping,
-                auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=10,
-                headers={"Content-Type": "application/json"},
-            )
-            if response.status_code not in [200, 201]:
-                print(f"❌ Failed to create vector index: {response.status_code}")
-                return False
-            print(f"✅ Created vector index '{index_name}'")
-        except Exception as e:
-            print(f"❌ Vector index creation error: {e}")
-            return False
-
-        # Add documents with embeddings
-        try:
-            url = f"{self.base_url}/{index_name}/_bulk"
-            bulk_data = (
-                '{"index": {"_id": "1"}}\n'
-                '{"title": "Document A", "embedding": [0.5, 0.5, 0.5]}\n'
-                '{"index": {"_id": "2"}}\n'
-                '{"title": "Document B", "embedding": [0.1, 0.9, 0.1]}\n'
-                '{"index": {"_id": "3"}}\n'
-                '{"title": "Document C", "embedding": [0.9, 0.1, 0.1]}\n'
-            )
-            response = requests.post(
-                url,
-                data=bulk_data,
-                auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=10,
-                headers={"Content-Type": "application/x-ndjson"},
-            )
-            if response.status_code not in [200, 201]:
-                print(f"❌ Failed to index vectors: {response.status_code}")
-                return False
-            print("✅ Indexed documents with vectors")
-        except Exception as e:
-            print(f"❌ Vector indexing error: {e}")
-            return False
-
-        # Wait for indexing
-        time.sleep(2)
-
-        # Run kNN query
-        try:
-            url = f"{self.base_url}/{index_name}/_search"
-            query = {
-                "knn": {
-                    "field": "embedding",
-                    "query_vector": [0.5, 0.5, 0.5],
-                    "k": 2,
-                    "num_candidates": 10,
-                }
-            }
-            response = requests.post(
-                url,
-                json=query,
-                auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=10,
-                headers={"Content-Type": "application/json"},
-            )
-            if response.status_code != 200:
-                print(f"❌ kNN query failed: {response.status_code}")
-                return False
-
-            results = response.json()
-            hits = results.get("hits", {}).get("hits", [])
-            if len(hits) > 0:
-                print(f"✅ kNN query successful: found {len(hits)} results")
-                return True
-            else:
-                print("❌ kNN query returned no results")
-                return False
-        except Exception as e:
-            print(f"❌ kNN query error: {e}")
-            return False
-
-    def validate(self) -> bool:
-        """Run full validation including ML-specific checks."""
-        success = True
-
-        try:
-            if not self.start_stack():
-                success = False
-                return success
-
-            # Wait for main service
-            if not self.wait_for_service(self.base_url):
-                success = False
-                return success
-
-            # Check health
-            if not self.check_health():
-                success = False
-                return success
-
-            # Check ML capabilities
-            if not self.check_ml_enabled():
-                success = False
-                return success
-
-            # Test standard operations
-            if not self.test_index_operations():
-                success = False
-                return success
-
-            # Test vector operations
-            if not self.test_vector_operations():
-                success = False
-                return success
-
-            # Check UI
-            self.check_ui("http://localhost:5601", self.ui_name)
-
-            if success:
-                print(f"\n{'=' * 60}")
-                print(f"✅ {self.name} validation PASSED")
-                print(f"{'=' * 60}")
-
-        finally:
-            self.stop_stack(cleanup=self.cleanup)
-
-        return success
-
-
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Validate flavours-of-elastic stacks")
+    names = list(STACKS) + [
+        alias for stack in STACKS.values() for alias in stack.aliases
+    ]
     parser.add_argument(
         "--stack",
-        choices=[
-            "elk-oss",
-            "opensearch",
-            "elastic",
-            "elk-single",
-            "elk-ml",
-            "elk-9",
-            "opensearch-3",
-            "all",
-        ],
         default="all",
-        help="Which stack to validate (default: all)",
+        help=f"comma-separated names or 'all' ({', '.join(names)})",
     )
     parser.add_argument(
-        "--no-cleanup",
-        action="store_true",
-        help="Don't remove volumes after testing",
+        "--env-file",
+        type=Path,
+        default=None,
+        help="default: .env, falling back to .env.example",
     )
+    parser.add_argument(
+        "--keep", action="store_true", help="leave the stack running afterwards"
+    )
+    parser.add_argument(
+        "--no-cleanup", action="store_true", help="stop the stack but keep its volumes"
+    )
+    parser.add_argument(
+        "--port-offset", type=int, default=0, help="publish on 9200+N / 5601+N"
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="seconds to wait for healthy containers",
+    )
+    parser.add_argument(
+        "--logs-dir",
+        type=Path,
+        default=None,
+        help="write container logs here on failure",
+    )
+    parser.add_argument("--report-json", type=Path, default=None)
+    parser.add_argument("--skip-ui", action="store_true")
+    parser.add_argument(
+        "--list", action="store_true", help="list the registered stacks and exit"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="with --list: machine-readable output"
+    )
+    return parser
 
-    args = parser.parse_args()
 
-    validators: Dict[str, StackValidator] = {
-        "elk-oss": ElasticOSSValidator(),
-        "opensearch": OpenSearchValidator(),
-        "elastic": ElasticValidator(),
-        "elk-single": ElasticSingleValidator(),
-        "elk-ml": ElasticMLValidator(),
-        "elk-9": Elastic9Validator(),
-        "opensearch-3": OpenSearch3Validator(),
-    }
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
-    if args.stack == "all":
-        stacks_to_test = list(validators.keys())
-    else:
-        stacks_to_test = [args.stack]
-
-    print("\n" + "=" * 60)
-    print("FLAVOURS-OF-ELASTIC VALIDATION")
-    print("=" * 60)
-    print(f"\nTesting stacks: {', '.join(stacks_to_test)}")
-
-    results = {}
-    for stack_name in stacks_to_test:
-        validator = validators[stack_name]
-        validator.cleanup = not args.no_cleanup
-        results[stack_name] = validator.validate()
-
-    # Summary
-    print("\n" + "=" * 60)
-    print("VALIDATION SUMMARY")
-    print("=" * 60)
-
-    all_passed = True
-    for stack_name, passed in results.items():
-        status = "✅ PASSED" if passed else "❌ FAILED"
-        print(f"{stack_name:15s}: {status}")
-        if not passed:
-            all_passed = False
-
-    print("=" * 60)
-
-    if all_passed:
-        print("\n🎉 All validations passed!")
+    if args.list:
+        env = load_env(args.env_file or default_env_file())
+        described = [stack.describe(env) for stack in STACKS.values()]
+        if args.json:
+            print(json.dumps(described, indent=2))
+        else:
+            for item in described:
+                print(
+                    f"{item['name']:13s} {item['version']:8s} {item['url']:24s} {item['title']}"
+                )
         return 0
-    else:
-        print("\n❌ Some validations failed")
-        return 1
+
+    try:
+        requested = (
+            list(STACKS)
+            if args.stack == "all"
+            else [get_stack(n.strip()).name for n in args.stack.split(",")]
+        )
+    except StackError as exc:
+        parser.error(str(exc))
+    try:
+        import requests  # noqa: F401
+    except ImportError:
+        print(
+            "The requests library is required: pip install -r requirements.txt",
+            file=sys.stderr,
+        )
+        return 2
+
+    report: dict[str, list[Result]] = {}
+    try:
+        for name in requested:
+            report[name] = validate_stack(name, args)
+    except KeyboardInterrupt:
+        print("\nInterrupted - stacks were torn down.", file=sys.stderr)
+        return 130
+
+    print(f"\n{'=' * 60}\nVALIDATION SUMMARY\n{'=' * 60}")
+    failed = []
+    for name, results in report.items():
+        ok = bool(results) and all(result.ok for result in results)
+        if not ok:
+            failed.append(name)
+        print(f"{name:13s}: {'PASSED' if ok else 'FAILED'}")
+    write_step_summary(report)
+    if args.report_json:
+        args.report_json.write_text(
+            json.dumps({k: [asdict(r) for r in v] for k, v in report.items()}, indent=2)
+        )
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
