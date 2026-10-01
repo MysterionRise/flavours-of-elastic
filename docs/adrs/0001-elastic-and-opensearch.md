@@ -1,5 +1,8 @@
 # ADR 0001: Keep Elastic and OpenSearch Stacks
 
+Status: accepted, amended 2026-10 (OpenSearch now runs dense and hybrid search too — client-side fusion, `knn_vector`)
+Date: 2026-02
+
 ## Decision
 
 Keep both Elastic and OpenSearch stacks in the repository, but make Elastic Single the default portfolio reviewer path.

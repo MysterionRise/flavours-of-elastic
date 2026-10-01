@@ -1,5 +1,8 @@
 # ADR 0002: Compare Dense, Sparse, and Hybrid Retrieval
 
+Status: accepted (ELSER is no longer optional on the ML stacks: see ADR 0005)
+Date: 2026-02
+
 ## Decision
 
 Expose BM25, dense vector, hybrid RRF, and optional ELSER paths instead of choosing one retrieval strategy.

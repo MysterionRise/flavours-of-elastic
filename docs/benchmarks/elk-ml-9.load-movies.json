@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "url": "https://localhost:9200",
+  "cluster": "elasticsearch 9.5.4, trial licence",
+  "index": "movies",
+  "documents": 200,
+  "indexed": 200,
+  "count": 200,
+  "errors": {},
+  "skipped": false,
+  "seconds": 0.7,
+  "warmup_seconds": {}
+}

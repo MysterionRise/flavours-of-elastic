@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "url": "https://localhost:9200",
+  "cluster": "opensearch 3.9.0",
+  "index": "movies-embeddings",
+  "documents": 200,
+  "indexed": 200,
+  "count": 200,
+  "errors": {},
+  "skipped": false,
+  "seconds": 0.7,
+  "warmup_seconds": {}
+}

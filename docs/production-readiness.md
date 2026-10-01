@@ -26,13 +26,20 @@ This repository is a local portfolio demo, not a production deployment. This doc
 - Use index lifecycle and shard sizing based on corpus growth, not default shard counts.
 - Keep vector fields in dedicated indices when memory and latency requirements diverge from lexical search.
 - Tune `num_candidates`, `rank_window_size`, and HNSW parameters with evaluation data rather than intuition.
+- Pin `index_options` (quantization) explicitly: the default changes between 8.19 (`int8_hnsw`) and 9.1+
+  (`bbq_hnsw`); budget RAM as vectors x bytes per vector (388 B int8, 62 B BBQ at 384 dims) plus the HNSW graph.
 
 ## Failure Modes
 
 - Search cluster unavailable: the app should fail closed with a clear health message.
-- Missing embedding index: disable dense/hybrid modes and continue serving BM25.
-- Model download unavailable: use checked-in deterministic embeddings for local demos, and fail the model-backed generation job with actionable instructions.
-- Relevance regression: compare new metric output against the baseline benchmark before release.
+- Missing embedding index: the client offers only the modes the cluster and its indices support
+  (`PortfolioSearchClient.modes()`), so BM25 keeps working.
+- Model download unavailable: the loader waits up to `--inference-timeout` for E5/ELSER and exits 6 with the
+  reason; stacks without ML use the offline hash embeddings.
+- Embedding mismatch: queries are embedded with the backend recorded in the index `_meta`; a mismatched index is
+  refused instead of returning silently wrong neighbours.
+- Relevance regression: `search/evaluate.py --fail-under evaluation/floors.yml` fails CI when any mode drops below
+  its floor (per embedding backend).
 
 ## Cost Model
 

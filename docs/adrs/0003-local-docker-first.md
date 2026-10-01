@@ -1,5 +1,8 @@
 # ADR 0003: Local Docker-First Reviewer Experience
 
+Status: accepted
+Date: 2026-02
+
 ## Decision
 
 Prioritize a local Docker-first reviewer path over a hosted cloud demo.
