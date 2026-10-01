@@ -43,6 +43,34 @@ Without make: `docker run --rm --init -v "$PWD":/home/marp/app marpteam/marp-cli
 
 Publishing: push a tag `course-vX.Y.Z`; the "Course slides" workflow attaches the PDFs to that release.
 
+## Testing the Course
+
+Every Dev Tools snippet in the slides and exercises is executable and checked in CI on both tracks
+(Days 1-3: `elk-single` 8.19 and `elk-9` 9.5; Day 4: `elk-ml` / `elk-ml-9` once its rewrite lands):
+
+```bash
+make course-test DAY=2 STACK=elk-9                        # fresh isolated stack, torn down afterwards
+python -m tests.course.run --day 2 --stack elk-single     # against the stack you already run
+python -m tests.course.run --day 2 --list                 # what runs, no stack needed
+```
+
+By default each request must return 2xx, searches / counts / ES|QL must return results, aggregations must
+have buckets, `_bulk` must report no item errors, and responses must carry no deprecation or ES|QL warnings.
+Annotate a fence after the language word (Marp and GitHub ignore the rest of the info string):
+
+| Annotation | Meaning |
+|---|---|
+| `test=skip` / `test=manual` | illustrative snippet or UI step; not executed |
+| `expect=empty` | succeeds with zero hits/rows (e.g. a "wrong way" example) |
+| `expect=404`, `expect=4xx`, `expect=any`, `expect=warning` | intended error / any 2xx / warning allowed |
+| `min=N`, `top=ID`, `contains=ID,ID` | at least N hits / first hit / these hits present |
+| `track=8`, `track=9` | runs only on that major version (dual-track differences) |
+| `requires=trial`, `requires=ml` | skipped on stacks without that capability |
+| `// → {...}` after a request | the response must contain this JSON |
+
+Known failures are recorded per day and track in `tests/course/baseline.yml`. It is a ratchet: content fixes
+remove entries (a fixed snippet still listed there fails the run), and new failures are never added.
+
 ## File Structure
 
 ```
