@@ -4,8 +4,7 @@ name: CI
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
+  pull_request:  # all PRs, including ones stacked on other branches
   workflow_dispatch:
 
 permissions:
