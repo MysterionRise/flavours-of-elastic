@@ -10,7 +10,7 @@ paginate: true
 
 ## Day 1 — 4-Day Elasticsearch Course
 
-Elasticsearch 8.19 | Kibana | Docker
+Elasticsearch 8.19 / 9.5 | Kibana | Docker
 
 ---
 
@@ -38,7 +38,7 @@ Elasticsearch 8.19 | Kibana | Docker
 
 A **distributed, RESTful search and analytics engine** built on Apache Lucene, designed for horizontal scalability, near real-time search, and multi-tenancy.
 
-- Open-source core (SSPL / Elastic License)
+- Free and open source: AGPLv3 (since 8.16), alongside the Elastic License 2.0 and SSPL
 - Written in Java
 - Communicates via **REST API** (JSON over HTTP)
 - Schema-free (dynamic mapping) but schema-aware when needed
@@ -58,15 +58,15 @@ A **distributed, RESTful search and analytics engine** built on Apache Lucene, d
 
 ---
 
-# Who Uses Elasticsearch?
+# Where Elasticsearch Is Used
 
-- **Wikipedia** — full-text search across articles
-- **GitHub** — code search across 200M+ repositories
-- **Netflix** — monitoring + log analysis
-- **Uber** — real-time geospatial search
-- **Stack Overflow** — question search + autocomplete
+- **Site & e-commerce search** — relevance tuning, facets, autocomplete
+- **Observability** — logs, metrics and traces at scale
+- **Security analytics** — SIEM, threat hunting
+- **Enterprise & workplace search** — documents, tickets, wikis
+- **AI applications** — vector / semantic search and RAG retrieval
 
-> Every time you search a website, there's a good chance Elasticsearch is behind it.
+> If a site has a fast search box with facets, there's a good chance Elasticsearch (or its fork OpenSearch) is behind it.
 
 ---
 
@@ -145,7 +145,7 @@ A **collection of documents** with similar structure.
 Index: movies
 ├── Doc 1: The Shawshank Redemption
 ├── Doc 2: The Godfather
-├── Doc 3: Inception
+├── Doc 3: The Matrix
 └── ... (thousands more)
 ```
 
@@ -177,7 +177,11 @@ Cluster: elastic-cluster
 | **ingest** | Pre-process documents (pipelines) |
 | **ml** | Machine learning (ELSER, inference) |
 
-> A single node can have **multiple roles**. Our `elk-single` node is master + data + ingest.
+> A single node can have **multiple roles**. Our `elk-single` node has every default role:
+
+```json
+GET _cat/nodes?v&h=name,node.role,master
+```
 
 ---
 
@@ -337,9 +341,12 @@ Cluster: elastic-cluster
 We use the **elk-single** stack — single node, HTTP, simple auth.
 
 ```bash
-# Start the stack
+# Once: create your env file (versions + local passwords)
+cp .env.example .env
+
+# Start the stack and wait until it is healthy
 docker compose -f docker/elk-single/docker-compose.yml \
-  --env-file .env up -d
+  --env-file .env up -d --wait
 
 # Check containers
 docker compose -f docker/elk-single/docker-compose.yml \
@@ -380,7 +387,9 @@ Response:
 | **yellow** | All primaries OK, some replicas unassigned |
 | **red** | Some primary shards unavailable |
 
-> Single-node clusters are always **yellow** — replicas can't be on the same node as their primary.
+> A single node turns **yellow** as soon as an index has replicas (default: 1) — a replica can't live on
+> the node that holds its primary. A fresh node with only system indices is usually **green** (they shrink
+> their replicas to fit the cluster); after loading `movies` it is yellow.
 
 ---
 
@@ -494,8 +503,10 @@ GET _cluster/health
 
 # Create: With Explicit ID (PUT)
 
+We practise on a scratch index, `my-movies`, so the dataset stays intact.
+
 ```json
-PUT /movies/_doc/1
+PUT /my-movies/_doc/demo-1
 {
   "title": "The Shawshank Redemption",
   "overview": "Two imprisoned men bond over years...",
@@ -513,11 +524,11 @@ PUT /movies/_doc/1
 # Create: With Auto-generated ID (POST)
 
 ```json
-POST /movies/_doc
+POST /my-movies/_doc
 {
   "title": "Inception",
   "overview": "A thief who steals corporate secrets...",
-  "genres": ["Action", "Science Fiction"],
+  "genres": ["Action", "Sci-Fi"],
   "vote_average": 8.4,
   "release_date": "2010-07-15"
 }
@@ -531,20 +542,16 @@ POST /movies/_doc
 # Read: Get a Document
 
 ```json
-GET /movies/_doc/1
+GET /my-movies/_doc/demo-1
 ```
 
 Response:
 ```json
 {
-  "_index": "movies",
-  "_id": "1",
+  "_index": "my-movies",
+  "_id": "demo-1",
   "_version": 1,
-  "_source": {
-    "title": "The Shawshank Redemption",
-    "genres": ["Drama", "Crime"],
-    "vote_average": 8.7
-  }
+  "_source": { "title": "The Shawshank Redemption", "genres": ["Drama", "Crime"], "vote_average": 8.7 }
 }
 ```
 
@@ -557,7 +564,7 @@ Response:
 # Update: Partial Update
 
 ```json
-POST /movies/_update/1
+POST /my-movies/_update/demo-1
 {
   "doc": {
     "vote_average": 8.8,
@@ -575,14 +582,14 @@ POST /movies/_update/1
 # Delete a Document
 
 ```json
-DELETE /movies/_doc/1
+DELETE /my-movies/_doc/demo-1
 ```
 
 Response:
 ```json
 {
-  "_index": "movies",
-  "_id": "1",
+  "_index": "my-movies",
+  "_id": "demo-1",
   "_version": 2,
   "result": "deleted"
 }
@@ -598,23 +605,23 @@ Instead of creating documents one by one, let's load the **movies dataset**:
 # Install dependencies (if not done yet)
 pip install -r requirements.txt
 
-# Load 100 movies
+# Load the curated sample: 200 movies from 1918-2001
 python data/load_data.py --dataset movies --size small
 ```
 
 ```json
 GET movies/_count
-// → {"count": 100}
+// → {"count": 200}
 ```
 
-This loads 100 curated movies with fields:
-- `title`, `overview`, `genres`, `vote_average`, `release_date`
+Fields include `title`, `year`, `genres`, `vote_average` (1-10, from MovieLens ratings), `vote_count`,
+`overview` and multilingual `abstract_*` / `description_*` (AI-generated — see `data/LICENSE-DATA.md`).
 
 ---
 
 # Basic Search
 
-```json
+```json top=858
 GET /movies/_search
 {
   "query": {
@@ -639,7 +646,7 @@ GET /movies/_search
     "total": { "value": 1 },                  // Total matches
     "max_score": 7.12,                        // Best score
     "hits": [{
-      "_id": "2", "_score": 7.12,
+      "_id": "858", "_score": 7.12,
       "_source": { "title": "The Godfather", ... }
     }]
   }
@@ -715,9 +722,9 @@ For loading many documents efficiently:
 
 ```json
 POST /_bulk
-{"index": {"_index": "movies", "_id": "100"}}
+{"index": {"_index": "my-movies", "_id": "demo-100"}}
 {"title": "My Movie", "genres": ["Action"], "vote_average": 7.0}
-{"index": {"_index": "movies", "_id": "101"}}
+{"index": {"_index": "my-movies", "_id": "demo-101"}}
 {"title": "My Other Movie", "genres": ["Drama"], "vote_average": 6.5}
 ```
 
@@ -730,17 +737,17 @@ POST /_bulk
 # Cleanup
 
 ```json
-# Delete a single index
-DELETE /movies
+# Delete our scratch index (keep `movies` - Practice 1B uses it)
+DELETE /my-movies
 
-# Delete multiple indices (careful!)
-DELETE /movies,movies-test
+# Several indices at once (careful!); ignore the ones that don't exist
+DELETE /my-movies,my-movies-test?ignore_unavailable=true
 
 # List all indices to verify
 GET _cat/indices?v
 ```
 
-> In production, always use aliases and index lifecycle policies instead of manual deletion.
+> In production, use aliases and index lifecycle policies instead of manual deletion.
 
 ---
 

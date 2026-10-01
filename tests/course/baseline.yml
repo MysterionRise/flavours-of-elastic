@@ -1,20 +1,4 @@
 # Known course-snippet failures per track (a ratchet): content fixes remove entries.
-day1:
-  day1-slides/cleanup/0:
-    reason: 'DELETE /movies,movies-test: HTTP 404: index_not_found_exception: no such index [movies]'
-    tracks:
-    - 8
-    - 9
-  day1-slides/loading-our-dataset/1:
-    reason: 'GET /movies/_count: response does not contain {''count'': 100}'
-    tracks:
-    - 8
-    - 9
-  day1-slides/the-refresh-cycle/1:
-    reason: 'POST /movies/_refresh: HTTP 404: index_not_found_exception: no such index [movies]'
-    tracks:
-    - 8
-    - 9
 day2:
   day2-exercises/part-b-getting-started/0:
     reason: 'POST /_query: HTTP 400: parsing_exception: line 2:5: mismatched input ''YOUR'' expecting {''explain'', '''

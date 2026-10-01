@@ -8,21 +8,22 @@ paginate: true
 
 # Day 1 Exercises: Cluster Exploration & CRUD Operations
 
-**Stack:** `elk-single` | **Duration:** ~30 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
+**Stack:** `elk-single` (8.19) or `elk-9` (9.5) | **Duration:** ~30 minutes total | **Kibana Dev Tools:** `http://localhost:5601`
 
 ---
 
 ## Setup
 
-```bash
-# Install Python dependencies (one-time)
+```bash test=manual
+# One-time: Python dependencies and your env file
 pip install -r requirements.txt
+cp .env.example .env
 
-# Start Elasticsearch (if not running)
-docker compose -f docker/elk-single/docker-compose.yml --env-file .env up -d
+# Start Elasticsearch + Kibana and wait until both are healthy
+docker compose -f docker/elk-single/docker-compose.yml --env-file .env up -d --wait
 ```
 
-Wait 1-2 minutes for Elasticsearch and Kibana to start, then open Kibana at **http://localhost:5601** (login: `elastic` / `elastic`).
+Then open Kibana at **http://localhost:5601** (login: `elastic` / `elastic`).
 
 ---
 
@@ -46,7 +47,7 @@ GET _cat/indices?v
 ```
 
 **Questions:**
-1. What is the cluster health status? Why is it not green?
+1. What is the cluster health status? (Check it again after Task 2 — does it change, and why?)
 2. How many nodes are in the cluster?
 3. What system indices (starting with `.`) already exist?
 
@@ -54,7 +55,8 @@ GET _cat/indices?v
 
 ## Task 1: Cluster Inspection (continued)
 
-> **Hint:** Single-node clusters are always **yellow** because replica shards cannot be allocated to the same node as their primary shard. This is by design for fault tolerance.
+> **Hint:** Health is about shard copies. Which shards could be unassigned on a single node — and does the
+> `movies` index (1 replica by default) change the answer? `GET _cat/shards?v` shows every shard and its state.
 
 ---
 
@@ -87,8 +89,7 @@ GET movies/_search
 ### 2b. Load Kibana sample data
 
 1. Open Kibana → Home → **Try sample data**
-2. Load **Sample eCommerce orders**
-3. Load **Sample flight data**
+2. Load **Sample eCommerce orders** (used again on Days 2 and 3)
 
 Verify:
 ```json
@@ -97,14 +98,15 @@ GET _cat/indices?v&s=index
 
 **Questions:**
 1. How many documents are in the `movies` index?
-2. What are the index names for the Kibana sample datasets?
+2. What is the index name of the Kibana sample dataset?
 3. How many shards does each index have?
 
 ---
 
 ## Task 2: Load Sample Data (hint)
 
-> **Hint:** The Kibana sample indices are typically named `kibana_sample_data_ecommerce` and `kibana_sample_data_flights`. Use `GET _cat/shards/movies?v` to see shard details for a specific index.
+> **Hint:** Kibana sample indices start with `kibana_sample_data_`. `GET _cat/shards/<index>?v` shows the
+> shard details of one index.
 
 ---
 
@@ -119,7 +121,7 @@ GET _cat/indices?v&s=index
 
 ### 3a. Create a new movie with explicit ID
 
-Create a document in the `movies` index with `_id` = `999`:
+Create a document in a new scratch index `my-movies` with `_id` = `demo-1` (so the `movies` dataset stays intact):
 
 | Field | Value |
 |-------|-------|
@@ -146,19 +148,15 @@ Use a partial update (not a full replace).
 
 Remove the document and verify it's gone.
 
-> **Hint:**
-> - Create: `PUT /movies/_doc/999 { ... }`
-> - Read: `GET /movies/_doc/999`
-> - Update: `POST /movies/_update/999 { "doc": { "vote_average": 9.0 } }`
-> - Delete: `DELETE /movies/_doc/999`
-> - Verify deletion: `GET /movies/_doc/999` should return 404
+> **Hint:** Creating with your own id uses `PUT /<index>/_doc/<id>`. A partial update goes to the `_update`
+> endpoint with the changed fields inside `"doc"`. After a delete, a `GET` of the same id returns `404`.
 
 ---
 
 
 ## Task 4: Understanding Mappings (Intermediate)
 
-**Goal:** Explore the mapping (schema) that was automatically created for the movies index.
+**Goal:** Compare the explicit mapping the loader created for `movies` with a dynamic one.
 
 ```json
 GET movies/_mapping
@@ -168,17 +166,16 @@ GET movies/_mapping
 1. What **type** is the `title` field? What analyzer does it use?
 2. What **type** is the `genres` field? Why keyword instead of text?
 3. What **type** is the `vote_average` field?
-4. What would happen if you indexed a document with a new field `"director": "Nolan"`?
+4. Index a document with a new field `"director": "Nolan"` into `my-movies`, then compare
+   `GET my-movies/_mapping` with `GET movies/_mapping`. How did Elasticsearch map the new field?
 
 ---
 
 ## Task 4: Understanding Mappings (continued)
 
-> **Hint:**
-> - `text` fields are analyzed (tokenized) for full-text search
-> - `keyword` fields are stored as-is for exact matches, sorting, and aggregations
-> - ES uses **dynamic mapping**: new fields are automatically detected and mapped
-> - A string value would be mapped as both `text` AND `keyword` (multi-field) by default
+> **Hint:** `text` fields are analyzed for full-text search; `keyword` fields are stored as-is for exact
+> matches, sorting and aggregations. Look for `fields` inside a mapping — what does dynamic mapping do with
+> a new string value?
 
 ---
 
@@ -277,8 +274,9 @@ Try modifying these queries:
 
 Only clean up if you're done for the day:
 
-```bash
-docker compose -f docker/elk-single/docker-compose.yml --env-file .env down -v
+```bash test=manual
+# Stop the stack but keep your data (start it again tomorrow with `up -d --wait`)
+docker compose -f docker/elk-single/docker-compose.yml --env-file .env down
 ```
 
-> Keep the stack running if you're continuing to Day 2!
+> Keep the stack running if you're continuing to Day 2! `down -v` would also delete all data.

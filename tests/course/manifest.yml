@@ -6,6 +6,7 @@ days:
     files:
       - course/day1-fundamentals/day1-slides.md
       - course/day1-fundamentals/day1-exercises.md
+      - course/solutions/day1-solutions.md
     setup:
       - {kibana_sample: ecommerce}
   2:
