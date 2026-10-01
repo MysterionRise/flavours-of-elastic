@@ -7,8 +7,8 @@ PY         := $(VENV)/bin/python
 ENV_FILE   ?= $(if $(wildcard .env),.env,.env.example)
 STACK      ?= elk-single
 STACKS     := $(notdir $(patsubst %/,%,$(dir $(wildcard docker/*/docker-compose.yml))))
-# hybrid_rrf needs a trial license: make evaluate STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf
-EVAL_MODES ?= bm25,dense
+# hybrid_rrf uses the rrf retriever on a trial licence and client-side fusion elsewhere.
+EVAL_MODES ?= bm25,dense,hybrid_rrf
 
 COMPOSE     = docker compose -f docker/$(1)/docker-compose.yml --env-file $(ENV_FILE)
 check_stack = $(if $(filter $(1),$(STACKS)),,$(error Unknown stack '$(1)'. Known: $(STACKS)))

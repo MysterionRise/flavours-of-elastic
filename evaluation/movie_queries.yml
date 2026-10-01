@@ -72,3 +72,53 @@ queries:
   - id: football_children
     text: children soccer team family comedy
     relevant_ids: [54]
+  # Conceptual queries: paraphrases that avoid the titles and most overview words.
+  - id: wrongly_convicted_banker
+    text: innocent banker serves a life sentence and befriends a fellow inmate
+    relevance: {318: 3, 3198: 1}
+  - id: crime_dynasty
+    text: aging patriarch of an organized crime dynasty and his sons
+    relevance: {858: 3, 1221: 2}
+  - id: pow_camp_breakout
+    text: allied soldiers break out of a german prison camp
+    relevance: {1262: 3, 3198: 1}
+  - id: simulated_reality
+    text: discovering that the world is a computer simulation
+    relevance: {2571: 3, 2672: 2, 2600: 1}
+  - id: alien_radio_signal
+    text: scientist picks up a radio message from extraterrestrials
+    relevant_ids: [1584]
+  - id: moon_mission_survival
+    text: astronauts fight to survive after an explosion on the way to the moon
+    relevant_ids: [150]
+  - id: archaeologist_vs_nazis
+    text: archaeologist races the nazis for a sacred relic
+    relevance: {1198: 3, 1291: 2}
+  - id: farm_boy_rebels
+    text: farm boy joins rebels against an evil galactic empire
+    relevant_ids: [260]
+  - id: underdog_boxer
+    text: small-time boxer gets a shot at the heavyweight champion
+    relevant_ids: [1954]
+  - id: amnesia_revenge
+    text: man who cannot form new memories hunts his wife's killer
+    relevant_ids: [4226]
+  - id: asteroid_drillers
+    text: oil drillers sent into space to destroy an asteroid
+    relevant_ids: [1917]
+  - id: bullied_teen_martial_arts
+    text: bullied teenager learns karate from a wise handyman
+    relevant_ids: [2420]
+  # Multilingual queries: French and Kazakh, matched through abstract_*/description_* fields.
+  - id: fr_wrongly_convicted
+    text: banquier accusé à tort du meurtre de sa femme en prison
+    relevant_ids: [318]
+  - id: fr_crime_family
+    text: saga de la famille criminelle Corleone
+    relevance: {858: 3, 1221: 2}
+  - id: kk_galaxy_jedi
+    text: галактиканы Джеди империя
+    relevant_ids: [260]
+  - id: kk_cowboy_toy
+    text: ковбой қуыршақ ойыншық
+    relevant_ids: [1]

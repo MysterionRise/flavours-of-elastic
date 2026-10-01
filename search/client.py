@@ -1,24 +1,31 @@
-"""Small requests-based Elasticsearch client for the portfolio demo."""
+"""Search client for the demo and the evaluation: BM25, dense, hybrid and ELSER.
 
-import os
+The connection comes from search/config.py (environment from
+`scripts.with_stack`, or auto-detection). Hybrid search uses the
+server-side `rrf` retriever where the licence allows it and fuses the BM25
+and kNN rankings client-side otherwise, so it also works on a basic licence
+and on OpenSearch. Query vectors use the embedder recorded in the index
+`_meta` (search/embedders.py).
+"""
+
+from __future__ import annotations
+
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-import requests
+from search import queries
+from search.capabilities import Capabilities, detect
+from search.config import Target, resolve
+from search.connection import Client
+from search.embedders import Embedder, for_index
 
-from search.embeddings import deterministic_text_embedding
-
-DEFAULT_SOURCE_FIELDS = [
-    "id",
-    "title",
-    "title_raw",
-    "year",
-    "release_date",
-    "genres",
-    "overview",
-    "description_en",
-]
+INDICES = {
+    "bm25": "movies",
+    "dense": "movies-embeddings",
+    "hybrid_rrf": "movies-embeddings",
+    "elser": "movies-semantic",
+}
 
 
 @dataclass
@@ -28,35 +35,53 @@ class SearchResponse:
     hits: List[Dict]
     took_ms: float
     engine_took_ms: Optional[int] = None
-
-
-def auth_from_env() -> Optional[Tuple[str, str]]:
-    """Return basic auth credentials from local environment."""
-    user = os.getenv("ELASTIC_USER", "elastic")
-    password = os.getenv("ELASTIC_PASSWORD", "elastic")
-    if os.getenv("ELASTIC_NO_AUTH", "").lower() in ["1", "true", "yes"]:
-        return None
-    return user, password
+    fusion: Optional[str] = None  # hybrid only: "server" (rrf retriever) or "client"
 
 
 class PortfolioSearchClient:
-    """Query BM25, dense vector, and hybrid search modes."""
+    """Query BM25, dense vector, hybrid and ELSER search modes."""
 
     def __init__(
         self,
         base_url: Optional[str] = None,
         auth: Optional[Tuple[str, str]] = None,
         verify_ssl: Optional[bool] = None,
+        target: Optional[Target] = None,
     ):
-        self.base_url = (
-            base_url or os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
-        ).rstrip("/")
-        self.auth = auth if auth is not None else auth_from_env()
-        self.verify_ssl = (
-            verify_ssl
-            if verify_ssl is not None
-            else os.getenv("ELASTIC_VERIFY_SSL", "false").lower() == "true"
-        )
+        if target is None:
+            if base_url:
+                target = Target(
+                    base_url.rstrip("/"),
+                    auth,
+                    True if verify_ssl is None else verify_ssl,
+                    "argument",
+                )
+            else:
+                target = resolve()
+        self.target = target
+        self.http: Client = target.client()
+        self._caps: Optional[Capabilities] = None
+        self._embedders: Dict[str, Embedder] = {}
+
+    @property
+    def caps(self) -> Capabilities:
+        if self._caps is None:
+            self._caps = detect(self.http)
+        return self._caps
+
+    def modes(self) -> List[str]:
+        """The modes this cluster supports (ELSER only when its index exists)."""
+        available = ["bm25"]
+        if self.caps.vectors:
+            available += ["dense", "hybrid_rrf"]
+        if self.caps.ml and self.http.exists(f"/{INDICES['elser']}"):
+            available.append("elser")
+        return available
+
+    def embedder(self, index: str) -> Embedder:
+        if index not in self._embedders:
+            self._embedders[index] = for_index(self.http, index)
+        return self._embedders[index]
 
     def search(
         self,
@@ -68,34 +93,23 @@ class PortfolioSearchClient:
         rank_constant: int = 60,
     ) -> SearchResponse:
         """Run a search in one of the supported modes."""
+        if mode not in INDICES:
+            raise ValueError(f"Unsupported search mode: {mode}")
+        index = index or INDICES[mode]
         if mode == "bm25":
-            return self.search_bm25(query, index or "movies", k)
+            return self._run(index, queries.bm25(query, k), mode, query)
         if mode == "dense":
-            return self.search_dense(
-                query, index or "movies-embeddings", k, num_candidates
-            )
+            return self.search_dense(query, index, k, num_candidates)
         if mode == "hybrid_rrf":
             return self.search_hybrid_rrf(
-                query, index or "movies-embeddings", k, num_candidates, rank_constant
+                query, index, k, num_candidates, rank_constant
             )
-        if mode == "elser":
-            return self.search_elser(query, index or "movies-semantic", k)
-        raise ValueError(f"Unsupported search mode: {mode}")
+        return self._run(index, queries.semantic(query, k), mode, query)
 
     def search_bm25(
         self, query: str, index: str = "movies", k: int = 10
     ) -> SearchResponse:
-        body = {
-            "size": k,
-            "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": ["title^4", "overview^3", "description_en^2", "genres"],
-                }
-            },
-            "_source": DEFAULT_SOURCE_FIELDS,
-        }
-        return self._post_search(index, body, "bm25", query)
+        return self.search(query, "bm25", index, k)
 
     def search_dense(
         self,
@@ -104,16 +118,9 @@ class PortfolioSearchClient:
         k: int = 10,
         num_candidates: int = 50,
     ) -> SearchResponse:
-        body = {
-            "knn": {
-                "field": "overview_embedding",
-                "query_vector": deterministic_text_embedding(query),
-                "k": k,
-                "num_candidates": max(num_candidates, k),
-            },
-            "_source": DEFAULT_SOURCE_FIELDS,
-        }
-        return self._post_search(index, body, "dense", query)
+        vector = self.embedder(index).embed(query)
+        body = queries.dense(vector, k, num_candidates, self.caps.distribution)
+        return self._run(index, body, "dense", query)
 
     def search_hybrid_rrf(
         self,
@@ -123,123 +130,97 @@ class PortfolioSearchClient:
         num_candidates: int = 50,
         rank_constant: int = 60,
     ) -> SearchResponse:
-        body = {
-            "size": k,
-            "retriever": {
-                "rrf": {
-                    "rank_constant": rank_constant,
-                    "rank_window_size": max(num_candidates, k),
-                    "retrievers": [
-                        {
-                            "standard": {
-                                "query": {
-                                    "multi_match": {
-                                        "query": query,
-                                        "fields": [
-                                            "title^4",
-                                            "overview^3",
-                                            "description_en^2",
-                                            "genres",
-                                        ],
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "knn": {
-                                "field": "overview_embedding",
-                                "query_vector": deterministic_text_embedding(query),
-                                "k": k,
-                                "num_candidates": max(num_candidates, k),
-                            }
-                        },
-                    ],
-                }
-            },
-            "_source": DEFAULT_SOURCE_FIELDS,
-        }
-        return self._post_search(index, body, "hybrid_rrf", query)
+        vector = self.embedder(index).embed(query)
+        if self.caps.rrf:
+            body = queries.rrf(query, vector, k, num_candidates, rank_constant)
+            response = self._run(index, body, "hybrid_rrf", query)
+            response.fusion = "server"
+            return response
+        return self._client_rrf(query, vector, index, k, num_candidates, rank_constant)
 
     def search_elser(
         self, query: str, index: str = "movies-semantic", k: int = 10
     ) -> SearchResponse:
-        body = {
-            "size": k,
-            "query": {
-                "semantic": {
-                    "field": "overview_semantic",
-                    "query": query,
-                }
-            },
-            "_source": DEFAULT_SOURCE_FIELDS,
-        }
-        return self._post_search(index, body, "elser", query)
+        return self.search(query, "elser", index, k)
+
+    def _client_rrf(
+        self,
+        query: str,
+        vector: List[float],
+        index: str,
+        k: int,
+        num_candidates: int,
+        rank_constant: int,
+    ) -> SearchResponse:
+        window = max(num_candidates, k)
+        start = time.perf_counter()
+        lexical = self.http.post(f"/{index}/_search", queries.bm25(query, window))
+        semantic = self.http.post(
+            f"/{index}/_search",
+            queries.dense(vector, window, window, self.caps.distribution),
+        )
+        rankings, sources = [], {}
+        for payload in (lexical, semantic):
+            hits = payload.get("hits", {}).get("hits", [])
+            rankings.append([hit["_id"] for hit in hits])
+            for hit in hits:
+                sources.setdefault(hit["_id"], hit)
+        fused = queries.rrf_fuse(rankings, rank_constant, k)
+        hits = [{**sources[doc_id], "_score": score} for doc_id, score in fused]
+        return SearchResponse(
+            mode="hybrid_rrf",
+            query=query,
+            hits=to_hits(hits),
+            took_ms=(time.perf_counter() - start) * 1000,
+            engine_took_ms=lexical.get("took", 0) + semantic.get("took", 0),
+            fusion="client",
+        )
 
     def cluster_info(self) -> Dict:
-        response = requests.get(
-            self.base_url,
-            auth=self.auth,
-            verify=self.verify_ssl,
-            timeout=10,
-        )
-        response.raise_for_status()
-        return response.json()
+        return self.http.get("/")
 
     def count(self, index: str) -> int:
-        response = requests.get(
-            f"{self.base_url}/{index}/_count",
-            auth=self.auth,
-            verify=self.verify_ssl,
-            timeout=10,
+        return self.http.get(f"/{index}/_count")["count"]
+
+    def ids_present(self, index: str, ids: List[int]) -> set:
+        """Which of these movie ids the index holds."""
+        found = self.http.post(
+            f"/{index}/_mget",
+            {"ids": [str(i) for i in ids]},
+            params={"_source": "false"},
         )
-        response.raise_for_status()
-        return response.json()["count"]
+        return {int(doc["_id"]) for doc in found.get("docs", []) if doc.get("found")}
 
     def index_size_bytes(self, index: str) -> int:
-        response = requests.get(
-            f"{self.base_url}/{index}/_stats/store",
-            auth=self.auth,
-            verify=self.verify_ssl,
-            timeout=10,
-        )
-        response.raise_for_status()
-        stats = response.json()
+        stats = self.http.get(f"/{index}/_stats/store")
         return int(stats["indices"][index]["total"]["store"]["size_in_bytes"])
 
-    def _post_search(
-        self, index: str, body: Dict, mode: str, query: str
-    ) -> SearchResponse:
+    def _run(self, index: str, body: Dict, mode: str, query: str) -> SearchResponse:
         start = time.perf_counter()
-        response = requests.post(
-            f"{self.base_url}/{index}/_search",
-            json=body,
-            auth=self.auth,
-            verify=self.verify_ssl,
-            timeout=30,
-            headers={"Content-Type": "application/json"},
-        )
-        took_ms = (time.perf_counter() - start) * 1000
-        response.raise_for_status()
-        payload = response.json()
-        hits = []
-        for rank, hit in enumerate(payload.get("hits", {}).get("hits", []), start=1):
-            source = hit.get("_source", {})
-            hits.append(
-                {
-                    "rank": rank,
-                    "id": int(source.get("id", hit.get("_id"))),
-                    "score": hit.get("_score"),
-                    "title": source.get("title") or source.get("title_raw"),
-                    "year": source.get("year"),
-                    "genres": source.get("genres", []),
-                    "overview": source.get("overview", ""),
-                    "description_en": source.get("description_en", ""),
-                }
-            )
+        payload = self.http.post(f"/{index}/_search", body)
         return SearchResponse(
             mode=mode,
             query=query,
-            hits=hits,
-            took_ms=took_ms,
+            hits=to_hits(payload.get("hits", {}).get("hits", [])),
+            took_ms=(time.perf_counter() - start) * 1000,
             engine_took_ms=payload.get("took"),
         )
+
+
+def to_hits(raw_hits: List[Dict]) -> List[Dict]:
+    hits = []
+    for rank, hit in enumerate(raw_hits, start=1):
+        source = hit.get("_source", {})
+        hits.append(
+            {
+                "rank": rank,
+                "id": int(source.get("id", hit.get("_id"))),
+                "score": hit.get("_score"),
+                "title": source.get("title") or source.get("title_raw"),
+                "year": source.get("year"),
+                "genres": source.get("genres", []),
+                "overview": source.get("overview", ""),
+                "description_en": source.get("description_en", ""),
+            }
+        )
+    return hits
