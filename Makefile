@@ -12,6 +12,13 @@ EVAL_MODES ?= bm25,dense
 
 COMPOSE     = docker compose -f docker/$(1)/docker-compose.yml --env-file $(ENV_FILE)
 check_stack = $(if $(filter $(1),$(STACKS)),,$(error Unknown stack '$(1)'. Known: $(STACKS)))
+# Slides are rendered with the Marp CLI Docker image (no local Node.js needed).
+MARP_IMAGE ?= marpteam/marp-cli:v4.5.1
+MARP       ?= docker run --rm --init -v "$(CURDIR)":/home/marp/app -e MARP_USER="$$(id -u):$$(id -g)" \
+	-e LANG=C.UTF-8 $(MARP_IMAGE)
+DECKS      := $(sort $(wildcard course/day*/day*-slides.md course/day*/day*-exercises.md))
+SLIDES_OUT ?= dist/slides
+
 # Runs a command against the already running $(STACK) with its connection details exported.
 ATTACH      = $(PY) -m scripts.with_stack --attach $(STACK) --env-file $(ENV_FILE) --
 # $(1): extra data/load_data.py flags; adds --insecure for the TLS stacks (self-signed CA).
@@ -21,7 +28,7 @@ load_movies = $(ATTACH) sh -c 'tls=; case "$$ELASTICSEARCH_URL" in https:*) tls=
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
 .PHONY: help setup lint fmt test validate validate-all up down load-small load-embeddings evaluate demo \
-	up-single down-single reset-single
+	up-single down-single reset-single slides slides-serve slides-clean
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_%-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
@@ -93,3 +100,18 @@ evaluate: $(VENV)/.installed ## Run the search evaluation against the running ST
 demo: up-$(STACK) load-small load-embeddings evaluate ## Start STACK, load data, evaluate, then open the Streamlit demo
 	$(PY) -m pip install -q -r requirements-demo.txt
 	$(ATTACH) $(PY) -m streamlit run apps/search_demo/Home.py
+
+slides: ## Render every slide and exercise deck to PDF in dist/slides (needs Docker)
+	@mkdir -p $(SLIDES_OUT)
+	@for deck in $(DECKS); do \
+		name=$$(basename "$$deck" .md); \
+		echo "$$deck -> $(SLIDES_OUT)/$$name.pdf"; \
+		$(MARP) --config-file .marprc.yml --pdf "$$deck" -o "$(SLIDES_OUT)/$$name.pdf" >/dev/null || exit 1; \
+	done
+
+slides-serve: ## Live preview of the decks on http://localhost:8080 (needs Docker)
+	docker run --rm --init -it -v "$(CURDIR)":/home/marp/app -e MARP_USER="$$(id -u):$$(id -g)" \
+		-p 8080:8080 -p 37717:37717 $(MARP_IMAGE) --config-file .marprc.yml --server course
+
+slides-clean: ## Remove rendered slides
+	rm -rf $(SLIDES_OUT)
