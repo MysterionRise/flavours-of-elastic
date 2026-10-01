@@ -45,6 +45,7 @@ Run `make` for the full list. `STACK` defaults to `elk-single`; `ENV_FILE` defau
 
 ```bash
 make setup                  # .venv with dependencies + git hooks (PEP 668-safe)
+uv sync --locked            # alternative: the locked environment from uv.lock (+ foe-* commands)
 make test                   # unit tests, compose policy, doc version check (no containers)
 make lint                   # every pre-commit hook, same as CI
 

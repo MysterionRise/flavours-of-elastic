@@ -1,3 +1,38 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flavours-of-elastic"
+version = "1.0.0"
+description = "Docker stacks, a 4-day course and a search playground for Elasticsearch and OpenSearch"
+readme = "README.md"
+license = "MIT"  # the code; the movie data has its own terms (data/LICENSE-DATA.md)
+requires-python = ">=3.11"
+# Keep in sync with requirements.txt (the course's plain-pip path); tests/test_packaging.py checks it.
+dependencies = [
+    "requests>=2.31.0",
+    "PyYAML>=6.0.1",
+]
+
+[project.optional-dependencies]
+demo = ["streamlit>=1.36.0"]  # apps/search_demo (requirements-demo.txt)
+maintainer = ["aiohttp>=3.9.0"]  # data/generate_descriptions.py
+
+[project.scripts]
+foe-load = "search.loader:main"
+foe-evaluate = "search.evaluate:main"
+foe-rag = "search.rag.cli:main"
+foe-validate = "validate:main"
+
+[dependency-groups]
+dev = ["pre-commit==4.6.2"]  # requirements-dev.txt
+
+[tool.setuptools]
+# Run from a clone (`uv sync` installs it editable): the loaders read data/ next to the code.
+packages = ["search", "search.rag", "scripts"]
+py-modules = ["validate"]
+
 [tool.ruff]
 # Formatter width matches what black produced (black's default of 88);
 # the lint limit below keeps flake8's previous 120-column ceiling.
