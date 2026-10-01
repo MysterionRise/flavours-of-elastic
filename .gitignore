@@ -1,8 +1,9 @@
 # OS
 .DS_Store
 
-# Local environment
-.env
+# Local environment (only the committed template is tracked)
+.env*
+!.env.example
 
 # IDE
 .idea/
@@ -14,6 +15,9 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
 
 # Coverage (if added later)
 .coverage
@@ -22,3 +26,7 @@ coverage.xml
 
 # Generated ML artifacts
 data/movies_enriched_with_embeddings.json
+
+# Logs
+logs/
+*.log

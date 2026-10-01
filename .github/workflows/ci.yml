@@ -37,6 +37,39 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests
 
+  secrets:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan new commits with gitleaks
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          # Scan only the commits this push / PR introduces; manual runs scan
+          # the full history (historical findings live in .gitleaksignore).
+          zero="0000000000000000000000000000000000000000"
+          log_opts=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            log_opts="${PR_BASE}..${GITHUB_SHA}"
+          elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "$zero" ]; then
+            log_opts="${PUSH_BEFORE}..${GITHUB_SHA}"
+          fi
+          set -- git --redact --no-banner --verbose
+          if [ -n "$log_opts" ]; then
+            set -- "$@" --log-opts="$log_opts"
+          fi
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 "$@" .
+
   validate-yaml:
     name: Validate YAML Files
     runs-on: ubuntu-latest

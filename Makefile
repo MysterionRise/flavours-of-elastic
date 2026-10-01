@@ -2,7 +2,7 @@ PYTHON ?= python3
 ELK_SINGLE_COMPOSE := docker/elk-single/docker-compose.yml
 ENV_FILE := .env
 
-.PHONY: setup validate-config validate-python test up-single load-small load-embeddings evaluate demo down-single
+.PHONY: setup validate-config validate-python test up-single load-small load-embeddings evaluate demo down-single reset-single
 
 setup:
 	$(PYTHON) -m pip install -r requirements-demo.txt
@@ -37,5 +37,10 @@ evaluate:
 demo: up-single load-small load-embeddings
 	streamlit run apps/search_demo/Home.py
 
+# Stops the stack but keeps its data volumes.
 down-single:
-	docker compose -f $(ELK_SINGLE_COMPOSE) down -v
+	docker compose -f $(ELK_SINGLE_COMPOSE) --env-file $(ENV_FILE) down
+
+# Stops the stack and DELETES its data volumes.
+reset-single:
+	docker compose -f $(ELK_SINGLE_COMPOSE) --env-file $(ENV_FILE) down -v
