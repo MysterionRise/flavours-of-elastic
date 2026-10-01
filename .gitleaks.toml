@@ -17,6 +17,7 @@ regexes = [
   '''local-dev-kibana-encryption-key-32''',
   '''^elastic:elastic$''',
   '''^admin:admin$''',
-  '''^(elastic|admin):(YOUR_PASSWORD_FROM_ENV|\$?\{?ELASTIC_PASSWORD\}?|\$?\{?OPENSEARCH_INITIAL_ADMIN_PASSWORD\}?)$''',
+  # `curl -u "user:$${VAR}"` in compose files: a variable reference expanded at runtime, not a secret.
+  '''^["']?(elastic|admin):(YOUR_PASSWORD_FROM_ENV|\$*\{?(ELASTIC_PASSWORD|OPENSEARCH_INITIAL_ADMIN_PASSWORD)\}?)["']?$''',
   '''^verify_ssl=not$''',
 ]

@@ -1,48 +1,56 @@
 ---
-version: "3.8"
-
+# Elastic Single: one Elasticsearch node + Kibana over plain HTTP (Days 1-3).
+# Start: docker compose -f docker/elk-single/docker-compose.yml --env-file .env up -d --wait
 services:
   setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
-    container_name: elasticsearch-single-setup
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     user: "0"
-    command: >
-      bash -c '
-        if [ x${ELASTIC_PASSWORD} == x ]; then
-          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
-          exit 1;
-        elif [ x${KIBANA_PASSWORD} == x ]; then
-          echo "Set the KIBANA_PASSWORD environment variable in the .env file";
-          exit 1;
-        fi;
-        echo "Waiting for Elasticsearch availability";
-        until curl -s http://elasticsearch:9200 |
-          grep -q "missing authentication credentials"; do
-          sleep 5;
-        done;
-        echo "Setting kibana_system password";
-        until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" \
-          -H "Content-Type: application/json" \
-          http://elasticsearch:9200/_security/user/kibana_system/_password \
-          -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
-          sleep 5;
-        done;
-        echo "All done!";
-      '
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is not set - pass --env-file .env}
+      KIBANA_PASSWORD: ${KIBANA_PASSWORD:?KIBANA_PASSWORD is not set - pass --env-file .env}
+      SETUP_TIMEOUT: ${SETUP_TIMEOUT:-300}
+    entrypoint: ["bash", "-euo", "pipefail", "-c"]
+    command:
+      - |
+        deadline=$$((SECONDS + SETUP_TIMEOUT))
+        es() { curl -s -o /dev/null -w '%{http_code}' -u "elastic:$${ELASTIC_PASSWORD}" "$$@" || true; }
+        give_up() {
+          echo "ERROR: $$1 (last HTTP status: $$2)" >&2
+          if [ "$$2" = 401 ]; then
+            echo "ELASTIC_PASSWORD is rejected. If the elastic password was changed inside the cluster," >&2
+            echo "put it in .env, or reset the data (deletes it):" >&2
+            echo "  docker compose -f docker/elk-single/docker-compose.yml --env-file .env down -v" >&2
+          fi
+          exit 1
+        }
+        health='http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=5s'
+        echo "Waiting for Elasticsearch"
+        until code=$$(es "$$health") && [ "$$code" = 200 ]; do
+          [ "$$SECONDS" -lt "$$deadline" ] || give_up "Elasticsearch not ready after $${SETUP_TIMEOUT}s" "$$code"
+          sleep 5
+        done
+        echo "Setting kibana_system password"
+        until code=$$(es -X POST -H 'Content-Type: application/json' \
+            http://elasticsearch:9200/_security/user/kibana_system/_password \
+            -d "{\"password\":\"$${KIBANA_PASSWORD}\"}") && [ "$$code" = 200 ]; do
+          [ "$$SECONDS" -lt "$$deadline" ] || give_up "could not set the kibana_system password" "$$code"
+          sleep 5
+        done
+        echo "All done!"
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
-    container_name: elasticsearch-single
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     environment:
       - node.name=elasticsearch
-      - cluster.name=${CLUSTER_NAME}
+      - cluster.name=${CLUSTER_NAME:-elastic-cluster}
       - discovery.type=single-node
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is not set - pass --env-file .env}
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=false
-      - xpack.license.self_generated.type=${LICENSE}
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.license.self_generated.type=${LICENSE:-basic}
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP:-1g} -Xmx${ES_HEAP:-1g}"
+    mem_limit: ${ES_MEM_LIMIT:-2g}
     ulimits:
       memlock:
         soft: -1
@@ -50,36 +58,42 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
     ports:
-      - 9200:9200
+      - "${BIND_ADDRESS:-127.0.0.1}:${ES_PORT:-9200}:9200"
     healthcheck:
-      test: ["CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD}",
-             "http://localhost:9200/_cluster/health"]
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fs -u "elastic:$${ELASTIC_PASSWORD}"
+          'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 60
       start_period: 30s
 
   kibana:
     depends_on:
       setup:
         condition: service_completed_successfully
-    image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
-    container_name: kibana-single
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION:?ELK_VERSION is not set - pass --env-file .env}
     volumes:
       - kibanadata:/usr/share/kibana/data
     ports:
-      - 5601:5601
+      - "${BIND_ADDRESS:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
     environment:
       - SERVERNAME=kibana
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:?KIBANA_PASSWORD is not set - pass --env-file .env}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY:?set KIBANA_ENCRYPTION_KEY (see .env.example)}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${KIBANA_ENCRYPTION_KEY}
+    mem_limit: ${KIBANA_MEM_LIMIT:-2g}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status >/dev/null"]
       interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      timeout: 10s
+      retries: 60
+      start_period: 60s
 
 volumes:
   esdata:

@@ -1,7 +1,10 @@
-version: '3.8'
+---
+# Elasticsearch OSS 7.10.2 (FROZEN legacy stack): two nodes over HTTP, no authentication.
+# Unsupported upstream - published on localhost only.
+# Start: docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up -d --wait
 services:
   elk-oss-node1:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION:?pass --env-file .env}
     environment:
       - node.name=elk-oss-node1
       - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
@@ -9,7 +12,9 @@ services:
       - cluster.name=elk-oss-cluster
       # disables swapping
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # formatMsgNoLookups mitigates Log4Shell (CVE-2021-44228) in the bundled log4j 2.11.
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP:-512m} -Xmx${ES_HEAP:-512m} -Dlog4j2.formatMsgNoLookups=true"
+    mem_limit: ${ES_MEM_LIMIT:-1g}
     ulimits:
       memlock:
         soft: -1
@@ -17,49 +22,63 @@ services:
     volumes:
       - elk-oss-data1:/usr/share/elasticsearch/data
     ports:
-      - "9200:9200"
+      - "${BIND_ADDRESS:-127.0.0.1}:${ES_PORT:-9200}:9200"
     networks:
       - elk-oss-net
     healthcheck:
-      start_period: 15s
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      test:
+        - CMD-SHELL
+        - curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
-      timeout: 2s
-      retries: 5
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+
   elk-oss-node2:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:${ELK_OSS_VERSION:?pass --env-file .env}
     environment:
       - node.name=elk-oss-node2
       - cluster.initial_master_nodes=elk-oss-node1,elk-oss-node2
       - discovery.seed_hosts=elk-oss-node1:9300
       - cluster.name=elk-oss-cluster
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP:-512m} -Xmx${ES_HEAP:-512m} -Dlog4j2.formatMsgNoLookups=true"
+    mem_limit: ${ES_MEM_LIMIT:-1g}
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
       - elk-oss-data2:/usr/share/elasticsearch/data
-    ports:
-      - "9201:9200"
     networks:
       - elk-oss-net
     healthcheck:
-      start_period: 15s
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      test:
+        - CMD-SHELL
+        - curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
-      timeout: 2s
-      retries: 5
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+
   kibana:
-    image: docker.elastic.co/kibana/kibana-oss:${ELK_OSS_VERSION}
-    container_name: elk-oss-kibana
+    depends_on:
+      elk-oss-node1:
+        condition: service_healthy
+    image: docker.elastic.co/kibana/kibana-oss:${ELK_OSS_VERSION:?pass --env-file .env}
     ports:
-      - "5601:5601"
+      - "${BIND_ADDRESS:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elk-oss-node1:9200
     networks:
       - elk-oss-net
+    mem_limit: ${KIBANA_MEM_LIMIT:-1536m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 60s
 
 volumes:
   elk-oss-data1:

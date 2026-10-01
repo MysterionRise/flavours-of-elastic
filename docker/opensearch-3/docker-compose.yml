@@ -1,52 +1,56 @@
 ---
-version: "3.8"
-
+# OpenSearch 3.x: two nodes (security plugin with demo TLS certificates) + Dashboards.
+# Start: docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env up -d --wait
 services:
   opensearch3-node1:
-    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION}
-    container_name: opensearch3-node1
+    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION:?pass --env-file .env}
     environment:
       - cluster.name=opensearch3-cluster
       - node.name=opensearch3-node1
       - discovery.seed_hosts=opensearch3-node1,opensearch3-node2
-      - cluster.initial_master_nodes=opensearch3-node1,opensearch3-node2
+      - cluster.initial_cluster_manager_nodes=opensearch3-node1,opensearch3-node2
+      # disables swapping
       - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - "OPENSEARCH_JAVA_OPTS=-Xms${ES_HEAP:-1g} -Xmx${ES_HEAP:-1g}"
+      # using .env to provide admin password
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?set it in .env (see .env.example)}
+    mem_limit: ${ES_MEM_LIMIT:-2g}
     ulimits:
       memlock:
         soft: -1
         hard: -1
       nofile:
+        # max open files for OpenSearch user, at least 65536
         soft: 65536
         hard: 65536
     volumes:
       - opensearch3-data1:/usr/share/opensearch/data
     ports:
-      - 9200:9200
-      - 9600:9600
+      - "${BIND_ADDRESS:-127.0.0.1}:${ES_PORT:-9200}:9200"
     networks:
       - opensearch3-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "-k",
-             "-u", "admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD}",
-             "https://localhost:9200/_cluster/health"]
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsk -u "admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD}"
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 60
       start_period: 30s
 
   opensearch3-node2:
-    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION}
-    container_name: opensearch3-node2
+    image: opensearchproject/opensearch:${OPENSEARCH3_VERSION:?pass --env-file .env}
     environment:
       - cluster.name=opensearch3-cluster
       - node.name=opensearch3-node2
       - discovery.seed_hosts=opensearch3-node1,opensearch3-node2
-      - cluster.initial_master_nodes=opensearch3-node1,opensearch3-node2
+      - cluster.initial_cluster_manager_nodes=opensearch3-node1,opensearch3-node2
       - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - "OPENSEARCH_JAVA_OPTS=-Xms${ES_HEAP:-1g} -Xmx${ES_HEAP:-1g}"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?set it in .env (see .env.example)}
+    mem_limit: ${ES_MEM_LIMIT:-2g}
     ulimits:
       memlock:
         soft: -1
@@ -59,33 +63,41 @@ services:
     networks:
       - opensearch3-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "-k",
-             "-u", "admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD}",
-             "https://localhost:9200/_cluster/health"]
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsk -u "admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD}"
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
       interval: 10s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 60
       start_period: 30s
 
   opensearch3-dashboards:
-    image: opensearchproject/opensearch-dashboards:${OPENSEARCH3_VERSION}
-    container_name: opensearch3-dashboards
+    depends_on:
+      opensearch3-node1:
+        condition: service_healthy
+      opensearch3-node2:
+        condition: service_healthy
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH3_VERSION:?pass --env-file .env}
     ports:
-      - 5601:5601
-    expose:
-      - "5601"
+      - "${BIND_ADDRESS:-127.0.0.1}:${KIBANA_PORT:-5601}:5601"
     environment:
       OPENSEARCH_HOSTS: >-
         ["https://opensearch3-node1:9200",
         "https://opensearch3-node2:9200"]
     networks:
       - opensearch3-net
+    mem_limit: ${KIBANA_MEM_LIMIT:-2g}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5601"]
+      # The security plugin answers 401 to anonymous requests once Dashboards is up.
+      test:
+        - CMD-SHELL
+        - curl -s -o /dev/null -w '%{http_code}' http://localhost:5601/api/status | grep -qE '^(200|401)$$'
       interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      timeout: 10s
+      retries: 60
+      start_period: 60s
 
 volumes:
   opensearch3-data1:
