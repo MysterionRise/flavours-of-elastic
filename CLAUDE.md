@@ -236,15 +236,14 @@ movies source → generate_descriptions.py → movies_enriched.csv
 ### Building Course Slides
 
 ```bash
-# Install Marp CLI
-npm install -g @marp-team/marp-cli
-
-# Build a single day's slides to PDF
-marp course/day1-fundamentals/day1-slides.md --theme course/theme/epam.css --allow-local-files -o /tmp/day1.pdf
-
-# Live preview
-marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides.md
+make slides          # render all 8 decks to dist/slides/*.pdf (Marp CLI Docker image, pinned)
+make slides-serve    # live preview on http://localhost:8080
 ```
+
+`.marprc.yml` registers `course/theme/epam.css` (decks use `theme: epam`). PDFs are not committed: the
+"Course slides" workflow renders them on every PR (artifact) and attaches them to a GitHub Release for
+`course-v*` tags. Theme notes: `section { color-scheme: dark }` keeps syntax colours readable; callouts are
+blockquotes starting with bold code (`> **`9.x`** ...`); hint slides use `<!-- _class: hint -->`.
 
 ## System Requirements
 

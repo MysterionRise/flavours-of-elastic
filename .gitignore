@@ -30,3 +30,9 @@ data/movies_enriched_with_embeddings.json
 # Logs
 logs/
 *.log
+
+# Rendered slides (built by `make slides` / CI and published as release assets)
+dist/
+course/**/*.pdf
+course/**/*.pptx
+course/**/*.html

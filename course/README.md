@@ -11,47 +11,37 @@
 | 3 | Indexing, Text Analysis & Aggregations | 3h | `elk-single` or `elastic` |
 | 4 | Vector Search, Semantic Search & Hybrid Search | 3h | `elk-ml` |
 
+## Downloading the PDFs
+
+Rendered slides and exercises are attached to every
+[course release](https://github.com/MysterionRise/flavours-of-elastic/releases/latest) (they are no longer committed):
+
+| Day | Slides | Exercises |
+|-----|--------|-----------|
+| 1 | [day1-slides.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day1-slides.pdf) | [day1-exercises.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day1-exercises.pdf) |
+| 2 | [day2-slides.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day2-slides.pdf) | [day2-exercises.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day2-exercises.pdf) |
+| 3 | [day3-slides.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day3-slides.pdf) | [day3-exercises.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day3-exercises.pdf) |
+| 4 | [day4-slides.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day4-slides.pdf) | [day4-exercises.pdf](https://github.com/MysterionRise/flavours-of-elastic/releases/latest/download/day4-exercises.pdf) |
+
+Every pull request that touches `course/` also renders them as a downloadable workflow artifact (`course-slides`).
+
 ## Building Slides
 
-### Install Marp CLI
+The decks are [Marp](https://marp.app/) Markdown. Rendering uses the pinned Marp CLI Docker image, so no
+Node.js install is needed:
 
 ```bash
-npm install -g @marp-team/marp-cli
+make slides          # all 8 decks -> dist/slides/*.pdf
+make slides-serve    # live preview with reload on http://localhost:8080
+make slides-clean
 ```
 
-### Generate PDF
+Without make: `docker run --rm --init -v "$PWD":/home/marp/app marpteam/marp-cli:v4.5.1 --config-file .marprc.yml
+--pdf course/day1-fundamentals/day1-slides.md -o dist/slides/day1-slides.pdf`. With a local Node.js LTS,
+`npx @marp-team/marp-cli@4.5.1 --config-file .marprc.yml ...` works too. `.marprc.yml` registers the theme
+(`course/theme/epam.css`), so no `--theme` flag is needed.
 
-```bash
-# Single day
-marp course/day1-fundamentals/day1-slides.md \
-  --theme course/theme/epam.css \
-  --allow-local-files \
-  -o course/day1-fundamentals/day1-slides.pdf
-
-# All days
-for day in day1-fundamentals day2-query-dsl day3-indexing-analysis day4-semantic-search; do
-  marp "course/${day}/${day%%-*}-slides.md" \
-    --theme course/theme/epam.css \
-    --allow-local-files \
-    -o "course/${day}/${day%%-*}-slides.pdf"
-done
-```
-
-### Generate PPTX
-
-```bash
-marp course/day1-fundamentals/day1-slides.md \
-  --theme course/theme/epam.css \
-  --allow-local-files \
-  --pptx \
-  -o course/day1-fundamentals/day1-slides.pptx
-```
-
-### Live Preview (for editing)
-
-```bash
-marp --server --theme course/theme/epam.css course/day1-fundamentals/day1-slides.md
-```
+Publishing: push a tag `course-vX.Y.Z`; the "Course slides" workflow attaches the PDFs to that release.
 
 ## File Structure
 
@@ -76,9 +66,10 @@ course/
 
 ## Prerequisites for Students
 
-- Docker 20.10+ and Docker Compose 1.29+
+- Docker 20.10+ with the Compose v2 plugin (`docker compose`)
 - 4GB RAM minimum (8GB+ for Day 4)
-- Clone this repository: `git clone <repo-url>`
+- Clone this repository: `git clone https://github.com/MysterionRise/flavours-of-elastic.git`
+- Create your env file: `cp .env.example .env`
 - Verify: `docker compose version`
 
 ## Instructor Notes

@@ -1,5 +1,6 @@
-theme: epam
-style: |
-  section {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  }
+# Marp CLI configuration, used by `make slides` and .github/workflows/slides.yml.
+# The decks declare `theme: epam` in their front matter; themeSet makes it resolvable.
+themeSet:
+  - ./course/theme/epam.css
+html: false
+pdfOutlines: true

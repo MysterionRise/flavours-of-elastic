@@ -127,7 +127,7 @@ The course materials remain in `course/` and are secondary evidence for teaching
 | 3 | Indexing, text analysis, aggregations, nested/join | 3h | `elk-single` or `elastic` |
 | 4 | Vector search, ELSER, `semantic_text`, hybrid RRF | 3h | `elk-ml` |
 
-See [course/README.md](course/README.md) for Marp build commands.
+Slide and exercise PDFs: download them from the [latest release](https://github.com/MysterionRise/flavours-of-elastic/releases/latest) or build them with `make slides`. See [course/README.md](course/README.md).
 
 ## Running Individual Stacks
 

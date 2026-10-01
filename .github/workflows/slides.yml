@@ -1,0 +1,78 @@
+---
+name: Course slides
+
+# Renders every deck to PDF on each change (downloadable workflow artifact) and,
+# for a `course-v*` tag, attaches the PDFs to a GitHub Release. PDFs are not
+# committed to the repository.
+on:
+  pull_request:
+    paths:
+      - 'course/**'
+      - '.marprc.yml'
+      - 'Makefile'
+      - '.github/workflows/slides.yml'
+  push:
+    branches: [main, master]
+    tags: ['course-v*']  # no paths filter: it would also gate tag pushes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slides-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render PDFs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Render all decks
+        run: make slides
+
+      - name: Check every deck was rendered
+        run: |
+          expected=$(find course -name 'day*-slides.md' -o -name 'day*-exercises.md' | wc -l)
+          rendered=$(find dist/slides -name '*.pdf' | wc -l)
+          echo "rendered $rendered of $expected decks"
+          test "$rendered" -eq "$expected"
+
+      - name: Upload PDFs
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: course-slides
+          path: dist/slides/*.pdf
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish release assets
+    needs: render
+    if: startsWith(github.ref, 'refs/tags/course-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: course-slides
+          path: dist/slides
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/slides/*.pdf --clobber
+          else
+            gh release create "$TAG" dist/slides/*.pdf --verify-tag --generate-notes \
+              --title "Course materials ${TAG#course-}"
+          fi
