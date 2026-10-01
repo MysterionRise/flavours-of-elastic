@@ -142,9 +142,7 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `docker/elk-oss/` - Elasticsearch OSS 2-node cluster, legacy
 - `data/` - Sample datasets, data loader, and enrichment pipeline scripts
 - `data/load_data.py` - Entry point of the data loader (`search/loader.py`) used by the course
-- `data/generate_descriptions.py` - Generate multilingual descriptions via OpenRouter LLM API
-- `data/generate_embeddings.py` - Generate 768-dim embeddings via EmbeddingGemma-300M
-- `data/index.py` - Index enriched movies with embeddings into Elasticsearch
+- `data/generate_descriptions.py` - Regenerate the multilingual descriptions via OpenRouter (maintainers; writes `data/build/`)
 - `data/movies_enriched.csv` - 5100 movies with multilingual abstracts/descriptions and MovieLens ratings
   (`vote_average` 1-10, `vote_count`); `--size small` loads the curated 200-movie sample
 - `data/add_ratings.py` - maintainer tool that computes the rating columns from MovieLens ml-32m
@@ -160,11 +158,8 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
 - `course/day2-query-dsl/` - Day 2 slides (~54) and exercises (13 tasks)
 - `course/day3-indexing-analysis/` - Day 3 slides (~59) and exercises (19 tasks across 4 parts)
 - `course/day4-semantic-search/` - Day 4 slides (~52) and exercises (18 tasks across 4 parts)
-- `data/embedding_service.py` - Embedding generation service for vector search
-- `data/load_hybrid_index.py` - Load hybrid (BM25 + vector) index
-- `data/rag_stage1_bm25.py` - RAG demo: BM25 retrieval stage
-- `data/rag_stage2_knn.py` - RAG demo: kNN retrieval stage
-- `data/rag_stage3_hybrid.py` - RAG demo: hybrid retrieval (BM25 + kNN)
+- `search/rag/` - RAG demo: `python -m search.rag --stage bm25|knn|hybrid|elser|hybrid_all [--retrieve-only]`;
+  OpenRouter LLM (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`), answers cite movie ids and are checked against the hits
 - `validate.py` - Stack validation script with OOP design
 - `.marprc.yml` - Marp CLI configuration (theme and font settings)
 - `.env.example` - Environment variable template with documentation
@@ -232,17 +227,15 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every
 
 ### Data Pipeline
 
-The `data/` directory contains a pipeline for generating enriched movie data:
-
 ```
-movies source → generate_descriptions.py → movies_enriched.csv
-             → generate_embeddings.py → movies_enriched_with_embeddings.json
-             → index.py → Elasticsearch (movies_enriched index, 768-dim vectors)
+MovieLens ml-32m ─┬─ generate_descriptions.py (LLM, maintainers) ─► abstract_*/description_* (en/kk/fr)
+                  └─ add_ratings.py ─────────────────────────────► vote_average, vote_count
+                                    movies_enriched.csv (committed, 5,100 movies)
+                                    build_sample.py ─► movies_small_ids.txt (200)
+                                    data/load_data.py ─► movies / movies-embeddings (hash or in-cluster E5, ELSER)
 ```
 
-- `generate_descriptions.py` uses OpenRouter LLM API (Gemini 2.0 Flash) for multilingual text (en/kk/fr)
-- `generate_embeddings.py` uses EmbeddingGemma-300M for 768-dim embeddings
-- Enriched CSV fields: movieId, title, genres, abstract_en/kk/fr, description_en/kk/fr
+- Enriched CSV fields: movieId, title, genres, abstract_en/kk/fr, description_en/kk/fr, vote_average, vote_count
 
 ## Course Structure (4 Days)
 

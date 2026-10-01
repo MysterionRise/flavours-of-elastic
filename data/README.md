@@ -14,7 +14,6 @@ This directory contains the checked-in movie data and scripts used by the course
 alternate titles in `title_aka`, the MovieLens original in `title_raw`.
 - `movies_small_ids.txt`: the curated `--size small` sample (200 movieIds), built by `build_sample.py` from `sample.yml`.
 - `build_sample.py` / `sample.yml`: deterministic sample selection; `python data/build_sample.py report` prints counts.
-- `movies_enriched_with_embeddings.json`: optional generated artifact, ignored by git.
 
 ## Load Data
 
@@ -81,17 +80,20 @@ hours on such a machine; the course uses the small sample. On 9.x the vectors ar
 
 ## Embedding Modes
 
-The `--embeddings hash` loader path uses deterministic local embeddings. This keeps vector and hybrid search reproducible without downloading ML models.
+- `--embeddings hash`: deterministic local 384-dim vectors (`search/embeddings.py`). Reproducible and offline on
+  any stack with vectors, but lexical: no synonyms and no cross-language matching.
+- `--embeddings e5`: the cluster embeds the movies with multilingual E5 (see above). Needs an ML stack.
 
-For model-backed embeddings:
+The search client embeds queries with the backend recorded in the index `_meta`, so queries always match how the
+documents were embedded.
 
-```bash
-pip install -r requirements-ml.txt
-python data/generate_embeddings.py --limit 100
-python data/index.py --input data/movies_enriched_with_embeddings.json
-```
+## Regenerating the descriptions (maintainers)
 
-The default model is `sentence-transformers/all-MiniLM-L6-v2`, which produces 384-dimensional embeddings that match the default mapping.
+`generate_descriptions.py` regenerates the multilingual `abstract_*` / `description_*` columns with an LLM via
+OpenRouter (`OPENROUTER_API_KEY`, model `OPENROUTER_MODEL`). It writes `data/build/movies_enriched.csv`
+(ignored by git), resumes interrupted runs, retries failed rows, and keeps the other columns of an existing
+output, such as the ratings. Review the result before replacing `movies_enriched.csv`, then rerun
+`add_ratings.py --check`.
 
 ## Evaluation
 

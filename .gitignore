@@ -25,6 +25,8 @@ htmlcov/
 coverage.xml
 
 # Generated ML artifacts
+data/build/
+# Output of the removed sentence-transformers pipeline; may still exist in old clones.
 data/movies_enriched_with_embeddings.json
 
 # Logs

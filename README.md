@@ -102,19 +102,21 @@ The checked-in source of truth is `data/movies_enriched.csv` (5,100 movies; `--s
 - `searchable_text`
 - optional `overview_embedding`
 
-The `--embeddings hash` path uses deterministic 384-dimensional local embeddings so vector and hybrid search work without downloading models. For model-backed embeddings:
+The `--embeddings hash` path uses deterministic 384-dimensional local embeddings so vector and hybrid search
+work offline on any stack. On the ML stacks (`elk-ml`, `elk-ml-9`), `--embeddings e5 --with-elser` embeds the
+movies inside Elasticsearch with the multilingual E5 model and adds an ELSER `semantic_text` field
+(see `data/README.md`).
+
+### Retrieval-augmented generation
+
+`python -m search.rag` answers questions about the movies with an LLM (via OpenRouter), grounded in what the
+search modes retrieve. Answers cite movie ids (`[318]`) and are checked against the retrieved set:
 
 ```bash
-pip install -r requirements-ml.txt
-python data/generate_embeddings.py --limit 100
-python data/index.py --input data/movies_enriched_with_embeddings.json
+python -m search.rag --stage hybrid --retrieve-only --question "films about escaping from prison"
+export OPENROUTER_API_KEY=...        # your own key; never commit it
+python -m search.rag --stage hybrid  # interactive (stages: bm25, knn, hybrid, elser, hybrid_all)
 ```
-
-Additional RAG retrieval examples live in `data/rag_stage1_bm25.py`,
-`data/rag_stage2_knn.py`, `data/rag_stage3_hybrid.py`, and
-`data/load_hybrid_index.py` for staged BM25, kNN, and hybrid workflows.
-They call an LLM through OpenRouter and need your own key in the environment
-(`export OPENROUTER_API_KEY=...`); never commit keys to the repository.
 
 ## Course Structure
 
