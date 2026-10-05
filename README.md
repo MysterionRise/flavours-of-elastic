@@ -4,9 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-Flavours of Elastic is a local AI/search portfolio project and a 4-day Elasticsearch course lab. It demonstrates reproducible search infrastructure, dense vector search, hybrid RRF retrieval, evaluation metrics, Docker operations, and production tradeoff thinking.
+Docker Compose stacks for Elasticsearch and OpenSearch, a checked-in movie dataset, and an evaluator
+that compares BM25, dense and hybrid (RRF) retrieval on 40 labelled queries. It doubles as the lab for
+a 4-day Elasticsearch course.
 
-## 10-Minute Reviewer Path
+## Quick start
 
 ```bash
 cp .env.example .env
@@ -19,7 +21,7 @@ lexical and embedding indices, runs the evaluation and opens a Streamlit UI for 
 
 - BM25 lexical search
 - dense vector kNN search
-- hybrid RRF search — on a trial licence (the ML stacks) Elasticsearch's `rrf` retriever fuses the
+- hybrid RRF search: on a trial licence (the ML stacks) Elasticsearch's `rrf` retriever fuses the
   rankings; on a basic licence and on OpenSearch the client fuses them itself, with the same formula
 
 For semantic search with in-cluster models (multilingual E5 vectors and ELSER), use an ML stack:
@@ -39,15 +41,16 @@ queries in `evaluation/movie_queries.yml` (English paraphrases, French and Kazak
 evaluation/floors.yml` turns the per-mode floors into a gate. Results per stack are in
 [`docs/benchmark-report.md`](docs/benchmark-report.md).
 
-## What This Proves
+## What's in it
 
-- Search architecture: BM25, dense retrieval (offline hash vectors or in-cluster E5), ELSER, and hybrid RRF,
-  licence-aware (server-side retriever or client-side fusion), plus RAG with cited answers.
-- AI evaluation discipline: labeled queries, relevance and latency metrics, and quality floors in CI.
-- Reproducibility: checked-in CSV data, Docker Compose stacks for Elasticsearch 8.19/9.5 and OpenSearch 2/3, a
-  stack registry, Make targets, and a course whose every snippet runs in CI on both Elasticsearch tracks.
-- Operations thinking: env hygiene, validation scripts, CI, benchmark notes, and production-readiness docs.
-- Communication: complete course slides and exercises for a 4-day Elasticsearch curriculum.
+- Retrieval: BM25, dense (offline hash vectors or in-cluster E5), ELSER and hybrid RRF. RRF uses the
+  server-side retriever where the licence allows and client-side fusion elsewhere. Plus RAG with cited answers.
+- Evaluation: labelled queries, relevance and latency metrics, and per-mode quality floors enforced in CI.
+- Stacks: checked-in CSV data, Docker Compose for Elasticsearch 8.19/9.5 and OpenSearch 2/3, a stack registry
+  and Make targets.
+- Course: slides and exercises for a 4-day Elasticsearch course; every snippet runs in CI on both
+  Elasticsearch tracks.
+- Operations: validation scripts, benchmark notes and production-readiness notes.
 
 ## Core Commands
 
@@ -93,7 +96,7 @@ streamlit run apps/search_demo/Home.py
 
 | Stack | Version | Use Case |
 |-------|---------|----------|
-| Elastic Single | 8.19.x | Default reviewer path, HTTP, auth, low memory |
+| Elastic Single | 8.19.x | Default quick-start stack, HTTP, auth, low memory |
 | Elastic Stack | 8.19.x | Production-like 2-node cluster with TLS |
 | Elastic ML | 8.19.x | ELSER, `semantic_text`, ML exercises |
 | Elastic 9 | 9.5.x | 9.x track of Elastic Single |
@@ -134,7 +137,7 @@ python -m search.rag --stage hybrid  # interactive (stages: bm25, knn, hybrid, e
 
 ## Course Structure
 
-The course materials remain in `course/` and are secondary evidence for teaching and communication.
+The course materials live in `course/`.
 
 | Day | Topic | Duration | Stack |
 |-----|-------|----------|-------|
@@ -148,14 +151,8 @@ Slide and exercise PDFs: download them from the [latest release](https://github.
 ## Running Individual Stacks
 
 ```bash
-docker compose -f docker/elk-single/docker-compose.yml --env-file .env up
-docker compose -f docker/elk/docker-compose.yml --env-file .env up
-docker compose -f docker/elk-ml/docker-compose.yml --env-file .env up
-docker compose -f docker/elk-9/docker-compose.yml --env-file .env up
-docker compose -f docker/elk-ml-9/docker-compose.yml --env-file .env up
-docker compose -f docker/opensearch/docker-compose.yml --env-file .env up
-docker compose -f docker/opensearch-3/docker-compose.yml --env-file .env up
-docker compose -f docker/elk-oss/docker-compose.yml --env-file .env up
+# <stack>: elk-single, elk, elk-ml, elk-9, elk-ml-9, opensearch, opensearch-3, elk-oss
+docker compose -f docker/<stack>/docker-compose.yml --env-file .env up
 ```
 
 ## Requirements
@@ -190,4 +187,4 @@ Validation never touches the stack you started yourself or its data volumes.
 
 ## License
 
-See [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
