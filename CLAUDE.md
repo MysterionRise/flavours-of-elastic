@@ -225,7 +225,8 @@ kept for when the Renovate app is installed; it is not active now. Docs cite min
 GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to main/master, every pull request and manually
 (optionally for a single stack):
 - **lint** - `pre-commit run --all-files` (ruff, yamllint, actionlint, workflow schema, file hygiene)
-- **unit** - `uv sync --locked` (fails when uv.lock is stale) + `python -m unittest discover -s tests` on Python 3.11 and 3.14
+- **unit** - `uv sync --locked --extra demo` (fails when uv.lock is stale) + `python -m unittest discover -s tests` on
+  Python 3.11 and 3.14 (the demo extra runs the Streamlit AppTest smoke tests in `tests/test_search_demo.py`)
 - **secrets** - gitleaks over the commits a push/PR introduces (full history on manual runs)
 - **compose-config** - `python -m scripts.check_compose`
 - **plan** + **stacks** - matrix from `python validate.py --list --json`; each cell runs `python validate.py --stack X`
