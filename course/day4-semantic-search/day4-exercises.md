@@ -12,6 +12,7 @@ paginate: true
 
 ## Prerequisites
 
+- Set up the day before: "Before Day 4" in `course/README.md` (~10 GB Docker memory, models deployed)
 - The ML stack running (see the "Stack Check" slide) — `GET _license` shows `trial`
 - `movies` and `movies-embeddings` loaded:
   `python data/load_data.py --dataset movies --size small --embeddings e5 --with-elser`
