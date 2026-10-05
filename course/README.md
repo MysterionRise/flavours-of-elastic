@@ -73,6 +73,24 @@ decks don't cover yet), `python -m tests.course.run --update-baseline` records t
 `tests/course/baseline.yml`, a per-track ratchet: listed failures are expected, new ones fail the run, and a fixed
 snippet still listed there fails the run too. The file does not exist while the course is clean.
 
+## Updating Stack Versions
+
+Versions are bumped by hand (`renovate.json` is configured, but the Renovate app is not installed). Exact versions
+live only in `.env.example`; docs and decks cite minors (`8.19.x`, `9.5.x`).
+
+1. Edit the version in `.env.example` (`ELK_VERSION` stays on 8.x, `OPENSEARCH_VERSION` on 2.x, `ELK_OSS_VERSION`
+   is frozen; a new major gets a new stack directory instead).
+2. `python -m scripts.check_doc_versions --fix` rewrites the cited minors; review the diff. A patch bump changes
+   nothing here.
+3. Run every affected day on the bumped track, e.g. `make course-test DAY=4 STACK=elk-ml-9` (Days 1-3 run on
+   `elk-single` / `elk-9`, Day 4 on `elk-ml` / `elk-ml-9`). If snippets fail because the release behaves
+   differently, record them with
+   `python -m scripts.with_stack elk-ml-9 -- python -m tests.course.run --day 4 --update-baseline` so CI stays
+   green while you fix the decks, then delete `tests/course/baseline.yml` once it is empty.
+4. `make validate STACK=<stack>` for each bumped stack; CI runs both on the PR.
+5. After merging a minor bump that changed the decks, tag `course-vX.Y.0` (see "Downloading the PDFs"); a patch
+   bump needs no new course release.
+
 ## File Structure
 
 ```

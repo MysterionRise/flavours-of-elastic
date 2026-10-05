@@ -143,7 +143,7 @@ docker compose -f docker/<stack>/docker-compose.yml down -v
   `scripts/smoke_data.py` - load + evaluate with quality floors (CI); `scripts/check_compose.py`,
   `scripts/check_doc_versions.py` - policy checks
 - `validate.py` - stack validation CLI over the registry
-- `.env.example` - versions (Renovate-annotated) and local passwords; `Makefile` - all common tasks
+- `.env.example` - versions (the only place with exact versions) and local passwords; `Makefile` - all common tasks
 
 **Search platform (`search/`)**
 - `connection.py` (HTTP client, retries, readable `EsError`), `config.py` (which cluster), `capabilities.py`
@@ -213,11 +213,12 @@ Environment variables in `.env`:
 
 ### Version Updates
 
-Renovate (`renovate.json`) bumps the stack versions in `.env.example` (annotated `# renovate:` lines),
-GitHub Actions, pre-commit hooks and Python dependencies. Track rules: `ELK_VERSION` stays on 8.x,
-`OPENSEARCH_VERSION` on 2.x, `ELK_OSS_VERSION` is frozen; majors need dashboard approval; stack patch
-bumps automerge once CI is green. Docs cite minor versions only (`8.19.x`) — `python -m
-scripts.check_doc_versions [--fix]` (also a pre-commit hook) fails when a minor bump leaves docs stale.
+Versions are bumped by hand, following "Updating Stack Versions" in `course/README.md` (edit `.env.example`,
+`check_doc_versions --fix`, course tests per track, validate, tag a course release for minor bumps). Track rules:
+`ELK_VERSION` stays on 8.x, `OPENSEARCH_VERSION` on 2.x, `ELK_OSS_VERSION` is frozen; a new major gets a new stack
+directory. `renovate.json` (with the `# renovate:` annotations in `.env.example`) encodes the same rules and is
+kept for when the Renovate app is installed; it is not active now. Docs cite minor versions only (`8.19.x`) —
+`python -m scripts.check_doc_versions [--fix]` (also a pre-commit hook) fails when a minor bump leaves docs stale.
 
 ### CI Pipeline
 

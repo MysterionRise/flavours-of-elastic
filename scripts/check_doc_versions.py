@@ -1,7 +1,7 @@
 """Check that docs reference the stack versions pinned in .env.example.
 
 Docs name minor versions only (`8.19.x`, `9.5.x`, `2.19.x`, `3.9.x`); exact
-patch versions live only in .env.example. So a Renovate patch bump changes
+patch versions live only in .env.example. So a patch bump changes
 nothing here, while a minor bump (e.g. 9.5 -> 9.6) fails this check until the
 docs - and the course content for that release - have been reviewed.
 
