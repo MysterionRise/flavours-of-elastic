@@ -25,7 +25,7 @@ lexical and embedding indices, runs the evaluation and opens a Streamlit UI for 
 For semantic search with in-cluster models (multilingual E5 vectors and ELSER), use an ML stack:
 
 ```bash
-make up-elk-ml && make load-small load-ml && make evaluate STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf,elser,hybrid_all
+make up-elk-ml && make load-small load-ml STACK=elk-ml && make evaluate STACK=elk-ml EVAL_MODES=bm25,dense,hybrid_rrf,elser,hybrid_all
 ```
 
 Run the evaluation again at any time (against the running `STACK`):

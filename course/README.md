@@ -46,7 +46,7 @@ Publishing: push a tag `course-vX.Y.Z`; the "Course slides" workflow attaches th
 ## Testing the Course
 
 Every Dev Tools snippet in the slides and exercises is executable and checked in CI on both tracks
-(Days 1-3: `elk-single` 8.19 and `elk-9` 9.5; Day 4: `elk-ml` / `elk-ml-9` once its rewrite lands):
+(Days 1-3: `elk-single` 8.19 and `elk-9` 9.5; Day 4: `elk-ml` 8.19 and `elk-ml-9` 9.5):
 
 ```bash
 make course-test DAY=2 STACK=elk-9                        # fresh isolated stack, torn down afterwards
@@ -120,15 +120,33 @@ course/
 - Create your env file: `cp .env.example .env`
 - Verify: `docker compose version`
 
+## Before Day 4
+
+Day 4 runs on an ML stack (`elk-ml` for 8.19, `elk-ml-9` for 9.5) with two in-cluster models. Set it up the day
+before, not in class:
+
+1. Give Docker ~10 GB of memory (Docker Desktop / Rancher Desktop settings). On Linux, also run
+   `sudo sysctl -w vm.max_map_count=262144` (the ML stacks are two-node clusters).
+2. The evening before, start the stack and load the data:
+   `make up-elk-ml && make load-small load-ml STACK=elk-ml` (or `elk-ml-9` in both places). The first run
+   downloads and deploys E5 and ELSER (~0.9 GB, 5-8 minutes).
+3. At the start of class, after `make up-elk-ml`: `python data/load_data.py --stack elk-ml --warm-only` waits until
+   both models are deployed (seconds once they are).
+4. Check in Kibana Dev Tools that `GET _license` shows `"type": "trial"`.
+
+The trial licence (needed for E5, ELSER and the `rrf` retriever) runs for 30 days from the stack's first start, so
+don't set it up much earlier; `make reset-elk-ml` starts a fresh trial and deletes the data.
+
 ## Instructor Notes
 
 - Content is ~2.5h buffer over session time for flexibility
 - Exercises are tiered: Basic / Intermediate / Bonus
 - Exercise slides carry hints; full answers are in `course/solutions/dayN-solutions.md` (instructor key, run in
   CI on both tracks, so its numbers match the data)
-- Day 4 needs `elk-ml` / `elk-ml-9` and `movies-embeddings` loaded before class: the first
+- Day 4 needs `elk-ml` / `elk-ml-9` and `movies-embeddings` loaded before class: send students the
+  [Before Day 4](#before-day-4) checklist the day before; the first
   `python data/load_data.py --dataset movies --size small --embeddings e5 --with-elser` downloads and deploys E5 and
-  ELSER (~0.9 GB, ~5 minutes); `--warm-only` just deploys the models
+  ELSER (~0.9 GB, 5-8 minutes); `--warm-only` just deploys the models
 - The ML stacks run a 30-day trial licence (needed for E5, ELSER and the `rrf` retriever); `make reset-elk-ml`
   starts a fresh trial and deletes the data
 - The Kibana eCommerce sample dataset is used in the Day 1-3 exercises
