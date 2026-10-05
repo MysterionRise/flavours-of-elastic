@@ -105,9 +105,65 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(client.modes(), ["bm25", "dense", "hybrid_rrf"])
 
 
+class SeenTextClient:
+    """Fakes a cluster that reuses inference work: a text's first request is slow."""
+
+    def __init__(self):
+        self.calls, self.seen = [], set()
+
+    def ids_present(self, index, ids):
+        return set(ids)
+
+    def search(self, text, mode, **kwargs):
+        self.calls.append((text, mode))
+        took = 1.0 if text in self.seen else 50.0
+        self.seen.add(text)
+        return SearchResponse(mode, text, [{"id": 1}], took)
+
+
 class EvaluateTests(unittest.TestCase):
-    def args(self):
-        return argparse.Namespace(k=10, num_candidates=50, rank_constant=60)
+    MODES = ["bm25", "dense", "hybrid_rrf"]
+    QUERIES = [{"id": f"q{i}", "text": f"t{i}", "relevant_ids": [1]} for i in range(6)]
+
+    def args(self, warmup=1):
+        return argparse.Namespace(
+            k=10, num_candidates=50, rank_constant=60, warmup=warmup
+        )
+
+    def test_warmup_rotates_the_first_mode(self):
+        client = SeenTextClient()
+        evaluate.evaluate(client, self.MODES, self.QUERIES, self.args())
+        warmup_calls = client.calls[: len(self.QUERIES) * len(self.MODES)]
+        firsts = [
+            mode for i, (_, mode) in enumerate(warmup_calls) if i % len(self.MODES) == 0
+        ]
+        self.assertEqual(firsts, self.MODES * 2)
+        self.assertEqual(len(client.calls), 2 * len(self.QUERIES) * len(self.MODES))
+
+    def test_cold_and_warm_latency(self):
+        output = evaluate.evaluate(
+            SeenTextClient(), self.MODES, self.QUERIES, self.args()
+        )
+        for mode in self.MODES:
+            summary = output[mode]["summary"]
+            self.assertEqual(summary["p50_cold_latency_ms"], 50.0)
+            self.assertEqual(summary["cold_queries"], 2)
+            # Every mode is timed warm, whatever its position in the mode list.
+            self.assertEqual(summary["p50_latency_ms"], 1.0)
+
+    def test_without_warmup_the_order_decides_latency(self):
+        output = evaluate.evaluate(
+            SeenTextClient(), self.MODES, self.QUERIES, self.args(0)
+        )
+        self.assertEqual(output["bm25"]["summary"]["p50_latency_ms"], 50.0)
+        self.assertEqual(output["dense"]["summary"]["p50_latency_ms"], 1.0)
+        self.assertNotIn("p50_cold_latency_ms", output["bm25"]["summary"])
+
+    def test_extra_warmup_passes_are_untimed(self):
+        client = SeenTextClient()
+        output = evaluate.evaluate(client, self.MODES, self.QUERIES, self.args(3))
+        self.assertEqual(len(client.calls), 4 * len(self.QUERIES) * len(self.MODES))
+        self.assertEqual(output["dense"]["summary"]["cold_queries"], 2)
 
     def test_one_failing_mode_does_not_hide_the_others(self):
         client = mock.Mock()
@@ -126,6 +182,9 @@ class EvaluateTests(unittest.TestCase):
         self.assertEqual(output["bm25"]["summary"]["mrr"], 1.0)
         self.assertEqual(output["bm25"]["missing_judged_ids"], [2])
         self.assertIn("no vectors", output["dense"]["error"])
+        # The warm-up gave up on dense after its first failure.
+        modes_called = [call.kwargs["mode"] for call in client.search.call_args_list]
+        self.assertEqual(modes_called.count("dense"), 1)
 
     def test_floors(self):
         output = {

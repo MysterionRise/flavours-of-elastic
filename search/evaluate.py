@@ -126,12 +126,18 @@ def evaluate_mode(
     return rows
 
 
-def summarize(rows: list[dict], k: int) -> dict:
+def summarize(
+    rows: list[dict], k: int, cold_latencies: list[float] | None = None
+) -> dict:
     summary = {"queries": len(rows), "k": k}
     for metric in METRICS:
         summary[metric] = sum(row[metric] for row in rows) / len(rows)
     summary["p50_latency_ms"] = percentile([row["latency_ms"] for row in rows], 50)
     summary["p95_latency_ms"] = percentile([row["latency_ms"] for row in rows], 95)
+    if cold_latencies:
+        # Only a median: with five modes each one goes first on ~8 of the 40 queries.
+        summary["p50_cold_latency_ms"] = percentile(cold_latencies, 50)
+        summary["cold_queries"] = len(cold_latencies)
     for key in ("fusion", "embedding"):
         values = {row[key] for row in rows if row[key]}
         if values:
@@ -143,10 +149,49 @@ def judged_ids(queries: list[dict]) -> list[int]:
     return sorted({doc_id for query in queries for doc_id in relevance_map(query)})
 
 
+def warm_up(client, modes, queries, args) -> tuple[dict[str, list[float]], dict]:
+    """Run every mode on every query before the timed pass; return cold latencies and errors.
+
+    The cluster can reuse inference work (E5, ELSER) for a text it has already
+    seen, so a mode timed right after another on the same queries looks faster
+    than it is. Here the mode that goes first rotates per query: the first
+    request for a text is that mode's cold latency (~1/n of the queries per
+    mode), and the timed pass afterwards measures every mode warm. A mode that
+    raises is reported as an error and not run again.
+    """
+    cold: dict[str, list[float]] = {mode: [] for mode in modes}
+    errors: dict[str, str] = {}
+    for pass_number in range(args.warmup):
+        for position, query_def in enumerate(queries):
+            shift = position % len(modes)
+            order = modes[shift:] + modes[:shift]
+            for turn, mode in enumerate(order):
+                if mode in errors:
+                    continue
+                try:
+                    response = client.search(
+                        query_def["text"],
+                        mode=mode,
+                        k=args.k,
+                        num_candidates=args.num_candidates,
+                        rank_constant=args.rank_constant,
+                    )
+                except Exception as exc:  # noqa: BLE001 - one mode failing must not hide the others
+                    errors[mode] = f"{type(exc).__name__}: {exc}"
+                    continue
+                if pass_number == 0 and turn == 0:
+                    cold[mode].append(response.took_ms)
+    return cold, errors
+
+
 def evaluate(client, modes, queries, args) -> dict:
     output: dict[str, dict] = {}
     judged = judged_ids(queries)
+    cold, errors = warm_up(client, modes, queries, args) if modes else ({}, {})
     for mode in modes:
+        if mode in errors:
+            output[mode] = {"error": errors[mode]}
+            continue
         try:
             index = INDICES.get(mode)
             missing = (
@@ -158,7 +203,10 @@ def evaluate(client, modes, queries, args) -> dict:
         except Exception as exc:  # noqa: BLE001 - one mode failing must not hide the others
             output[mode] = {"error": f"{type(exc).__name__}: {exc}"}
             continue
-        output[mode] = {"summary": summarize(rows, args.k), "rows": rows}
+        output[mode] = {
+            "summary": summarize(rows, args.k, cold.get(mode)),
+            "rows": rows,
+        }
         if missing:
             output[mode]["missing_judged_ids"] = missing
     return output
@@ -190,6 +238,13 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--num-candidates", type=int, default=50)
     parser.add_argument("--rank-constant", type=int, default=60)
+    parser.add_argument(
+        "--warmup",
+        type=int,
+        default=1,
+        help="passes over every mode and query before timing, rotating which mode goes "
+        "first (the first pass gives the cold latency); 0 times the modes in order",
+    )
     parser.add_argument(
         "--stack",
         help="a stack from scripts/stacks.py (default: environment, then auto-detect)",
@@ -235,20 +290,26 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def print_table(output: dict, k: int) -> None:
-    print(f"| Mode | Queries | NDCG@{k} | MRR@{k} | Recall@{k} | p50 ms | p95 ms |")
-    print("|---|---:|---:|---:|---:|---:|---:|")
+    print(
+        f"| Mode | Queries | NDCG@{k} | MRR@{k} | Recall@{k} | p50 ms | p95 ms | cold p50 ms |"
+    )
+    print("|---|---:|---:|---:|---:|---:|---:|---:|")
     for mode, result in output.items():
         if "error" in result:
-            print(f"| {mode} | error | | | | | |")
+            print(f"| {mode} | error | | | | | | |")
             continue
         summary = result["summary"]
         details = [summary[key] for key in ("embedding",) if key in summary]
         details += [f"{summary['fusion']} fusion"] if "fusion" in summary else []
         label = f"{mode} ({', '.join(details)})" if details else mode
+        cold = summary.get("p50_cold_latency_ms")
+        cold_cell = (
+            f"{cold:.1f} (n={summary['cold_queries']})" if cold is not None else ""
+        )
         print(
             f"| {label} | {summary['queries']} | {summary['ndcg']:.3f} | "
             f"{summary['mrr']:.3f} | {summary['recall']:.3f} | "
-            f"{summary['p50_latency_ms']:.1f} | {summary['p95_latency_ms']:.1f} |"
+            f"{summary['p50_latency_ms']:.1f} | {summary['p95_latency_ms']:.1f} | {cold_cell} |"
         )
     for mode, result in output.items():
         if result.get("missing_judged_ids"):

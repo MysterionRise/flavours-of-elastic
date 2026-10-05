@@ -15,8 +15,12 @@ from `data/load_data.py --json`).
   ELSER on the ML stacks.
 - **Queries:** the 40 graded queries of `evaluation/movie_queries.yml` — 24 descriptive, 12 conceptual paraphrases,
   2 French, 2 Kazakh — at k = 10, `num_candidates` 50, RRF `rank_constant` 60.
-- **Latency:** client-side round trip per query (Python, localhost), p50/p95 over the 40 queries; one run each, no
-  warm-up beyond the load. Treat it as relative, not as capacity numbers.
+- **Latency:** client-side round trip per query (Python, localhost), p50/p95 over the 40 queries. Treat it as
+  relative, not as capacity numbers. The table below was measured with the modes timed one after another over the
+  same queries and no warm-up, which favours the later modes on the ML stacks (see the note under the table).
+  `search/evaluate.py` now runs a warm-up pass first (`--warmup`, default 1) that rotates which mode goes first per
+  query: p50/p95 are then warm for every mode, and "cold p50" is each mode's latency on the queries where it was the
+  first request for that text.
 
 Reproduce one stack:
 
@@ -48,6 +52,12 @@ vectors the approximate kNN differs a little between engines and versions.
 
 ## Latency (ms, p50 / p95)
 
+> **Order-dependent numbers, to be re-measured.** These were taken before the warm-up pass existed: each mode ran
+> over the 40 queries after the previous one. On the ML stacks the engine's own `took` drops from ~50 ms (E5
+> `dense`) to ~4 ms (E5 `hybrid_rrf`) and from ~150 ms (`elser`) to ~8 ms (`hybrid_all`) from the first query on,
+> although the later modes run the same inference — they reuse work done for texts the cluster had just seen.
+> Compare modes within a stack only after a re-run with the current `search/evaluate.py`.
+
 | Mode | elk-single | elk-9 | opensearch-3 | elk-ml | elk-ml-9 |
 |------|-----------:|------:|-------------:|-------:|---------:|
 | bm25 | 3.6 / 5.3 | 4.2 / 6.5 | 9.3 / 21.8 | 3.2 / 11.5 | 2.6 / 7.4 |
@@ -59,8 +69,9 @@ vectors the approximate kNN differs a little between engines and versions.
 - Dense with E5 includes embedding the query on the ML node (`query_vector_builder`), ~50–75 ms on CPU; with hash
   vectors the client embeds in microseconds.
 - ELSER's sparse queries are the slowest single mode at this size (query expansion plus many weighted terms).
-- Server-side hybrid is faster than its own dense leg here: Elasticsearch caches the query embedding within the
-  request, and the client-side fusion pays two round trips.
+- E5 `hybrid_rrf` and `hybrid_all` look faster than their own `dense` and `elser` legs only because they ran
+  second on the same texts (see the note above); a mode cannot be cheaper than the inference it contains. On the
+  basic-licence stacks, client-side fusion pays two round trips.
 
 ## Load times (200 movies)
 
