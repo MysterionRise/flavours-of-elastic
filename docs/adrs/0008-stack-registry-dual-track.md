@@ -22,6 +22,6 @@ executes every Dev Tools snippet of every day on both (`tests/course/`).
 
 - Course snippets must pass on both tracks; real differences are taught explicitly (`track=` annotations,
   `> **`9.x`**` callouts), e.g. vector `_source` exclusion and default quantization.
-- Docs cite minor versions only (`8.19.x`, `9.5.x`); exact versions live in `.env.example` (Renovate), enforced
+- Docs cite minor versions only (`8.19.x`, `9.5.x`); exact versions live in `.env.example`, enforced
   by `scripts/check_doc_versions.py`.
 - A new stack is one registry entry plus a compose file; CI picks it up automatically.
